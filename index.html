@@ -81,9 +81,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
 .ind-row{display:grid;grid-template-columns:188px 1fr 54px;align-items:center;gap:8px;padding:5px 6px;border-radius:5px;margin-bottom:2px;transition:background .12s;position:relative;}
 .ind-row:hover{background:var(--surface2);}
 .ind-row.conflict-flag{border-left:2px solid var(--conflict);}
-.ind-name{font-size:11px;color:var(--text2);font-family:var(--mono);cursor:pointer;display:flex;align-items:flex-start;gap:5px;}
+.ind-name{font-size:13px;font-weight:600;color:var(--text);font-family:var(--mono);cursor:pointer;display:flex;align-items:flex-start;gap:5px;}
 .ind-name .nm-text{flex:1;}
-.ind-name .nm-text .sub{font-size:9px;color:var(--text3);display:block;margin-top:1px;}
+.ind-name .nm-text .sub{font-size:10px;color:var(--text3);font-weight:400;display:block;margin-top:1px;}
 .tip-wrap{position:relative;display:inline-block;flex-shrink:0;}
 .tip-icon{width:14px;height:14px;border-radius:50%;background:var(--surface3);border:1px solid var(--border2);font-size:9px;color:var(--text3);text-align:center;line-height:14px;cursor:help;margin-top:1px;transition:all .15s;user-select:none;}
 .tip-icon:hover{background:var(--high-dim);border-color:var(--accent);color:var(--accent);}
@@ -395,7 +395,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
     <div class="bucket">
       <div class="bucket-hdr">
         <div class="bpill high">High Confidence</div>
-        <span class="bdesc">Volume Profile · SMA 200 · MA Cross · RSI Extreme · DeMark Seq (estimate)</span>
+        <span class="bdesc">Volume Profile · SMA 200 · MA Cross · RSI Extreme · DeMark Seq (computed)</span>
         <div class="bw">Weight: <span>50%</span></div>
       </div>
       <div id="bucket-high"></div>
@@ -551,7 +551,7 @@ const TIPS = {
   sma_200:      {name:'SMA 200 Trend',     desc:'The 200-day Simple Moving Average is the most widely watched long-term trend indicator. Price consistently above it = healthy uptrend. Often used as the dividing line between bull and bear markets. Use dividend-adjusted data for income instruments.'},
   sma_cross:    {name:'MA Cross 50/200',   desc:'The Golden Cross (50-day crosses above 200-day) is a bullish structural signal; the Death Cross is bearish. Strong historical track record on equities but lags — it confirms a trend, not predicts it.'},
   rsi_extreme:  {name:'RSI Extreme',       desc:'The 14-period RSI is most powerful at extremes. Below 30 = oversold (potential buy), above 70 = overbought (potential sell). In a strong uptrend, RSI can stay above 70 for extended periods. Score neutral if mid-range (40–60) — the signal only fires at extremes.'},
-  demark_seq:   {name:'DeMark Sequential (estimate)', desc:'TD Sequential counts 9 consecutive closes above/below a prior close to identify price exhaustion. A completed 9-count Setup or 13-count Countdown is a high-conviction reversal signal. Note: this score is an AI estimate inferred from recent price action — proprietary DeMark counts require a licensed data feed. Treat as directional context rather than a precise count.'},
+  demark_seq:   {name:'DeMark Sequential (computed)', desc:'TD Sequential counts 9 consecutive closes vs close[4] bars ago to identify price exhaustion. A completed Setup 9 — especially "perfected" — is a high-conviction reversal signal. Countdown 13 is the strongest signal. This score is computed from real OHLC data when hosted online, not inferred by AI.'},
   macd_weekly:  {name:'MACD (Weekly)',     desc:'Weekly MACD (12,26,9) removes daily noise. A bullish crossover (MACD line above signal line) with a positive histogram is a strong intermediate-term buy signal. Weekly MACD has significantly more predictive value than daily.'},
   macd_daily:   {name:'MACD (Daily)',      desc:'Daily MACD captures short-term momentum. Useful for timing entries within a trend, but prone to whipsaws in ranging markets. Discount this signal when ADX is below 20 (no trend). Bearish histogram = seller momentum; bullish = buyer momentum.'},
   ichimoku:     {name:'Ichimoku Cloud',    desc:'A complete system: price above the cloud is bullish, below is bearish. The Kumo (cloud) acts as dynamic support/resistance. Tenkan-Sen crossing above Kijun-Sen = buy signal. The lagging Chikou Span confirms the trend. Strong at trend confirmation, weak at reversals.'},
@@ -573,7 +573,7 @@ const INDS={
     {id:'sma_200',     name:'SMA 200 Trend',    sub:'Price vs. 200-day (div-adj)',iW:1.3},
     {id:'sma_cross',   name:'MA Cross 50/200',  sub:'Golden / Death cross',      iW:1.1},
     {id:'rsi_extreme', name:'RSI Extreme',      sub:'14-period at <30 or >70',   iW:1.2},
-    {id:'demark_seq',  name:'DeMark Sequential (estimate)',sub:'TD 9/13 — AI estimate',  iW:1.0},
+    {id:'demark_seq',  name:'DeMark Sequential (computed)',sub:'TD 9/13 — computing…',  iW:1.0},
   ],
   med:[
     {id:'macd_weekly', name:'MACD (Weekly)',    sub:'12,26,9 weekly timeframe',  iW:1.1},
@@ -587,10 +587,7 @@ const INDS={
   low:[
     {id:'elliott',     name:'Elliott Wave (estimate)',     sub:'Preferred count — AI estimate',    iW:0.8},
     {id:'stochastic',  name:'Stochastic 14,3,3',sub:'Slow stochastic OB/OS',    iW:0.9},
-    {id:'adx',         name:'ADX + DI Lines',  sub:'Trend strength (not dir.)', iW:1.0},
-    {id:'channels',    name:'Parallel Channels',sub:'Channel respect / break',   iW:0.8},
     {id:'demark_combo',name:'DeMark Combo (estimate)',sub:'TD Combo — AI estimate',          iW:0.8},
-    {id:'atr',         name:'ATR Volatility',   sub:'Sizing only — not dir.',    iW:0.7},
   ]
 };
 
@@ -613,7 +610,7 @@ const BASELINE_BW={high:.50,med:.30,low:.20};
 const BASELINE_IW={
   vol_profile:1.4,sma_200:1.3,sma_cross:1.1,rsi_extreme:1.2,demark_seq:1.0,
   macd_weekly:1.1,macd_daily:0.9,ichimoku:1.0,fibonacci:0.9,bollinger:0.9,obv:1.0,fear_greed:0.8,
-  elliott:0.8,stochastic:0.9,adx:1.0,channels:0.8,demark_combo:0.8,atr:0.7
+  elliott:0.8,stochastic:0.9,demark_combo:0.8
 };
 // Custom weights — start at baseline, user can modify
 let customBW={...BASELINE_BW};
@@ -644,7 +641,7 @@ let vals={}, fgVal=null;
 // MU preload
 const MU_PRELOAD={
   ticker:'MU',price:'422.90',
-  indicators:{vol_profile:72,sma_200:62,sma_cross:68,rsi_extreme:47,demark_seq:62,macd_weekly:72,macd_daily:35,ichimoku:70,fibonacci:65,bollinger:52,obv:75,fear_greed:50,elliott:65,stochastic:38,adx:55,channels:60,demark_combo:58,atr:45},
+  indicators:{vol_profile:72,sma_200:62,sma_cross:68,rsi_extreme:47,demark_seq:62,macd_weekly:72,macd_daily:35,ichimoku:70,fibonacci:65,bollinger:52,obv:75,fear_greed:50,elliott:65,stochastic:38,demark_combo:58},
   levels:{r1:'$455–$471',r2:'$503–$515',s1:'$395–$415',s2:'$375',stop:'$390',target:'$500–$525'},
   divNote:'MU ~0.13% TTM yield. Total return is price-driven. Div-adj SMA 200 ≈ price-only.'
 };
@@ -1080,7 +1077,131 @@ Use N/A for any metric you cannot find reliably. Return ONLY the JSON.`;
   renderFundamentals();
 }
 
-// ═══ INDICATOR CHARTS ═══
+// ═══ TD SEQUENTIAL — COMPUTED FROM OHLC ═══
+function computeTDSequential(bars){
+  const n=bars.length;
+  const close=bars.map(b=>b.c), high=bars.map(b=>b.h), low=bars.map(b=>b.l);
+
+  // Phase 1: Setup (9 consecutive closes vs close[i-4])
+  const setupDone=[], setupPerf=[];
+  let buyC=0, sellC=0;
+  for(let i=0;i<n;i++){
+    setupDone.push(null); setupPerf.push(false);
+    if(i<4) continue;
+    if(close[i]<close[i-4])      { buyC++; sellC=0; if(buyC>=9){ setupDone[i]='buy';  setupPerf[i]=close[i]<=Math.min(low[i-2],low[i-3]); buyC=0; } }
+    else if(close[i]>close[i-4]) { sellC++; buyC=0; if(sellC>=9){ setupDone[i]='sell'; setupPerf[i]=close[i]>=Math.max(high[i-2],high[i-3]); sellC=0; } }
+    else { buyC=0; sellC=0; }
+  }
+
+  // Phase 2: Countdown (13 non-consecutive bars after Setup 9)
+  const cdDone=[];
+  let aCdType=null, aCdCount=0;
+  for(let i=0;i<n;i++){
+    cdDone.push(null);
+    if(i<2) continue;
+    if(setupDone[i]){ aCdType=setupDone[i]; aCdCount=0; }
+    if(aCdType){
+      if(aCdType==='buy'  && close[i]<=low[i-2])  aCdCount++;
+      if(aCdType==='sell' && close[i]>=high[i-2]) aCdCount++;
+      if(aCdCount>=13){ cdDone[i]=aCdType; aCdType=null; aCdCount=0; }
+    }
+  }
+
+  // Find most recent signals
+  let lastSetup=null, lastSetupBar=null, lastSetupPerf=false;
+  let lastCd=null, lastCdBar=null;
+  let activeBuyC=0, activeSellC=0;
+
+  // Recount for active setup
+  let bc=0, sc=0;
+  for(let i=4;i<n;i++){
+    if(close[i]<close[i-4]){ bc++; sc=0; if(bc>=9) bc=0; }
+    else if(close[i]>close[i-4]){ sc++; bc=0; if(sc>=9) sc=0; }
+    else { bc=0; sc=0; }
+  }
+  activeBuyC=bc; activeSellC=sc;
+
+  for(let i=n-1;i>=4;i--){
+    if(!lastSetup && setupDone[i]){ lastSetup=setupDone[i]; lastSetupBar=i; lastSetupPerf=setupPerf[i]; }
+    if(!lastCd    && cdDone[i])   { lastCd=cdDone[i]; lastCdBar=i; }
+    if(lastSetup && lastCd) break;
+  }
+
+  const barsSinceSetup = lastSetupBar!==null ? n-1-lastSetupBar : null;
+  const barsSinceCd    = lastCdBar!==null    ? n-1-lastCdBar    : null;
+  const STALE_SETUP=20, STALE_CD=15;
+
+  let score=50, rationale='No active DeMark signal — neutral', perfect=false;
+
+  if(lastCd && barsSinceCd<=STALE_CD){
+    const fresh=Math.max(0,1-barsSinceCd/STALE_CD);
+    score = lastCd==='buy' ? Math.round(85+fresh*10) : Math.round(15-fresh*10);
+    rationale=`Countdown 13 ${lastCd.toUpperCase()} — ${barsSinceCd} bars ago`;
+  } else if(lastSetup && barsSinceSetup<=STALE_SETUP){
+    const fresh=Math.max(0,1-barsSinceSetup/STALE_SETUP);
+    if(lastSetup==='buy'){
+      score=Math.round((lastSetupPerf?80:70)+fresh*10);
+      rationale=`Setup 9 BUY${lastSetupPerf?' ★ PERFECT':''} — ${barsSinceSetup} bars ago`;
+    } else {
+      score=Math.round((lastSetupPerf?20:30)-fresh*10);
+      rationale=`Setup 9 SELL${lastSetupPerf?' ★ PERFECT':''} — ${barsSinceSetup} bars ago`;
+    }
+    perfect=lastSetupPerf;
+  } else if(activeBuyC>=5){
+    score=Math.round(50+activeBuyC/9*8);
+    rationale=`Active BUY setup: bar ${activeBuyC}/9 in progress`;
+  } else if(activeSellC>=5){
+    score=Math.round(50-activeSellC/9*8);
+    rationale=`Active SELL setup: bar ${activeSellC}/9 in progress`;
+  }
+
+  return { score, rationale, lastSetup, barsSinceSetup, perfect, lastCd, barsSinceCd, activeBuyC, activeSellC, bars:n };
+}
+
+async function runDeMarkComputed(ticker){
+  // Update sub-label to show computing
+  const subEl=document.getElementById('sub-demark_seq');
+  const rowEl=document.getElementById('row-demark_seq');
+  if(subEl) subEl.textContent='TD 9/13 — computing…';
+
+  try{
+    const ohlc = await fetchOHLCForCharts(ticker);
+    if(!ohlc || ohlc.daily.length < 20) throw new Error('Insufficient bars');
+
+    const result = computeTDSequential(ohlc.daily);
+
+    // Apply computed score — overrides AI estimate
+    setSl('demark_seq', result.score, true);
+
+    // Update sub-label with signal detail
+    if(subEl){
+      let detail = 'TD 9/13 — computed';
+      if(result.lastCd && result.barsSinceCd<=15)
+        detail = `CD13 ${result.lastCd.toUpperCase()} · ${result.barsSinceCd}b ago`;
+      else if(result.lastSetup && result.barsSinceSetup<=20)
+        detail = `Setup9 ${result.lastSetup.toUpperCase()}${result.perfect?' ★':''} · ${result.barsSinceSetup}b ago`;
+      else if(result.activeBuyC>=5)
+        detail = `Active BUY setup ${result.activeBuyC}/9`;
+      else if(result.activeSellC>=5)
+        detail = `Active SELL setup ${result.activeSellC}/9`;
+      subEl.textContent = detail;
+    }
+
+    // Update tooltip desc and add computed note to indicator notes
+    const noteEl=document.getElementById('nt-demark_seq');
+    if(noteEl && !noteEl.value){
+      noteEl.value=`[Computed from ${result.bars} daily bars]\n${result.rationale}`;
+      document.getElementById('nr-demark_seq')?.classList.add('open');
+    }
+
+    // Update TIPS description to reflect computed status
+    if(TIPS.demark_seq) TIPS.demark_seq.name = 'DeMark Sequential (computed)';
+
+  } catch(err){
+    if(subEl) subEl.textContent='TD 9/13 — AI estimate (compute failed)';
+    console.warn('DeMark computation failed:', err.message);
+  }
+}
 let ohlcCache = null;      // {ticker, daily:[], weekly:[]}
 let chartInstances = {};   // id → Chart instance
 
@@ -1554,7 +1675,8 @@ function loadPreset(d){
   Object.entries(d.indicators).forEach(([id,v])=>setSl(id,v,true));
   if(d.levels)['r1','r2','s1','s2','stop','target'].forEach(k=>{const el=document.getElementById(k);if(el&&d.levels[k])el.value=d.levels[k];});
   if(d.divNote)document.getElementById('div-note').value=d.divNote;
-  document.getElementById('price-val').textContent='$'+d.price;
+  const cleanPrice = String(d.price).replace(/<[^>]*>/g,'').replace(/\$cite[^>]*/g,'').trim();
+  document.getElementById('price-val').textContent='$'+cleanPrice;
   recalc();
 }
 
@@ -1571,6 +1693,10 @@ async function runAnalysis(){
   if(document.getElementById('wt-panel-body').classList.contains('open')) renderWtPanel();
   [...INDS.high,...INDS.med,...INDS.low].forEach(i=>setSl(i.id,50,false));
   clearChartCache();
+  // Reset DeMark sub-label
+  const dmSub=document.getElementById('sub-demark_seq');
+  if(dmSub) dmSub.textContent='TD 9/13 — computing…';
+  if(TIPS.demark_seq) TIPS.demark_seq.name='DeMark Sequential (estimate)';
   // Reset fundamentals panel
   fundData = null;
   document.getElementById('fund-body').innerHTML = '';
@@ -1591,7 +1717,7 @@ async function runAnalysis(){
   fetchFundamentals(ticker, getAC());
 
   const sys=`You are an expert technical analyst with access to live web search. Use web search to find the most current price and indicator data for the given ticker, then return ONLY a valid JSON object with no markdown fences:
-{"ticker":"SYMBOL","price":"current close price","indicators":{"vol_profile":0-100,"sma_200":0-100,"sma_cross":0-100,"rsi_extreme":0-100,"demark_seq":0-100,"macd_weekly":0-100,"macd_daily":0-100,"ichimoku":0-100,"fibonacci":0-100,"bollinger":0-100,"obv":0-100,"fear_greed":0-100,"elliott":0-100,"stochastic":0-100,"adx":0-100,"channels":0-100,"demark_combo":0-100,"atr":0-100},"levels":{"r1":"","r2":"","s1":"","s2":"","stop":"","target":""},"divNote":"dividend and total return context"}
+{"ticker":"SYMBOL","price":"current close price","indicators":{"vol_profile":0-100,"sma_200":0-100,"sma_cross":0-100,"rsi_extreme":0-100,"demark_seq":0-100,"macd_weekly":0-100,"macd_daily":0-100,"ichimoku":0-100,"fibonacci":0-100,"bollinger":0-100,"obv":0-100,"fear_greed":0-100,"elliott":0-100,"stochastic":0-100,"demark_combo":0-100},"levels":{"r1":"","r2":"","s1":"","s2":"","stop":"","target":""},"divNote":"dividend and total return context"}
 Scale: 0=Strongly Bearish, 25=Bearish, 50=Neutral, 75=Bullish, 100=Strongly Bullish.
 Search for current price, RSI, MACD, moving averages, volume data, and any recent technical analysis for the ticker.
 For demark_seq and elliott: these are estimates inferred from price action patterns — use recent swing structure, momentum exhaustion signals, and any published analyst commentary to make a reasonable inference. Score 50 if insufficient information.
@@ -1614,8 +1740,13 @@ Return ONLY the JSON object.`;
     const parsed=JSON.parse(raw.replace(/```json|```/g,'').trim());
     loadPreset(parsed);
     dot.className='sdot active';st.className='stext active';
-    st.innerHTML=`<span class="sticker">${parsed.ticker}</span> — live web search populated · $${parsed.price} · ${nowStamp()}`;
+    // Clean price display
+    const cleanPrice = String(parsed.price).replace(/<[^>]*>/g,'').replace(/\$cite[^>]*/g,'').trim();
+    document.getElementById('price-val').textContent='$'+cleanPrice;
+    st.innerHTML=`<span class="sticker">${parsed.ticker}</span> — live web search populated · $${cleanPrice} · ${nowStamp()}`;
     so.textContent='';
+    // After AI populates, compute DeMark from real OHLC (overwrites AI estimate)
+    runDeMarkComputed(ticker);
   }catch(err){
     dot.className='sdot error';st.className='stext';st.textContent='Error: '+err.message;
     so.textContent='Check browser console for details.';console.error('TA·WEIGHT:',err);
