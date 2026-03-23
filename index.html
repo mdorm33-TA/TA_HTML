@@ -147,13 +147,13 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
 .bsr-b{height:100%;border-radius:2px;transition:width .4s ease;}
 .bsr-v{font-family:var(--mono);font-size:10px;min-width:28px;text-align:right;}
 .bsr-w{font-family:var(--mono);font-size:10px;color:var(--text3);min-width:26px;text-align:right;}
-.dist-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;}
-.dist-bar{display:flex;height:18px;border-radius:4px;overflow:hidden;margin:5px 0 6px;gap:1px;}
+
+
 .dseg{transition:flex .4s ease;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;font-weight:600;overflow:hidden;white-space:nowrap;}
 .dseg.sb{background:var(--bull);color:#000;} .dseg.b{background:#4dd9a0;color:#000;} .dseg.neu{background:var(--neu);color:#000;} .dseg.br{background:#ff7c8a;color:#000;} .dseg.sbr{background:var(--bear);color:#fff;}
-.dleg-row{display:flex;gap:7px;flex-wrap:wrap;}
-.dleg{display:flex;align-items:center;gap:3px;font-family:var(--mono);font-size:10px;color:var(--text3);}
-.dleg-dot{width:7px;height:7px;border-radius:2px;}
+
+
+
 
 /* ── FEAR & GREED ── */
 .fg-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;}
@@ -480,17 +480,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
         <div id="bdown"></div>
       </div>
 
-      <div class="dist-card">
-        <div class="stitle">Signal Distribution</div>
-        <div class="dist-bar" id="dist-bar"></div>
-        <div class="dleg-row">
-          <div class="dleg"><div class="dleg-dot" style="background:var(--bull)"></div><span id="leg-sb">Str.Bull:0</span></div>
-          <div class="dleg"><div class="dleg-dot" style="background:#4dd9a0"></div><span id="leg-b">Bull:0</span></div>
-          <div class="dleg"><div class="dleg-dot" style="background:var(--neu)"></div><span id="leg-neu">Neutral:0</span></div>
-          <div class="dleg"><div class="dleg-dot" style="background:#ff7c8a"></div><span id="leg-br">Bear:0</span></div>
-          <div class="dleg"><div class="dleg-dot" style="background:var(--bear)"></div><span id="leg-sbr">Str.Bear:0</span></div>
-        </div>
-      </div>
+
 
       <div class="fg-card">
         <div class="stitle">Fear &amp; Greed Index</div>
@@ -1485,7 +1475,7 @@ function bScore(b){const is=INDS[b],tw=is.reduce((s,i)=>s+i.iW,0);return is.redu
 function recalc(){
   const bs={high:bScore('high'),med:bScore('med'),low:bScore('low')};
   const t=bs.high*customBW.high+bs.med*customBW.med+bs.low*customBW.low;
-  drawGauge(t); updBD(bs,t); updDist(); updWB(); detectConflicts();
+  drawGauge(t); updBD(bs,t); updWB(); detectConflicts();
 }
 function sCol(s){if(s>=70)return'#00d97e';if(s>=60)return'#4dd9a0';if(s>=55)return'#a0cfb8';if(s>=45)return'#f0b429';if(s>=40)return'#ff9a7c';if(s>=30)return'#ff7c8a';return'#ff4560';}
 function verd(s){
@@ -1717,7 +1707,8 @@ async function runAnalysis(){
   fetchFundamentals(ticker, getAC());
 
   const sys=`You are an expert technical analyst with access to live web search. Use web search to find the most current price and indicator data for the given ticker, then return ONLY a valid JSON object with no markdown fences:
-{"ticker":"SYMBOL","price":"current close price","indicators":{"vol_profile":0-100,"sma_200":0-100,"sma_cross":0-100,"rsi_extreme":0-100,"demark_seq":0-100,"macd_weekly":0-100,"macd_daily":0-100,"ichimoku":0-100,"fibonacci":0-100,"bollinger":0-100,"obv":0-100,"fear_greed":0-100,"elliott":0-100,"stochastic":0-100,"demark_combo":0-100},"levels":{"r1":"","r2":"","s1":"","s2":"","stop":"","target":""},"divNote":"dividend and total return context"}
+{"ticker":"SYMBOL","price":"114.62","indicators":{"vol_profile":0-100,"sma_200":0-100,"sma_cross":0-100,"rsi_extreme":0-100,"demark_seq":0-100,"macd_weekly":0-100,"macd_daily":0-100,"ichimoku":0-100,"fibonacci":0-100,"bollinger":0-100,"obv":0-100,"fear_greed":0-100,"elliott":0-100,"stochastic":0-100,"demark_combo":0-100},"levels":{"r1":"","r2":"","s1":"","s2":"","stop":"","target":""},"divNote":"dividend and total return context"}
+CRITICAL: The "price" field must be a plain number only — no HTML, no citation tags, no dollar signs. Just digits and a decimal point like 114.62
 Scale: 0=Strongly Bearish, 25=Bearish, 50=Neutral, 75=Bullish, 100=Strongly Bullish.
 Search for current price, RSI, MACD, moving averages, volume data, and any recent technical analysis for the ticker.
 For demark_seq and elliott: these are estimates inferred from price action patterns — use recent swing structure, momentum exhaustion signals, and any published analyst commentary to make a reasonable inference. Score 50 if insufficient information.
