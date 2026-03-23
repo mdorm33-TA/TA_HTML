@@ -12,7 +12,7 @@
 :root{
   --bg:#f0f2f5;--surface:#ffffff;--surface2:#f7f8fa;--surface3:#ebeef2;
   --border:#d0d6e0;--border2:#b0bac8;
-  --text:#1a1d23;--text2:#44526a;--text3:#8a96aa;
+  --text:#0f1215;--text2:#1a2535;--text3:#546070;
   --bull:#0a8a4e;--bear:#cc2840;--neu:#a06a00;
   --high:#1a6fd4;--high-dim:#1a6fd414;--med:#6040b8;--med-dim:#6040b814;--low:#546070;--low-dim:#54607014;
   --accent:#1a6fd4;--conflict:#c85000;
@@ -294,8 +294,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
 .chart-container{position:relative;height:160px;width:100%;background:var(--surface2);border-radius:6px;padding:6px;}
 .chart-loading{font-family:var(--mono);font-size:10px;color:var(--text3);text-align:center;padding:20px;font-style:italic;}
 .chart-error{font-family:var(--mono);font-size:10px;color:var(--bear);text-align:center;padding:12px;}
-.fund-panel{background:var(--surface2);border:1px solid var(--border);border-radius:10px;margin-top:10px;overflow:hidden;}
-.fund-panel-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 13px;cursor:pointer;user-select:none;transition:background .15s;}
+.fund-panel{background:var(--surface2);border:1px solid var(--border);border-radius:10px;margin-top:10px;overflow:hidden;}.fund-panel-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 13px;cursor:pointer;user-select:none;transition:background .15s;}
 .fund-panel-hdr:hover{background:var(--surface3);}
 .fund-panel-title{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--text2);display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
 .fund-context-note{font-family:var(--mono);font-size:9px;color:var(--text3);font-weight:400;font-style:italic;}
@@ -444,20 +443,6 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
       <textarea class="dnta" id="div-note" placeholder="e.g. AMLP: ~8.2% yield adds total return floor. Div-adj SMA 200 ~$44 vs price-only $47."></textarea>
     </div>
 
-    <!-- FUNDAMENTALS DASHBOARD -->
-    <div class="fund-panel" id="fund-panel">
-      <div class="fund-panel-hdr" onclick="toggleFundPanel()">
-        <div class="fund-panel-title">
-          📊 Fundamentals Dashboard
-          <span class="fund-badge" id="fund-badge">— run Analyze</span>
-          <span class="fund-context-note">Context only — no weighting applied to TA score</span>
-        </div>
-        <span class="fund-chevron" id="fund-chevron">▼</span>
-      </div>
-      <div class="fund-body" id="fund-body">
-        <!-- injected by renderFundamentals() -->
-      </div>
-    </div>
   </div>
 
   <!-- ═══ RIGHT: SCORE PANEL ═══ -->
@@ -511,6 +496,21 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
       </div>
 
     </div><!-- /printable-scorecard -->
+
+      <!-- FUNDAMENTALS DASHBOARD -->
+      <div class="fund-panel" id="fund-panel">
+        <div class="fund-panel-hdr" onclick="toggleFundPanel()">
+          <div class="fund-panel-title">
+            📊 Fundamentals Dashboard
+            <span class="fund-badge" id="fund-badge">— run Analyze</span>
+            <span class="fund-context-note">Context only — no weighting applied to TA score</span>
+          </div>
+          <span class="fund-chevron" id="fund-chevron">▼</span>
+        </div>
+        <div class="fund-body" id="fund-body">
+          <!-- injected by renderFundamentals() -->
+        </div>
+      </div>
 
     <div class="act-row">
       <div class="btn danger" onclick="resetAll()">Reset</div>
@@ -638,7 +638,11 @@ const MU_PRELOAD={
 
 // ═══ HELPERS ═══
 function getSig(v){return SIGS.find(s=>v>=s.min&&v<s.max)||SIGS[2];}
-function sbg(v){const p=v+'%';return`linear-gradient(to right,#cc2840 0%,#cc2840 calc(${p} - 2px),#d0d6e0 calc(${p} - 2px),#d0d6e0 calc(${p} + 2px),#0a8a4e calc(${p} + 2px),#0a8a4e 100%)`;}
+function sbg(v){
+  if(v===50) return 'linear-gradient(to right,#d0d6e0 0%,#d0d6e0 100%)';
+  if(v<50){const p=v+'%';return`linear-gradient(to right,#cc2840 0%,#cc2840 ${p},#e8eaed ${p},#e8eaed 100%)`;}
+  else{const p=v+'%';return`linear-gradient(to right,#e8eaed 0%,#e8eaed ${p},#0a8a4e ${p},#0a8a4e 100%)`;}
+}
 function getAC(){return document.getElementById('asset-class').value;}
 function nowStamp(){const d=new Date();return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+' '+d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});}
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
