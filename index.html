@@ -286,8 +286,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
 .iw-d.zero{color:var(--text3);}
 .col-hdr{font-family:var(--mono);font-size:9px;color:var(--text3);text-align:center;letter-spacing:.06em;text-transform:uppercase;padding-bottom:4px;}
 /* ── INDICATOR CHARTS ── */
-.chart-btn{font-family:var(--mono);font-size:9px;padding:1px 6px;border-radius:3px;border:1px solid var(--border2);background:none;color:var(--text3);cursor:pointer;transition:all .15s;white-space:nowrap;margin-left:4px;flex-shrink:0;}
-.chart-btn:hover{border-color:var(--accent);color:var(--accent);}
+.chart-btn{font-family:var(--mono);font-size:14px;padding:2px 7px;border-radius:4px;border:1px solid var(--border2);background:none;color:var(--text2);cursor:pointer;transition:all .15s;white-space:nowrap;margin-left:5px;flex-shrink:0;line-height:1;}
+.chart-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--high-dim);}
 .chart-btn.active{border-color:var(--accent);color:var(--accent);background:var(--high-dim);}
 .chart-wrap{display:none;padding:8px 0 4px;border-top:1px solid var(--border);}
 .chart-wrap.open{display:block;}
@@ -1178,11 +1178,9 @@ async function runDeMarkComputed(ticker){
     }
 
     // Update tooltip desc and add computed note to indicator notes
+    // Store computed rationale in notes without opening the row
     const noteEl=document.getElementById('nt-demark_seq');
-    if(noteEl && !noteEl.value){
-      noteEl.value=`[Computed from ${result.bars} daily bars]\n${result.rationale}`;
-      document.getElementById('nr-demark_seq')?.classList.add('open');
-    }
+    if(noteEl && !noteEl.value) noteEl.value=`[Computed from ${result.bars} daily bars]\n${result.rationale}`;
 
     // Update TIPS description to reflect computed status
     if(TIPS.demark_seq) TIPS.demark_seq.name = 'DeMark Sequential (computed)';
@@ -1198,8 +1196,13 @@ let chartInstances = {};   // id → Chart instance
 async function fetchOHLCForCharts(ticker){
   if(ohlcCache && ohlcCache.ticker === ticker) return ohlcCache;
   const fetchBars = async (interval, range) => {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=${interval}&range=${range}`;
-    const res = await fetch(url);
+    // Try direct first, fall back to allorigins proxy for CORS
+    const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=${interval}&range=${range}`;
+    let res = await fetch(yahooUrl).catch(()=>null);
+    if(!res || !res.ok){
+      const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`;
+      res = await fetch(proxy);
+    }
     if(!res.ok) throw new Error('OHLC fetch failed');
     const data = await res.json();
     const r = data?.chart?.result?.[0];
@@ -1383,7 +1386,7 @@ async function renderChart(id){
     if(cfg) chartInstances[id] = new Chart(ctx, cfg);
 
   } catch(err){
-    cc.innerHTML=`<div class="chart-error">Chart unavailable — ${err.message}<br><span style="font-size:9px;color:var(--text3)">Yahoo Finance may block from local files. Works when hosted.</span></div>`;
+    cc.innerHTML=`<div class="chart-error">Chart unavailable — ${err.message}<br><span style="font-size:9px;color:var(--text3)">Yahoo Finance data unavailable — charts require an internet connection.</span></div>`;
   }
 }
 
