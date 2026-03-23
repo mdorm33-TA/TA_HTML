@@ -1671,7 +1671,7 @@ async function fetchPrice(){
 function loadPreset(d){
   Object.entries(d.indicators).forEach(([id,v])=>setSl(id,v,true));
   if(d.levels)['r1','r2','s1','s2','stop','target'].forEach(k=>{const el=document.getElementById(k);if(el&&d.levels[k])el.value=d.levels[k];});
-  if(d.divNote)document.getElementById('div-note').value=d.divNote;
+  if(d.divNote) document.getElementById('div-note').value = d.divNote.replace(/<cite[^>]*>/gi,'').replace(/<\/cite>/gi,'').replace(/<[^>]*>/g,'').trim();
   const cleanPrice = String(d.price).replace(/<[^>]*>/g,'').replace(/\$cite[^>]*/g,'').trim();
   document.getElementById('price-val').textContent='$'+cleanPrice;
   recalc();
@@ -1716,6 +1716,7 @@ async function runAnalysis(){
   const sys=`You are an expert technical analyst with access to live web search. Use web search to find the most current price and indicator data for the given ticker, then return ONLY a valid JSON object with no markdown fences:
 {"ticker":"SYMBOL","price":"114.62","indicators":{"vol_profile":0-100,"sma_200":0-100,"sma_cross":0-100,"rsi_extreme":0-100,"demark_seq":0-100,"macd_weekly":0-100,"macd_daily":0-100,"ichimoku":0-100,"fibonacci":0-100,"bollinger":0-100,"obv":0-100,"fear_greed":0-100,"elliott":0-100,"stochastic":0-100,"demark_combo":0-100},"levels":{"r1":"","r2":"","s1":"","s2":"","stop":"","target":""},"divNote":"dividend and total return context"}
 CRITICAL: The "price" field must be a plain number only — no HTML, no citation tags, no dollar signs. Just digits and a decimal point like 114.62
+CRITICAL: The "divNote" field must be plain text only — no HTML tags, no citation markup.
 Scale: 0=Strongly Bearish, 25=Bearish, 50=Neutral, 75=Bullish, 100=Strongly Bullish.
 Search for current price, RSI, MACD, moving averages, volume data, and any recent technical analysis for the ticker.
 For demark_seq and elliott: these are estimates inferred from price action patterns — use recent swing structure, momentum exhaustion signals, and any published analyst commentary to make a reasonable inference. Score 50 if insufficient information.
