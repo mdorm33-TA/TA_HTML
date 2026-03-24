@@ -1065,33 +1065,6 @@ function renderFundamentals(){
     { label:'Interest Coverage',   val:f.int_coverage,  cmp:f.int_coverage_cmp },
   ]);
 
-  // Dividends / Distributions (only if applicable)
-  if(f.div_yield && f.div_yield !== 'N/A' && f.div_yield !== '0%'){
-    cat(isLimited ? 'Distributions' : 'Dividends', [
-      { label: isLimited ? 'Distribution Yield' : 'Dividend Yield', val:f.div_yield,    cmp:f.div_yield_cmp },
-      { label:'Payout Ratio',      val:f.payout,        cmp:f.payout_cmp,        invert:true },
-      { label:'5yr Growth Rate',   val:f.div_growth,    cmp:f.div_growth_cmp },
-    ]);
-  }
-
-  body.appendChild(grid);
-
-  // Context note
-  if(f.context){
-    const cnote = document.createElement('div'); cnote.className = 'fund-footnote';
-    cnote.textContent = '⚠ ' + f.context;
-    body.appendChild(cnote);
-  }
-
-  const dnote = document.createElement('div'); dnote.className = 'fund-footnote';
-  dnote.textContent = 'Source: AI web search · Values are estimates — verify before acting · No weighting applied to TA score · ↑/↓ vs sector median';
-  body.appendChild(dnote);
-
-  // Ensure panel is visible
-  body.classList.add('open');
-  if(chev) chev.classList.add('open');
-}
-
 async function fetchFundamentals(ticker, ac){
   if(fundNotApplicable(ac)){
     fundData = { error: null };
