@@ -1220,8 +1220,15 @@ async function runDeMarkComputed(ticker){
   const rowEl=document.getElementById('row-demark_seq');
   if(subEl) subEl.textContent='TD 9/13 — computing…';
 
+  // Timeout after 10 seconds — fall back gracefully
+  const timeout = setTimeout(()=>{
+    const s=document.getElementById('sub-demark_seq');
+    if(s && s.textContent==='TD 9/13 — computing…') s.textContent='TD 9/13 — AI estimate';
+  }, 10000);
+
   try{
     const ohlc = await fetchOHLCForCharts(ticker);
+    clearTimeout(timeout);
     if(!ohlc || ohlc.daily.length < 20) throw new Error('Insufficient bars');
 
     const result = computeTDSequential(ohlc.daily);
@@ -1252,7 +1259,8 @@ async function runDeMarkComputed(ticker){
     if(TIPS.demark_seq) TIPS.demark_seq.name = 'DeMark Sequential (computed)';
 
   } catch(err){
-    if(subEl) subEl.textContent='TD 9/13 — AI estimate (compute failed)';
+    clearTimeout(timeout);
+    if(subEl) subEl.textContent='TD 9/13 — AI estimate';
     console.warn('DeMark computation failed:', err.message);
   }
 }
