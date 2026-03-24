@@ -2060,6 +2060,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
   drawFGA(null);
   onACChange();
+  // Force gauge redraw after all elements are fully rendered
+  setTimeout(()=>recalc(), 100);
   // API key managed by Cloudflare Worker — no local key needed
   // Update URL hash on every change for easy permalink
   setInterval(()=>{
