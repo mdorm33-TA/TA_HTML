@@ -403,7 +403,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
     <div class="bucket">
       <div class="bucket-hdr">
         <div class="bpill med">Medium Confidence</div>
-        <span class="bdesc">MACD Wkly/Daily · Ichimoku · Fibonacci · Bollinger · OBV · Fear&amp;Greed</span>
+        <span class="bdesc">MACD Wkly · Ichimoku · Fibonacci · Bollinger · OBV · SuperTrend · Anch.VWAP · Fear&amp;Greed</span>
         <div class="bw">Weight: <span>30%</span></div>
       </div>
       <div id="bucket-med"></div>
@@ -412,7 +412,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
     <div class="bucket">
       <div class="bucket-hdr">
         <div class="bpill low">Low Confidence</div>
-        <span class="bdesc">Elliott Wave (estimate) · Stochastic · DeMark Combo (estimate)</span>
+        <span class="bdesc">Elliott Wave (estimate) · DeMark Combo (estimate)</span>
         <div class="bw">Weight: <span>20%</span></div>
       </div>
       <div id="bucket-low"></div>
@@ -441,6 +441,21 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
     <div class="dnwrap">
       <div class="dnlbl">Dividend / Total Return Note</div>
       <textarea class="dnta" id="div-note" placeholder="e.g. AMLP: ~8.2% yield adds total return floor. Div-adj SMA 200 ~$44 vs price-only $47."></textarea>
+    </div>
+
+    <!-- FUNDAMENTALS DASHBOARD -->
+    <div class="fund-panel" id="fund-panel">
+      <div class="fund-panel-hdr" onclick="toggleFundPanel()">
+        <div class="fund-panel-title">
+          📊 Fundamentals Dashboard
+          <span class="fund-badge" id="fund-badge">— run Analyze</span>
+          <span class="fund-context-note">Context only — no weighting applied to TA score</span>
+        </div>
+        <span class="fund-chevron" id="fund-chevron">▼</span>
+      </div>
+      <div class="fund-body" id="fund-body">
+        <!-- injected by renderFundamentals() -->
+      </div>
     </div>
 
   </div>
@@ -495,21 +510,6 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
         <div class="lvl-row"><div class="lvl-lbl"><div class="lvl-dot" style="background:var(--accent)"></div>Target</div><input class="lvl-in" id="target" placeholder="—"></div>
       </div>
 
-      <!-- FUNDAMENTALS DASHBOARD -->
-      <div class="fund-panel" id="fund-panel">
-        <div class="fund-panel-hdr" onclick="toggleFundPanel()">
-          <div class="fund-panel-title">
-            📊 Fundamentals Dashboard
-            <span class="fund-badge" id="fund-badge">— run Analyze</span>
-            <span class="fund-context-note">Context only — no weighting applied to TA score</span>
-          </div>
-          <span class="fund-chevron" id="fund-chevron">▼</span>
-        </div>
-        <div class="fund-body" id="fund-body">
-          <!-- injected by renderFundamentals() -->
-        </div>
-      </div>
-
     </div><!-- /printable-scorecard -->
 
     <div class="act-row">
@@ -543,16 +543,16 @@ const TIPS = {
   rsi_extreme:  {name:'RSI Extreme',       desc:'The 14-period RSI is most powerful at extremes. Below 30 = oversold (potential buy), above 70 = overbought (potential sell). In a strong uptrend, RSI can stay above 70 for extended periods. Score neutral if mid-range (40–60) — the signal only fires at extremes.'},
   demark_seq:   {name:'DeMark Sequential (computed)', desc:'TD Sequential counts 9 consecutive closes vs close[4] bars ago to identify price exhaustion. A completed Setup 9 — especially "perfected" — is a high-conviction reversal signal. Countdown 13 is the strongest signal. This score is computed from real OHLC data when hosted online, not inferred by AI.'},
   macd_weekly:  {name:'MACD (Weekly)',     desc:'Weekly MACD (12,26,9) removes daily noise. A bullish crossover (MACD line above signal line) with a positive histogram is a strong intermediate-term buy signal. Weekly MACD has significantly more predictive value than daily.'},
-  macd_daily:   {name:'MACD (Daily)',      desc:'Daily MACD captures short-term momentum. Useful for timing entries within a trend, but prone to whipsaws in ranging markets. Discount this signal when ADX is below 20 (no trend). Bearish histogram = seller momentum; bullish = buyer momentum.'},
   ichimoku:     {name:'Ichimoku Cloud',    desc:'A complete system: price above the cloud is bullish, below is bearish. The Kumo (cloud) acts as dynamic support/resistance. Tenkan-Sen crossing above Kijun-Sen = buy signal. The lagging Chikou Span confirms the trend. Strong at trend confirmation, weak at reversals.'},
   fibonacci:    {name:'Fibonacci Levels',  desc:'Retracement levels (23.6%, 38.2%, 50%, 61.8%) identify where pullbacks often pause. The 38.2–61.8% zone is the "golden zone" — a common re-entry area in uptrends. Partly self-fulfilling due to widespread use. Score higher when price is bouncing from a Fib level.'},
   bollinger:    {name:'Bollinger Bands',   desc:'Price touching the upper band (2σ above 20-day MA) signals overbought in ranging markets; touching lower band signals oversold. In strong trends, price can "walk the band." A break outside the bands often precedes a sharp move. Score based on where price sits relative to bands.'},
   obv:          {name:'OBV Trend',         desc:'On-Balance Volume tracks cumulative volume flow. Rising OBV with rising price confirms accumulation (bullish). Divergence — OBV falling while price rises — warns of distribution. One of the best leading indicators for identifying institutional buying/selling.'},
   fear_greed:   {name:'Fear & Greed',      desc:'A composite sentiment index (CNN for equities, Alternative.me for crypto). Acts as a CONTRARIAN indicator — Extreme Fear (<20) is typically a buy signal; Extreme Greed (>80) is a sell signal. Weight scales by asset class: highest for crypto (sentiment IS the driver), lowest for bonds.'},
   elliott:      {name:'Elliott Wave (estimate)',      desc:'Price moves in 5-wave impulse patterns and 3-wave corrections. A Wave 3 is the strongest and longest; Wave 4 is a correction; Wave 5 completes the pattern. Highly subjective — two analysts will often count the same chart differently. Use as context only, not a primary signal.'},
-  stochastic:   {name:'Stochastic 14,3,3', desc:'A momentum oscillator comparing close price to its high-low range. Most useful in ranging markets. Below 20 = oversold; above 80 = overbought. Virtually useless in strong trends (can stay overbought for months). Strongly discount when ADX > 25.'},
   adx:          {name:'ADX + DI Lines',    desc:'ADX measures TREND STRENGTH, not direction. Below 20 = no trend (choppy). Above 25 = trending. Above 40 = strong trend. The +DI and -DI lines show direction. When +DI > -DI and ADX > 25, that is a strong bullish trend. Score based on directional strength, not the ADX value alone.'},
   channels:     {name:'Parallel Channels', desc:'Ascending channels have a lower support rail and upper resistance rail. Price at the lower rail = potential buy; at upper rail = potential sell. A decisive break of either rail is a significant signal. Subjective to draw but widely respected. Useful for setting price targets.'},
+  supertrend:   {name:'SuperTrend', desc:'An ATR-based trend-following indicator that flips green (bullish) when price closes above the band and red (bearish) when price closes below. Unlike moving averages, it adapts dynamically to volatility — widening in choppy markets and tightening in calm ones. Backtested at 67% accuracy and 11% average profit per trade. Score bullish when green and price is above the line; bearish when red and price is below.'},
+  anch_vwap:    {name:'Anchored VWAP', desc:'Volume-Weighted Average Price anchored to a meaningful event (earnings, major swing low/high, breakout). Shows the average price weighted by volume since that anchor — the true institutional cost basis. Institutions often defend AVWAP levels. Price consistently above AVWAP = buyers in control. Price below = sellers. Score based on where price sits relative to the AVWAP anchored to the most recent significant event.'},
   demark_combo: {name:'DeMark Combo (estimate)',      desc:'TD Combo is a variation of DeMark Sequential with different counting rules, generally requiring fewer bars. It activates more frequently than Sequential but has less independent validation. Best used to confirm a Sequential signal, not as a standalone indicator.'},
   atr:          {name:'ATR Volatility',    desc:'Average True Range measures daily price volatility. HIGH ATR = wide swings, elevated risk, larger position sizing required. LOW ATR = tight range, potential for a volatility expansion. NOT a directional signal — score neutral unless volatility context is unusually high (bearish risk) or compressing (potential bullish breakout setup).'},
 };
@@ -567,16 +567,16 @@ const INDS={
   ],
   med:[
     {id:'macd_weekly', name:'MACD (Weekly)',    sub:'12,26,9 weekly timeframe',  iW:1.1},
-    {id:'macd_daily',  name:'MACD (Daily)',     sub:'12,26,9 daily timeframe',   iW:0.9},
     {id:'ichimoku',    name:'Ichimoku Cloud',   sub:'Price vs. Kumo position',   iW:1.0},
     {id:'fibonacci',   name:'Fibonacci Levels', sub:'38.2% / 50% / 61.8% zone', iW:0.9},
     {id:'bollinger',   name:'Bollinger Bands',  sub:'20-period 2σ mean revert',  iW:0.9},
     {id:'obv',         name:'OBV Trend',        sub:'On-Balance Volume dir.',    iW:1.0},
+    {id:'supertrend',   name:'SuperTrend',       sub:'ATR trend flip — bull/bear', iW:1.1},
+    {id:'anch_vwap',    name:'Anchored VWAP',    sub:'VWAP from key event/level',  iW:0.9},
     {id:'fear_greed',  name:'Fear & Greed',     sub:'Sentiment (weight by asset)',iW:0.8},
   ],
   low:[
     {id:'elliott',     name:'Elliott Wave (estimate)',     sub:'Preferred count — AI estimate',    iW:0.8},
-    {id:'stochastic',  name:'Stochastic 14,3,3',sub:'Slow stochastic OB/OS',    iW:0.9},
     {id:'demark_combo',name:'DeMark Combo (estimate)',sub:'TD Combo — AI estimate',          iW:0.8},
   ]
 };
@@ -584,7 +584,6 @@ const INDS={
 // Conflict pairs: [id1, id2, description template]
 const CONFLICT_PAIRS = [
   ['sma_200',    'rsi_extreme', 'SMA 200 and RSI are strongly disagreeing'],
-  ['sma_cross',  'macd_daily',  'MA Cross and daily MACD are sending opposite signals'],
   ['ichimoku',   'macd_weekly', 'Ichimoku and weekly MACD conflict'],
   ['vol_profile','fibonacci',   'Volume Profile and Fibonacci disagree on key levels'],
   ['obv',        'bollinger',   'OBV (volume) and Bollinger Bands (price) conflict'],
@@ -599,8 +598,8 @@ const BW={high:.50,med:.30,low:.20};
 const BASELINE_BW={high:.50,med:.30,low:.20};
 const BASELINE_IW={
   vol_profile:1.4,sma_200:1.3,sma_cross:1.1,rsi_extreme:1.2,demark_seq:1.0,
-  macd_weekly:1.1,macd_daily:0.9,ichimoku:1.0,fibonacci:0.9,bollinger:0.9,obv:1.0,fear_greed:0.8,
-  elliott:0.8,stochastic:0.9,demark_combo:0.8
+  macd_weekly:1.1,ichimoku:1.0,fibonacci:0.9,bollinger:0.9,obv:1.0,fear_greed:0.8,
+  elliott:0.8,demark_combo:0.8
 };
 // Custom weights — start at baseline, user can modify
 let customBW={...BASELINE_BW};
@@ -631,7 +630,7 @@ let vals={}, fgVal=null;
 // MU preload
 const MU_PRELOAD={
   ticker:'MU',price:'422.90',
-  indicators:{vol_profile:72,sma_200:62,sma_cross:68,rsi_extreme:47,demark_seq:62,macd_weekly:72,macd_daily:35,ichimoku:70,fibonacci:65,bollinger:52,obv:75,fear_greed:50,elliott:65,stochastic:38,demark_combo:58},
+  indicators:{vol_profile:72,sma_200:62,sma_cross:68,rsi_extreme:47,demark_seq:62,macd_weekly:72,ichimoku:70,fibonacci:65,bollinger:52,obv:75,supertrend:65,anch_vwap:60,fear_greed:50,elliott:65,demark_combo:58},
   levels:{r1:'$455–$471',r2:'$503–$515',s1:'$395–$415',s2:'$375',stop:'$390',target:'$500–$525'},
   divNote:'MU ~0.13% TTM yield. Total return is price-driven. Div-adj SMA 200 ≈ price-only.'
 };
@@ -865,11 +864,103 @@ function fundNotApplicable(ac){
 
 // Called after runAnalysis populates fundData
 function renderFundamentals(){
-  const body   = document.getElementById('fund-body');
-  const badge  = document.getElementById('fund-badge');
-  const chev   = document.getElementById('fund-chevron');
-  const ac     = getAC();
+  const body  = document.getElementById('fund-body');
+  const badge = document.getElementById('fund-badge');
+  const chev  = document.getElementById('fund-chevron');
+  const ac    = getAC();
   body.innerHTML = '';
+
+  if(fundNotApplicable(ac)){
+    badge.className = 'fund-badge na'; badge.textContent = 'N/A';
+    const msg = document.createElement('div'); msg.className = 'fund-na';
+    msg.textContent = ac === 'crypto' ? 'Fundamental ratios do not apply to cryptocurrencies.' : 'Fundamental ratios do not apply to gold / commodities.';
+    body.appendChild(msg); body.classList.add('open'); if(chev) chev.classList.add('open');
+    return;
+  }
+
+  if(!fundData || fundData.error){
+    badge.className = 'fund-badge na'; badge.textContent = '⚠ error';
+    const msg = document.createElement('div'); msg.className = 'fund-na';
+    msg.style.color = 'var(--bear)';
+    msg.textContent = fundData?.error || 'No fundamental data. Run Analyze to populate.';
+    body.appendChild(msg); body.classList.add('open'); if(chev) chev.classList.add('open');
+    return;
+  }
+
+  badge.className = 'fund-badge loaded';
+  badge.textContent = '✓ ' + (fundData.sector || 'loaded');
+
+  const f = fundData;
+  const isLimited = FUND_LIMITED[ac];
+
+  // ── Compact single-card layout
+  const card = document.createElement('div'); card.className = 'fund-cat'; card.style.margin='10px 0 4px';
+
+  function row(label, val, note){
+    if(!val || val==='N/A' || val==='—') return;
+    const r = document.createElement('div'); r.className = 'fund-row';
+    const nm = document.createElement('div'); nm.className = 'fund-name'; nm.textContent = label;
+    const vl = document.createElement('div'); vl.className = 'fund-val'; vl.textContent = val;
+    r.appendChild(nm); r.appendChild(vl);
+    if(note){
+      const nt = document.createElement('div'); nt.style.cssText='font-family:var(--mono);font-size:9px;color:var(--text3);text-align:right;';
+      nt.textContent = note; r.appendChild(nt);
+    }
+    card.appendChild(r);
+  }
+
+  // ── Separator helper
+  function sep(title){
+    const s = document.createElement('div');
+    s.style.cssText = 'font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:6px 0 3px;border-top:1px solid var(--border);margin-top:4px;';
+    s.textContent = title; card.appendChild(s);
+  }
+
+  // Valuation
+  if(!isLimited && f.pe_fwd && f.pe_fwd !== 'N/A'){
+    sep('Valuation'); row('P/E (Forward)', f.pe_fwd);
+  }
+
+  // Growth
+  if(!isLimited && f.rev_growth && f.rev_growth !== 'N/A'){
+    sep('Growth'); row('Revenue Growth (YoY)', f.rev_growth);
+  }
+
+  // Cash Flow & Balance Sheet
+  sep('Quality');
+  row('FCF Yield', f.fcf_yield);
+  row('Debt / Equity', f.debt_equity);
+
+  // Income
+  if(f.div_yield && f.div_yield !== 'N/A' && f.div_yield !== '0%'){
+    sep(isLimited ? 'Distribution' : 'Income');
+    row(isLimited ? 'Distribution Yield' : 'Dividend Yield', f.div_yield);
+  }
+
+  // Total Returns
+  const hasReturns = [f.return_3yr, f.return_5yr, f.return_10yr].some(v => v && v !== 'N/A');
+  if(hasReturns){
+    sep('Total Return — annualised, dividends reinvested');
+    row('3-Year',  f.return_3yr);
+    row('5-Year',  f.return_5yr);
+    row('10-Year', f.return_10yr);
+  }
+
+  body.appendChild(card);
+
+  if(f.context){
+    const cn = document.createElement('div'); cn.className = 'fund-footnote';
+    cn.textContent = '⚠ ' + f.context; body.appendChild(cn);
+  }
+
+  const fn = document.createElement('div'); fn.className = 'fund-footnote';
+  fn.textContent = 'Source: AI training data · Estimates only — verify before acting · No weighting applied to TA score';
+  body.appendChild(fn);
+
+  body.classList.add('open'); if(chev) chev.classList.add('open');
+}
+
+
 
   if(fundNotApplicable(ac)){
     badge.className = 'fund-badge na';
@@ -1003,67 +1094,38 @@ function renderFundamentals(){
 
 async function fetchFundamentals(ticker, ac){
   if(fundNotApplicable(ac)){
-    fundData = { error: null }; // triggers N/A display
+    fundData = { error: null };
     renderFundamentals();
     return;
   }
 
   const isLimited = FUND_LIMITED[ac];
 
-  const sys = `You are a financial data analyst. Search the web for current fundamental data for the given ticker. Return ONLY a valid JSON object, no markdown:
-{
-  "sector": "sector name or ETF category",
-  "pe_ttm": "value or N/A", "pe_ttm_cmp": "above|below|inline|na",
-  "pe_fwd": "value or N/A", "pe_fwd_cmp": "above|below|inline|na",
-  "ps": "value or N/A", "ps_cmp": "above|below|inline|na",
-  "pb": "value or N/A", "pb_cmp": "above|below|inline|na",
-  "ev_ebitda": "value or N/A", "ev_ebitda_cmp": "above|below|inline|na",
-  "gross_margin": "value% or N/A", "gross_margin_cmp": "above|below|inline|na",
-  "op_margin": "value% or N/A", "op_margin_cmp": "above|below|inline|na",
-  "net_margin": "value% or N/A", "net_margin_cmp": "above|below|inline|na",
-  "roe": "value% or N/A", "roe_cmp": "above|below|inline|na",
-  "roa": "value% or N/A", "roa_cmp": "above|below|inline|na",
-  "roic": "value% or N/A", "roic_cmp": "above|below|inline|na",
-  "rev_growth": "value% or N/A", "rev_growth_cmp": "above|below|inline|na",
-  "eps_growth": "value% or N/A", "eps_growth_cmp": "above|below|inline|na",
-  "eps_growth_fwd": "value% or N/A", "eps_growth_fwd_cmp": "above|below|inline|na",
-  "fcf": "$XB or N/A", "fcf_cmp": "above|below|inline|na",
-  "fcf_margin": "value% or N/A", "fcf_margin_cmp": "above|below|inline|na",
-  "fcf_yield": "value% or N/A", "fcf_yield_cmp": "above|below|inline|na",
-  "debt_equity": "value or N/A", "debt_equity_cmp": "above|below|inline|na",
-  "current_ratio": "value or N/A", "current_ratio_cmp": "above|below|inline|na",
-  "int_coverage": "value or N/A", "int_coverage_cmp": "above|below|inline|na",
-  "div_yield": "value% or N/A", "div_yield_cmp": "above|below|inline|na",
-  "payout": "value% or N/A", "payout_cmp": "above|below|inline|na",
-  "div_growth": "value% or N/A", "div_growth_cmp": "above|below|inline|na",
-  "context": "one sentence of important context if needed, else null"
-}
-For _cmp fields: compare to sector/industry median. "above" = better than peers (e.g. higher margins, lower P/E for value), "below" = worse than peers, "inline" = within ~10% of median, "na" = no benchmark available.
-${isLimited ? 'This is a Bond/MLP/ETF — skip valuation and growth ratios, focus on yield, coverage, and distribution metrics.' : ''}
-Use N/A for any metric you cannot find reliably. Return ONLY the JSON.`;
+  // Streamlined prompt — no web search, no sector comparison, just 7 key metrics
+  const sys = `You are a financial data analyst. Return ONLY a valid JSON object with these fields for the given ticker, using your training knowledge. No markdown, no extra text:
+{"sector":"sector or category","pe_fwd":"value or N/A","rev_growth":"value% or N/A","fcf_yield":"value% or N/A","debt_equity":"value or N/A","div_yield":"value% or N/A","return_3yr":"value% or N/A","return_5yr":"value% or N/A","return_10yr":"value% or N/A","context":"one sentence of key context or null"}
+return_3yr, return_5yr, return_10yr must be TOTAL RETURN (price + dividends reinvested), annualised. Not price-only return.
+${isLimited ? 'This is a Bond/MLP/ETF — pe_fwd and rev_growth likely N/A. Focus on div_yield and total returns.' : ''}
+All values plain text only — no HTML, no citations. Use N/A if unknown. Return ONLY the JSON.`;
 
   try{
     const res = await fetch('https://tacall.mdorm33.workers.dev',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
-        model:'claude-sonnet-4-20250514', max_tokens:1500, system:sys,
-        tools:[{type:'web_search_20250305',name:'web_search'}],
-        messages:[{role:'user',content:`Find current fundamental data for ${ticker} and compare to its sector. Return the JSON object.`}]
+        model:'claude-sonnet-4-20250514', max_tokens:300, system:sys,
+        messages:[{role:'user',content:`Return fundamental data JSON for ${ticker}.`}]
       })
     });
     if(!res.ok){ const e=await res.json(); throw new Error(e.error?.message||'API '+res.status); }
     const data = await res.json();
-    // Extract all text blocks — the final response comes after tool_use blocks
     const textBlocks = data.content.filter(b=>b.type==='text').map(b=>b.text);
-    if(textBlocks.length === 0) throw new Error('No text in API response — only tool_use blocks returned');
+    if(textBlocks.length === 0) throw new Error('No text in response');
     const raw = textBlocks.join('');
-    // Extract JSON — find first { and last }
     const jsonStart = raw.indexOf('{');
     const jsonEnd   = raw.lastIndexOf('}');
-    if(jsonStart === -1 || jsonEnd === -1) throw new Error('No JSON object found in response');
-    const jsonStr = raw.slice(jsonStart, jsonEnd + 1);
-    fundData = JSON.parse(jsonStr);
+    if(jsonStart === -1 || jsonEnd === -1) throw new Error('No JSON found');
+    fundData = JSON.parse(raw.slice(jsonStart, jsonEnd + 1));
   } catch(err){
     fundData = { error: 'Fundamentals fetch failed: ' + err.message };
     console.error('Fundamentals fetch failed:', err);
@@ -1714,12 +1776,14 @@ async function runAnalysis(){
   fetchFundamentals(ticker, getAC());
 
   const sys=`You are an expert technical analyst with access to live web search. Use web search to find the most current price and indicator data for the given ticker, then return ONLY a valid JSON object with no markdown fences:
-{"ticker":"SYMBOL","price":"114.62","indicators":{"vol_profile":0-100,"sma_200":0-100,"sma_cross":0-100,"rsi_extreme":0-100,"demark_seq":0-100,"macd_weekly":0-100,"macd_daily":0-100,"ichimoku":0-100,"fibonacci":0-100,"bollinger":0-100,"obv":0-100,"fear_greed":0-100,"elliott":0-100,"stochastic":0-100,"demark_combo":0-100},"levels":{"r1":"","r2":"","s1":"","s2":"","stop":"","target":""},"divNote":"dividend and total return context"}
+{"ticker":"SYMBOL","price":"114.62","indicators":{"vol_profile":0-100,"sma_200":0-100,"sma_cross":0-100,"rsi_extreme":0-100,"demark_seq":0-100,"macd_weekly":0-100,"ichimoku":0-100,"fibonacci":0-100,"bollinger":0-100,"obv":0-100,"supertrend":0-100,"anch_vwap":0-100,"fear_greed":0-100,"elliott":0-100,"demark_combo":0-100},"levels":{"r1":"","r2":"","s1":"","s2":"","stop":"","target":""},"divNote":"dividend and total return context"}
 CRITICAL: The "price" field must be a plain number only — no HTML, no citation tags, no dollar signs. Just digits and a decimal point like 114.62
 CRITICAL: The "divNote" field must be plain text only — no HTML tags, no citation markup.
 Scale: 0=Strongly Bearish, 25=Bearish, 50=Neutral, 75=Bullish, 100=Strongly Bullish.
 Search for current price, RSI, MACD, moving averages, volume data, and any recent technical analysis for the ticker.
-For demark_seq and elliott: these are estimates inferred from price action patterns — use recent swing structure, momentum exhaustion signals, and any published analyst commentary to make a reasonable inference. Score 50 if insufficient information.
+For demark_seq and elliott: these are estimates inferred from price action patterns — use recent swing structure, momentum exhaustion signals, and any published analyst commentary. Score 50 if insufficient information.
+For supertrend: score based on whether price is above (bullish, 60-85) or below (bearish, 15-40) the SuperTrend line. If you cannot find a SuperTrend reading, infer from recent trend direction and ATR volatility context.
+For anch_vwap: score based on where price sits relative to the Anchored VWAP anchored to the most recent significant event (earnings, major breakout, swing low). Price well above = bullish (65-80), price well below = bearish (20-35), near AVWAP = neutral (45-55).
 Return ONLY the JSON object.`;
 
   try{
