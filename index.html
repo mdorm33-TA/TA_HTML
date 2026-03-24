@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mike Dorman's TA Analysis</title>
+<title>Mike's Technical Analysis Page</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -62,7 +62,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
 .mob-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
 
 /* ── LAYOUT ── */
-.layout{display:grid;grid-template-columns:1fr 340px;min-height:calc(100vh - 88px);}
+.layout{display:grid;grid-template-columns:2fr 1fr;min-height:calc(100vh - 88px);}
 .ind-panel{padding:14px 18px;overflow-y:auto;border-right:1px solid var(--border);}
 .score-panel{padding:14px;display:flex;flex-direction:column;gap:11px;background:var(--surface);position:sticky;top:0;height:calc(100vh - 88px);overflow-y:auto;}
 
@@ -342,7 +342,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
 
 <!-- HEADER -->
 <div class="hdr">
-  <div><div class="logo">Mike Dorman's TA Analysis</div><div class="logo-sub">Powered by Claude.ai · Market data by Yahoo Finance · Weighted Scoring · Web Search · Fundamentals</div></div>
+  <div><div class="logo">Mike's Technical Analysis Page</div><div class="logo-sub">Powered by Claude.ai · Market data by Yahoo Finance · Weighted Scoring · Web Search · Fundamentals</div></div>
   <div class="search-bar">
     <input id="ticker-input" type="text" value="MU" placeholder="TICKER" maxlength="10" oninput="this.value=this.value.toUpperCase()">
     <div class="sdiv"></div>
@@ -443,21 +443,6 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
       <textarea class="dnta" id="div-note" placeholder="e.g. AMLP: ~8.2% yield adds total return floor. Div-adj SMA 200 ~$44 vs price-only $47."></textarea>
     </div>
 
-    <!-- FUNDAMENTALS DASHBOARD -->
-    <div class="fund-panel" id="fund-panel">
-      <div class="fund-panel-hdr" onclick="toggleFundPanel()">
-        <div class="fund-panel-title">
-          📊 Fundamentals Dashboard
-          <span class="fund-badge" id="fund-badge">— run Analyze</span>
-          <span class="fund-context-note">Context only — no weighting applied to TA score</span>
-        </div>
-        <span class="fund-chevron" id="fund-chevron">▼</span>
-      </div>
-      <div class="fund-body" id="fund-body">
-        <!-- injected by renderFundamentals() -->
-      </div>
-    </div>
-
   </div>
 
   <!-- ═══ RIGHT: SCORE PANEL ═══ -->
@@ -501,7 +486,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
       </div>
 
       <div class="lvl-card">
-        <div class="stitle">Key Levels</div>
+        <div class="stitle">Key Price Levels</div>
+        <div class="lvl-row"><div class="lvl-lbl"><div class="lvl-dot" style="background:var(--accent)"></div>Price</div><input class="lvl-in" id="price-lvl" placeholder="—" readonly style="font-weight:600;color:var(--text);background:var(--surface3);"></div>
         <div class="lvl-row"><div class="lvl-lbl"><div class="lvl-dot" style="background:var(--bear)"></div>Resist 1</div><input class="lvl-in" id="r1" placeholder="—"></div>
         <div class="lvl-row"><div class="lvl-lbl"><div class="lvl-dot" style="background:#ff7c8a"></div>Resist 2</div><input class="lvl-in" id="r2" placeholder="—"></div>
         <div class="lvl-row"><div class="lvl-lbl"><div class="lvl-dot" style="background:var(--bull)"></div>Support 1</div><input class="lvl-in" id="s1" placeholder="—"></div>
@@ -511,6 +497,21 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
       </div>
 
     </div><!-- /printable-scorecard -->
+
+    <!-- FUNDAMENTALS DASHBOARD -->
+    <div class="fund-panel" id="fund-panel">
+      <div class="fund-panel-hdr" onclick="toggleFundPanel()">
+        <div class="fund-panel-title">
+          📊 Fundamentals Dashboard
+          <span class="fund-badge" id="fund-badge">— run Analyze</span>
+          <span class="fund-context-note">Context only — no weighting applied to TA score</span>
+        </div>
+        <span class="fund-chevron" id="fund-chevron">▼</span>
+      </div>
+      <div class="fund-body" id="fund-body">
+        <!-- injected by renderFundamentals() -->
+      </div>
+    </div>
 
     <div class="act-row">
       <div class="btn danger" onclick="resetAll()">Reset</div>
@@ -598,7 +599,7 @@ const BW={high:.50,med:.30,low:.20};
 const BASELINE_BW={high:.50,med:.30,low:.20};
 const BASELINE_IW={
   vol_profile:1.4,sma_200:1.3,sma_cross:1.1,rsi_extreme:1.2,demark_seq:1.0,
-  macd_weekly:1.1,ichimoku:1.0,fibonacci:0.9,bollinger:0.9,obv:1.0,fear_greed:0.8,
+  macd_weekly:1.1,ichimoku:1.0,fibonacci:0.9,bollinger:0.9,obv:1.0,supertrend:1.1,anch_vwap:0.9,fear_greed:0.8,
   elliott:0.8,demark_combo:0.8
 };
 // Custom weights — start at baseline, user can modify
@@ -643,6 +644,11 @@ function sbg(v){
   else{const p=v+'%';return`linear-gradient(to right,#e8eaed 0%,#e8eaed ${p},#0a8a4e ${p},#0a8a4e 100%)`;}
 }
 function getAC(){return document.getElementById('asset-class').value;}
+function syncPriceLvl(){
+  const pv=document.getElementById('price-val');
+  const pl=document.getElementById('price-lvl');
+  if(pv&&pl) pl.value=pv.textContent.replace('$','');
+}
 function nowStamp(){const d=new Date();return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+' '+d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});}
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
 
@@ -1416,7 +1422,7 @@ function setSl(id,v,anim=true){
 function buildAll(){['high','med','low'].forEach(b=>INDS[b].forEach(i=>buildRow(i,b)));updWB();}
 
 // ═══ CALCULATE ═══
-function bScore(b){const is=INDS[b],tw=is.reduce((s,i)=>s+i.iW,0);return is.reduce((s,i)=>s+(vals[i.id]/100)*(i.iW/tw),0)*100;}
+function bScore(b){const is=INDS[b],tw=is.reduce((s,i)=>s+(i.iW||1),0);return is.reduce((s,i)=>s+((vals[i.id]||50)/100)*((i.iW||1)/tw),0)*100;}
 function recalc(){
   const bs={high:bScore('high'),med:bScore('med'),low:bScore('low')};
   const t=bs.high*customBW.high+bs.med*customBW.med+bs.low*customBW.low;
@@ -1550,8 +1556,12 @@ function drawFGA(score){
   const cx=35,cy=38,r=28;
   ctx.beginPath();ctx.arc(cx,cy,r,Math.PI,0);ctx.lineWidth=7;ctx.strokeStyle='#d0d6e0';ctx.lineCap='round';ctx.stroke();
   if(score===null)return;
-  const g=ctx.createLinearGradient(cx-r,cy,cx+r,cy);g.addColorStop(0,'#00d97e');g.addColorStop(.5,'#f0b429');g.addColorStop(1,'#ff4560');
-  ctx.beginPath();ctx.arc(cx,cy,r,Math.PI,Math.PI+(score/100)*Math.PI);ctx.lineWidth=7;ctx.strokeStyle=g;ctx.lineCap='round';ctx.stroke();
+  // Color based on sentiment: bearish=red, neutral=yellow, bullish=green
+  let dialColor;
+  if(score<=35)      dialColor='#cc2840';      // bearish — red
+  else if(score<=60) dialColor='#f0b429';      // neutral — yellow
+  else               dialColor='#0a8a4e';      // bullish — green
+  ctx.beginPath();ctx.arc(cx,cy,r,Math.PI,Math.PI+(score/100)*Math.PI);ctx.lineWidth=8;ctx.strokeStyle=dialColor;ctx.lineCap='round';ctx.stroke();
 }
 function setFGDisplay(fg){
   fgVal=fg;const info=fgLbl(fg);
@@ -1595,7 +1605,7 @@ async function fetchPrice(){
     const data=await res.json();
     const price=data?.chart?.result?.[0]?.meta?.regularMarketPrice;
     if(!price||isNaN(price))throw new Error('No price in response');
-    document.getElementById('price-val').textContent='$'+Number(price).toFixed(2);
+    document.getElementById('price-val').textContent='$'+Number(price).toFixed(2);syncPriceLvl();
     lbl.textContent='✓'; lbl.style.color='var(--bull)';
     setTimeout(()=>{lbl.textContent='↻';lbl.style.color='';},2000);
   }catch(err){
@@ -1681,7 +1691,7 @@ Return ONLY the JSON object.`;
     dot.className='sdot active';st.className='stext active';
     // Clean price display
     const cleanPrice = String(parsed.price).replace(/<[^>]*>/g,'').replace(/\$cite[^>]*/g,'').trim();
-    document.getElementById('price-val').textContent='$'+cleanPrice;
+    document.getElementById('price-val').textContent='$'+cleanPrice;syncPriceLvl();
     st.innerHTML=`<span class="sticker">${parsed.ticker}</span> — live web search populated · $${cleanPrice} · ${nowStamp()}`;
     so.textContent='';
     // After AI populates, compute DeMark from real OHLC (overwrites AI estimate)
