@@ -1834,7 +1834,7 @@ async function runAnalysis(){
   if(fundBadge){ fundBadge.className='fund-badge'; fundBadge.textContent='⟳ loading…'; }
   fetchFundamentals(ticker, getAC());
 
-  const sys=`You are an expert technical analyst with access to live web search. Use web search to find the most current price and indicator data for the given ticker, then return ONLY a valid JSON object with no markdown fences:
+  const sys=`You are a JSON API endpoint for technical analysis. You MUST respond with ONLY a raw JSON object. No explanations, no preamble, no text before or after the JSON. Start your response with '{' and end with '}'. Use web search to find current data, then output ONLY this JSON structure:
 {"ticker":"SYMBOL","price":"114.62","indicators":{"vol_profile":0-100,"sma_200":0-100,"sma_cross":0-100,"rsi_extreme":0-100,"demark_seq":0-100,"macd_weekly":0-100,"ichimoku":0-100,"fibonacci":0-100,"bollinger":0-100,"obv":0-100,"supertrend":0-100,"anch_vwap":0-100,"fear_greed":0-100,"elliott":0-100,"demark_combo":0-100},"levels":{"r1":"","r2":"","s1":"","s2":"","stop":"","target":""},"divNote":"dividend and total return context"}
 CRITICAL: The "price" field must be a plain number only — no HTML, no citation tags, no dollar signs. Just digits and a decimal point like 114.62
 CRITICAL: The "divNote" field must be plain text only — no HTML tags, no citation markup.
@@ -1858,8 +1858,11 @@ Return ONLY the JSON object.`;
     const data=await res.json();
     // Extract text blocks (may include tool_use blocks which we skip)
     const raw=data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
-    so.textContent=raw.slice(0,80)+'…';
-    const parsed=JSON.parse(raw.replace(/```json|```/g,'').trim());
+    so.textContent=raw.slice(0,120)+'…';
+    // Extract JSON even if model prefixes text before it
+    const jStart=raw.indexOf('{'), jEnd=raw.lastIndexOf('}');
+    if(jStart===-1||jEnd===-1) throw new Error('No JSON found in response: '+raw.slice(0,120));
+    const parsed=JSON.parse(raw.slice(jStart,jEnd+1));
     loadPreset(parsed);
     dot.className='sdot active';st.className='stext active';
     // Clean price display
