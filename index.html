@@ -142,6 +142,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
 .gverdict{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.05em;margin-bottom:2px;transition:color .3s;}
 .gconf{font-size:10px;color:var(--text3);font-family:var(--mono);}
 .gconf span{color:var(--text2);}
+.gdisp{font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:3px;}
+.gdisp-bar{height:4px;border-radius:2px;background:var(--border);margin-top:2px;margin-bottom:1px;overflow:hidden;}
+.gdisp-fill{height:100%;border-radius:2px;transition:width .4s;}
 .bdown-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;}
 .bsr{display:flex;align-items:center;gap:7px;margin-bottom:6px;}
 .bsr:last-child{margin-bottom:0;}
@@ -498,6 +501,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
         </div>
         <div class="gverdict" id="gverdict">LOADING…</div>
         <div class="gconf">Confidence: <span id="gconf">—</span></div>
+        <div class="gdisp">Agreement: <span id="gdisp-lbl">—</span>
+          <div class="gdisp-bar"><div class="gdisp-fill" id="gdisp-fill"></div></div>
+        </div>
       </div>
 
       <div class="bdown-card">
@@ -1591,7 +1597,13 @@ function bScore(b){const is=INDS[b],tw=is.reduce((s,i)=>s+(i.iW||1),0);return is
 function recalc(){
   const bs={high:bScore('high'),med:bScore('med'),low:bScore('low')};
   const t=bs.high*customBW.high+bs.med*customBW.med+bs.low*customBW.low;
-  drawGauge(t); updBD(bs,t); updWB(); detectConflicts();
+  // Compute dispersion: std dev of all active indicator scores
+  const allInds=[...INDS.high,...INDS.med,...INDS.low];
+  const scores=allInds.map(i=>vals[i.id]??50);
+  const mean=scores.reduce((s,v)=>s+v,0)/scores.length;
+  const variance=scores.reduce((s,v)=>s+(v-mean)**2,0)/scores.length;
+  const dispersion=Math.sqrt(variance); // 0=perfect agreement, ~25=typical, ~35=high conflict
+  drawGauge(t,dispersion); updBD(bs,t); updWB(); detectConflicts();
 }
 function sCol(s){if(s>=70)return'#00d97e';if(s>=60)return'#4dd9a0';if(s>=55)return'#a0cfb8';if(s>=45)return'#f0b429';if(s>=40)return'#ff9a7c';if(s>=30)return'#ff7c8a';return'#ff4560';}
 function verd(s){
@@ -1641,7 +1653,7 @@ function detectConflicts(){
 }
 
 // ═══ GAUGE ═══
-function drawGauge(score){
+function drawGauge(score, dispersion){
   const cv=document.getElementById('gaugeCanvas'),ctx=cv.getContext('2d');
   ctx.clearRect(0,0,cv.width,cv.height);
   const cx=cv.width/2,cy=cv.height-8,r=72;
@@ -1658,6 +1670,18 @@ function drawGauge(score){
   document.getElementById('gscore').textContent=Math.round(score);document.getElementById('gscore').style.color=sCol(score);
   document.getElementById('gverdict').textContent=v.l;document.getElementById('gverdict').style.color=v.col;
   document.getElementById('gconf').textContent=v.c;
+  // Dispersion display
+  if(dispersion!==undefined){
+    const d=dispersion;
+    // Agreement = inverse of dispersion. 0 disp = 100% agreement, 35+ = very mixed
+    const agreement=Math.max(0,Math.min(100,100-d*2.2));
+    const lbl=d<8?'Strong':d<15?'Good':d<22?'Moderate':d<30?'Weak':'Conflicted';
+    const col=d<8?'#00d97e':d<15?'#4dd9a0':d<22?'#f0b429':d<30?'#ff9a7c':'#ff4560';
+    const el=document.getElementById('gdisp-lbl');
+    const fill=document.getElementById('gdisp-fill');
+    if(el){el.textContent=lbl+' (σ='+d.toFixed(0)+')';el.style.color=col;}
+    if(fill){fill.style.width=agreement+'%';fill.style.background=col;}
+  }
   // Update verdict summary bar
   const vbs=document.getElementById('vbar-score'),vbv=document.getElementById('vbar-verdict'),vbc=document.getElementById('vbar-conf');
   if(vbs){vbs.textContent=Math.round(score);vbs.style.color=sCol(score);}
