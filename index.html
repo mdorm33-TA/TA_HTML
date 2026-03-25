@@ -446,7 +446,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
     <div class="bucket">
       <div class="bucket-hdr">
         <div class="bpill med">Medium Confidence</div>
-        <span class="bdesc">MACD Wkly · Ichimoku · Fibonacci · Bollinger · OBV · SuperTrend · Anch.VWAP · Fear&amp;Greed</span>
+        <span class="bdesc">MACD Wkly · Ichimoku · Fibonacci · Bollinger · OBV · SuperTrend · Anch.VWAP</span>
         <div class="bw">Weight: <span>30%</span></div>
       </div>
       <div id="bucket-med"></div>
@@ -514,7 +514,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
 
 
       <div class="fg-card">
-        <div class="stitle">Fear &amp; Greed Index</div>
+        <div class="stitle" id="fg-card-title">US Stock Market Fear &amp; Greed</div>
         <div class="fg-top">
           <div class="fg-src">Source: <span id="fg-src-lbl">CNN (Equity)</span></div>
           <button class="fg-fetch" id="fg-fetch-btn" onclick="fetchFG()">↻ Fetch Live</button>
@@ -523,7 +523,6 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
           <div class="fg-arc"><canvas id="fgCanvas" width="70" height="40"></canvas></div>
           <div><div class="fg-num" id="fg-num">—</div><div class="fg-lbl">Sentiment: <span id="fg-sent">not loaded</span></div></div>
         </div>
-        <div class="fg-wnote">Weight: <strong id="fg-wdisp">—</strong> &nbsp;·&nbsp; <span id="fg-wreason">—</span></div>
         <div class="fg-man">
           <label>Manual:</label>
           <input class="fg-min" id="fg-manual" type="number" min="0" max="100" placeholder="0–100">
@@ -542,10 +541,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
         <div class="lvl-row"><div class="lvl-lbl"><div class="lvl-dot" style="background:var(--accent)"></div>Target</div><input class="lvl-in" id="target" placeholder="—"></div>
       </div>
 
-    </div><!-- /printable-scorecard -->
-
-    <!-- FUNDAMENTALS DASHBOARD -->
-    <div class="fund-panel" id="fund-panel">
+      <!-- FUNDAMENTALS DASHBOARD -->
+    <div class="fund-panel" id="fund-panel" style="margin-top:10px;">
       <div class="fund-panel-hdr" onclick="toggleFundPanel()">
         <div class="fund-panel-title">
           📊 Fundamentals Dashboard
@@ -557,7 +554,10 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
       <div class="fund-body" id="fund-body">
         <!-- injected by renderFundamentals() -->
       </div>
-    </div>
+
+    </div><!-- /printable-scorecard -->
+
+/div>
 
     <div class="act-row">
       <div class="btn danger" onclick="resetAll()">Reset</div>
@@ -636,7 +636,7 @@ const INDS={
     {id:'obv',         name:'OBV Trend',        sub:'On-Balance Volume dir.',    iW:1.0},
     {id:'supertrend',   name:'SuperTrend',       sub:'ATR trend flip — bull/bear', iW:1.1},
     {id:'anch_vwap',    name:'Anchored VWAP',    sub:'VWAP from key event/level',  iW:0.9},
-    {id:'fear_greed',  name:'Fear & Greed',     sub:'Sentiment (weight by asset)',iW:0.8},
+
   ],
   low:[
     {id:'elliott',     name:'Elliott Wave (estimate)',     sub:'Preferred count — AI estimate',    iW:0.8},
@@ -661,7 +661,7 @@ const BW={high:.50,med:.30,low:.20};
 const BASELINE_BW={high:.50,med:.30,low:.20};
 const BASELINE_IW={
   vol_profile:1.4,sma_200:1.3,sma_cross:1.1,rsi_extreme:1.2,demark_seq:1.0,
-  macd_weekly:1.1,ichimoku:1.0,fibonacci:0.9,bollinger:0.9,obv:1.0,supertrend:1.1,anch_vwap:0.9,fear_greed:0.8,
+  macd_weekly:1.1,ichimoku:1.0,fibonacci:0.9,bollinger:0.9,obv:1.0,supertrend:1.1,anch_vwap:0.9,
   elliott:0.8,demark_combo:0.8
 };
 // Custom weights — start at baseline, user can modify
@@ -1723,11 +1723,11 @@ function updWB(){
 function onACChange(){
   const ac=getAC();
   document.getElementById('fg-src-lbl').textContent=FG_SRC[ac].lbl;
-  document.getElementById('fg-wreason').textContent=FG_WN[ac];
-  const fgI=INDS.med.find(i=>i.id==='fear_greed');if(fgI)fgI.iW=FG_IW[ac];
-  updFGWDisp();updWB();recalc();
-  // Re-render fundamentals if already loaded (handles N/A class switching)
-  if(fundData !== null) renderFundamentals();
+  const titleEl=document.getElementById('fg-card-title');
+  if(titleEl) titleEl.innerHTML=ac==='crypto'
+    ? 'Bitcoin Fear &amp; Greed'
+    : 'US Stock Market Fear &amp; Greed';
+  updWB();recalc();
 }
 function updFGWDisp(){
   const w=FG_IW[getAC()],el=document.getElementById('fg-wdisp');
@@ -1756,10 +1756,7 @@ function setFGDisplay(fg){
   fgVal=fg;const info=fgLbl(fg);
   document.getElementById('fg-num').textContent=fg;document.getElementById('fg-num').style.color=info.c;
   document.getElementById('fg-sent').textContent=info.t;document.getElementById('fg-sent').style.color=info.c;
-  drawFGA(fg);setSl('fear_greed',fgSig(fg),true);
-  const nt=document.getElementById('nt-fear_greed');
-  if(nt)nt.value=`F&G: ${fg}/100 (${info.t}) → contrarian signal: ${getSig(fgSig(fg)).txt}`;
-  updFGWDisp();
+  drawFGA(fg);
 }
 async function fetchFG(){
   const ac=getAC(),src=FG_SRC[ac],btn=document.getElementById('fg-fetch-btn');
