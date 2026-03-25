@@ -1904,44 +1904,49 @@ For anch_vwap: score based on where price sits relative to the Anchored VWAP anc
 Return ONLY the JSON object.`;
 
   try{
-    let res, lastErr, attempts=0;
-    const maxAttempts=4;
-    while(attempts<maxAttempts){
-      attempts++;
-      so.textContent=attempts>1?`Retry ${attempts-1}/${maxAttempts-1}…`:'';
-      res=await fetch('https://tacall.mdorm33.workers.dev',{
-        method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          model:'claude-sonnet-4-20250514',max_tokens:2000,system:sys,
-          tools:[{type:'web_search_20250305',name:'web_search'}],
-          messages:[{role:'user',content:`Search for current technical analysis data for ${ticker} and return the JSON scorecard.`}]
-        })
-      });
-      // Parse body regardless of status to check for overload errors
-      const body=await res.json().catch(()=>({}));
-      if(res.ok){
-        // Check if body itself contains an overload error (worker may forward as 200)
-        const bodyErr=body?.error?.type||body?.type||'';
-        if(!bodyErr.includes('overload')){
-          // Success — re-wrap body as fake response for downstream code
-          res._parsedBody=body; break;
-        }
-        lastErr=new Error('API overloaded');
-      } else {
-        lastErr=new Error(body?.error?.message||'API error '+res.status);
-        const isOverload=res.status===529||res.status===503||res.status===429||res.status===500||
-                         (body?.error?.type||'').includes('overload');
-        if(!isOverload||attempts>=maxAttempts)throw lastErr;
+    let data=null, lastErr=null;
+    const maxAttempts=5;
+    for(let attempt=1; attempt<=maxAttempts; attempt++){
+      if(attempt>1){
+        const delay=attempt===2?5000:attempt===3?10000:attempt===4?15000:20000;
+        dot.className='sdot loading';
+        st.style.animation='blink 0.7s step-end infinite';
+        st.textContent=`Overloaded — retrying in ${delay/1000}s… (attempt ${attempt}/${maxAttempts})`;
+        so.textContent='Claude API is busy — will retry automatically';
+        await new Promise(r=>setTimeout(r,delay));
       }
-      if(attempts>=maxAttempts) throw lastErr;
-      const delay=attempts===1?4000:attempts===2?8000:12000;
-      dot.className='sdot loading';
-      st.textContent=`API overloaded — retrying in ${delay/1000}s… (${attempts}/${maxAttempts-1})`;
-      so.textContent='Will retry automatically…';
-      await new Promise(r=>setTimeout(r,delay));
+      so.textContent=attempt>1?`Attempt ${attempt}/${maxAttempts}…`:'';
+      let res, body;
+      try{
+        res=await fetch('https://tacall.mdorm33.workers.dev',{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({
+            model:'claude-sonnet-4-20250514',max_tokens:2000,system:sys,
+            tools:[{type:'web_search_20250305',name:'web_search'}],
+            messages:[{role:'user',content:`Search for current technical analysis data for ${ticker} and return the JSON scorecard.`}]
+          })
+        });
+        body=await res.json().catch(()=>({}));
+      }catch(fetchErr){
+        lastErr=fetchErr; continue;
+      }
+      // Detect overload in any form
+      const errType=(body?.error?.type||body?.type||'').toLowerCase();
+      const errMsg=(body?.error?.message||'').toLowerCase();
+      const isOverload=res.status===529||res.status===503||res.status===429||
+                       errType.includes('overload')||errMsg.includes('overload');
+      if(isOverload){
+        lastErr=new Error('API overloaded ('+res.status+')');
+        console.warn(`Attempt ${attempt} overloaded, ${attempt<maxAttempts?'retrying':'giving up'}`);
+        continue;
+      }
+      if(!res.ok){
+        lastErr=new Error(body?.error?.message||'API error '+res.status);
+        throw lastErr; // non-overload errors: fail immediately
+      }
+      data=body; break; // success
     }
-    if(!res.ok && !res._parsedBody){const e=await res.json().catch(()=>({}));throw new Error(e.error?.message||'API error '+res.status);}
-    const data=res._parsedBody || await res.json().catch(()=>({}));
+    if(!data) throw lastErr||new Error('All retry attempts failed — Claude API is overloaded');
     // Extract text blocks (may include tool_use blocks which we skip)
     const raw=data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
     so.textContent=raw.slice(0,120)+'…';
