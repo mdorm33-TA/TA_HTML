@@ -26,7 +26,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
 .hdr-brand{display:flex;align-items:center;gap:14px;padding:10px 18px 8px;border-bottom:1px solid var(--border);}
 .hdr-controls{display:flex;align-items:center;gap:10px;padding:7px 18px;flex-wrap:wrap;}
 .logo{font-family:var(--mono);font-size:30px;font-weight:700;color:var(--accent);letter-spacing:.04em;white-space:nowrap;}
-.hdr-logo-img{height:90px;width:auto;border-radius:6px;object-fit:contain;flex-shrink:0;}
+.hdr-logo-img{height:180px;width:auto;border-radius:6px;object-fit:contain;flex-shrink:0;}
 .logo-sub{font-size:9px;color:var(--text3);font-family:var(--mono);margin-top:2px;}.logo-subtitle{font-size:22px;font-weight:700;font-style:italic;color:var(--text2);font-family:var(--mono);margin-top:4px;letter-spacing:.03em;}
 .search-bar{display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;flex:1;min-width:0;}
 .search-bar input{background:none;border:none;color:var(--text);font-family:var(--mono);font-size:14px;font-weight:600;outline:none;width:75px;text-transform:uppercase;letter-spacing:.08em;}
@@ -507,10 +507,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
         </div>
       </div>
 
-      <div class="bdown-card">
-        <div class="stitle">Bucket Breakdown</div>
-        <div id="bdown"></div>
-      </div>
+
+
+
 
 
 
@@ -1762,14 +1761,44 @@ function setFGDisplay(fg){
 async function fetchFG(){
   const ac=getAC(),src=FG_SRC[ac],btn=document.getElementById('fg-fetch-btn');
   btn.textContent='↻ Fetching…';btn.classList.add('spinning');btn.disabled=true;
-  try{
-    const res=await fetch(src.url,{headers:{'Accept':'application/json'}});
+
+  // Try direct fetch first, then CORS proxy as fallback
+  async function tryFetch(url){
+    const res=await fetch(url,{headers:{'Accept':'application/json'}});
     if(!res.ok)throw new Error('HTTP '+res.status);
-    const data=await res.json();const score=src.get(data);
+    return await res.json();
+  }
+
+  try{
+    let data,score;
+    const proxyUrl='https://corsproxy.io/?'+encodeURIComponent(src.url);
+    try{
+      data=await tryFetch(src.url);
+    }catch(e1){
+      // Direct fetch failed (likely CORS) — try proxy
+      console.warn('F&G direct fetch failed, trying proxy:',e1.message);
+      data=await tryFetch(proxyUrl);
+    }
+    score=src.get(data);
     if(score===undefined||score===null||isNaN(score))throw new Error('Bad response');
     setFGDisplay(Math.round(Number(score)));
     btn.textContent='✓ Loaded';setTimeout(()=>{btn.textContent='↻ Fetch Live';btn.classList.remove('spinning');btn.disabled=false;},1500);
   }catch(err){
+    // Final fallback: ask Cloudflare worker for the score
+    try{
+      const wRes=await fetch('https://tacall.mdorm33.workers.dev',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({feargreed:true,ac:ac})
+      });
+      if(wRes.ok){
+        const wData=await wRes.json();
+        if(wData&&typeof wData.score==='number'){
+          setFGDisplay(Math.round(wData.score));
+          btn.textContent='✓ Loaded';setTimeout(()=>{btn.textContent='↻ Fetch Live';btn.classList.remove('spinning');btn.disabled=false;},1500);
+          return;
+        }
+      }
+    }catch(e2){console.warn('F&G worker fallback also failed:',e2.message);}
     btn.textContent='⚠ Failed — use manual';btn.classList.remove('spinning');btn.disabled=false;
     document.getElementById('fg-sent').textContent='fetch error — enter manually';
     document.getElementById('fg-sent').style.color='var(--bear)';
@@ -1867,15 +1896,30 @@ For anch_vwap: score based on where price sits relative to the Anchored VWAP anc
 Return ONLY the JSON object.`;
 
   try{
-    const res=await fetch('https://tacall.mdorm33.workers.dev',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',max_tokens:2000,system:sys,
-        tools:[{type:'web_search_20250305',name:'web_search'}],
-        messages:[{role:'user',content:`Search for current technical analysis data for ${ticker} and return the JSON scorecard.`}]
-      })
-    });
-    if(!res.ok){const e=await res.json();throw new Error(e.error?.message||'API error '+res.status);}
+    let res, lastErr, attempts=0;
+    const maxAttempts=3;
+    while(attempts<maxAttempts){
+      attempts++;
+      so.textContent=attempts>1?`Retry ${attempts-1}/${maxAttempts-1}…`:'';
+      res=await fetch('https://tacall.mdorm33.workers.dev',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          model:'claude-sonnet-4-20250514',max_tokens:2000,system:sys,
+          tools:[{type:'web_search_20250305',name:'web_search'}],
+          messages:[{role:'user',content:`Search for current technical analysis data for ${ticker} and return the JSON scorecard.`}]
+        })
+      });
+      if(res.ok)break;
+      const eBody=await res.json().catch(()=>({}));
+      lastErr=new Error(eBody.error?.message||'API error '+res.status);
+      const isOverload=res.status===529||res.status===503||(eBody.error?.type==='overloaded_error');
+      if(!isOverload||attempts>=maxAttempts)throw lastErr;
+      // Wait before retry: 3s, then 7s
+      const delay=attempts===1?3000:7000;
+      dot.className='sdot loading';st.textContent=`API overloaded — retrying in ${delay/1000}s… (${attempts}/${maxAttempts})`;
+      await new Promise(r=>setTimeout(r,delay));
+    }
+    if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error?.message||'API error '+res.status);}
     const data=await res.json();
     // Extract text blocks (may include tool_use blocks which we skip)
     const raw=data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
