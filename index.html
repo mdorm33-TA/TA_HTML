@@ -1878,7 +1878,7 @@ async function runAnalysis(){
   const ticker=document.getElementById('ticker-input').value.trim().toUpperCase();
   if(!ticker){alert('Enter a ticker symbol.');return;}
   const btn=document.getElementById('run-btn'),dot=document.getElementById('sdot'),st=document.getElementById('stext'),so=document.getElementById('sstream');
-  btn.disabled=true;btn.classList.add('loading');dot.className='sdot loading';st.className='stext';st.textContent=`Analyzing ${ticker} with live web search…`;so.textContent='';
+  btn.disabled=true;btn.classList.add('loading');dot.className='sdot loading';st.className='stext';st.textContent=`Analyzing ${ticker}…`;so.textContent='';
   // Reset weights to baseline on every new Analyze run
   customBW={...BASELINE_BW};
   ['high','med','low'].forEach(b=>INDS[b].forEach(i=>i.iW=BASELINE_IW[i.id]));
@@ -1914,24 +1914,33 @@ async function runAnalysis(){
   if(fundBadge){ fundBadge.className='fund-badge'; fundBadge.textContent='⟳ loading…'; }
   fetchFundamentals(ticker, getAC());
 
-  const sys=`You are an expert technical analyst with access to live web search. Use web search to find the most current price and indicator data for the given ticker, then return ONLY a valid JSON object with no markdown fences:
-{"ticker":"SYMBOL","price":"114.62","indicators":{"vol_profile":0-100,"sma_200":0-100,"sma_cross":0-100,"rsi_extreme":0-100,"demark_seq":0-100,"macd_weekly":0-100,"ichimoku":0-100,"fibonacci":0-100,"bollinger":0-100,"obv":0-100,"supertrend":0-100,"anch_vwap":0-100,"elliott":0-100,"demark_combo":0-100},"levels":{"r1":"","r2":"","s1":"","s2":"","stop":"","target":""},"divNote":"dividend and total return context"}
-CRITICAL: The "price" field must be a plain number only — no HTML, no citation tags, no dollar signs. Just digits and a decimal point like 114.62
-CRITICAL: The "divNote" field must be plain text only — no HTML tags, no citation markup.
+  const sys=`You are an expert technical analyst. Based on your training knowledge of ${ticker}, provide a technical analysis scorecard. Return ONLY a valid JSON object with no markdown fences, no preamble, no explanation — just the raw JSON:
+{"ticker":"SYMBOL","price":"0","indicators":{"vol_profile":0-100,"sma_200":0-100,"sma_cross":0-100,"rsi_extreme":0-100,"demark_seq":0-100,"macd_weekly":0-100,"ichimoku":0-100,"fibonacci":0-100,"bollinger":0-100,"obv":0-100,"supertrend":0-100,"anch_vwap":0-100,"elliott":0-100,"demark_combo":0-100},"levels":{"r1":"","r2":"","s1":"","s2":"","stop":"","target":""},"divNote":"dividend and total return context"}
 Scale: 0=Strongly Bearish, 25=Bearish, 50=Neutral, 75=Bullish, 100=Strongly Bullish.
-Search for current price, RSI, MACD, moving averages, volume data, and any recent technical analysis for the ticker.
-For demark_seq and elliott: these are estimates inferred from price action patterns — use recent swing structure, momentum exhaustion signals, and any published analyst commentary. Score 50 if insufficient information.
-For supertrend: score based on whether price is above (bullish, 60-85) or below (bearish, 15-40) the SuperTrend line. If you cannot find a SuperTrend reading, infer from recent trend direction and ATR volatility context.
-For anch_vwap: score based on where price sits relative to the Anchored VWAP anchored to the most recent significant event (earnings, major breakout, swing low). Price well above = bullish (65-80), price well below = bearish (20-35), near AVWAP = neutral (45-55).
-Return ONLY the JSON object.`;
+For price: use your best estimate of the recent price (user will refresh with live price).
+For vol_profile: score based on where price sits relative to known high-volume nodes and recent POC.
+For sma_200: score based on whether price is well above (75-85), near (45-60), or below (15-35) the 200-day SMA.
+For sma_cross: score based on whether 50-day is above (65-80) or below (20-35) the 200-day SMA.
+For rsi_extreme: score 70-85 if RSI recently oversold bounce, 15-30 if overbought, 45-55 if mid-range neutral.
+For demark_seq: estimate from recent momentum — score 50 if uncertain.
+For macd_weekly: score based on weekly MACD trend direction and histogram.
+For ichimoku: score based on price position relative to cloud.
+For fibonacci: score based on whether price is bouncing from or rejecting key fib levels.
+For bollinger: score based on price position relative to bands.
+For obv: score based on OBV trend direction vs price trend.
+For supertrend: score 65-80 if in confirmed uptrend, 20-35 if downtrend, 45-55 if choppy.
+For anch_vwap: score based on price vs VWAP from most recent significant anchor event.
+For elliott: estimate wave position — score 50 if uncertain.
+For demark_combo: estimate — score 50 if uncertain.
+Provide realistic key support/resistance levels based on your knowledge of the ticker.
+Return ONLY the JSON object. No markdown, no explanation.`;
 
   try{
     const res=await fetch('https://tacall.mdorm33.workers.dev',{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',max_tokens:4096,system:sys,
-        tools:[{type:'web_search_20250305',name:'web_search'}],
-        messages:[{role:'user',content:`Search for current technical analysis data for ${ticker} and return the JSON scorecard.`}]
+        model:'claude-sonnet-4-20250514',max_tokens:1000,system:sys,
+        messages:[{role:'user',content:`Provide technical analysis scorecard JSON for ${ticker}.`}]
       })
     });
     if(!res.ok){const e=await res.json();throw new Error(e.error?.message||'API error '+res.status);}
@@ -1951,7 +1960,7 @@ Return ONLY the JSON object.`;
     // Clean price display
     const cleanPrice = String(parsed.price).replace(/<[^>]*>/g,'').replace(/\$cite[^>]*/g,'').trim();
     document.getElementById('price-val').textContent='$'+cleanPrice;syncPriceLvl();
-    st.innerHTML=`<span class="sticker">${parsed.ticker}</span> — live web search populated · $${cleanPrice} · ${nowStamp()}`;
+    st.innerHTML=`<span class="sticker">${parsed.ticker}</span> — AI analysis populated · $${cleanPrice} · ${nowStamp()} · <span style="color:var(--text3);font-size:10px">Refresh price with ↻</span>`;
     so.textContent='';
     // After AI populates, compute DeMark from real OHLC (overwrites AI estimate)
     runDeMarkComputed(ticker);
