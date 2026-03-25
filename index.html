@@ -1704,7 +1704,7 @@ function drawGauge(score, dispersion){
 }
 
 function updBD(bs,t){
-  const el=document.getElementById('bdown');el.innerHTML='';
+  const el=document.getElementById('bdown');if(!el)return;
   [{l:'HIGH',s:bs.high,w:'50%',c:'#4c8ef7'},{l:'MED',s:bs.med,w:'30%',c:'#a78bfa'},{l:'LOW',s:bs.low,w:'20%',c:'#64748b'},{l:'TOTAL',s:t,w:'100%',c:sCol(t)}]
   .forEach((r,i)=>{const d=document.createElement('div');d.className='bsr';if(i===3)d.style.marginTop='6px';
     d.innerHTML=`<div class="bsr-l" style="color:${r.c}">${r.l}</div><div class="bsr-bw"><div class="bsr-b" style="width:${r.s}%;background:${r.c}88"></div></div><div class="bsr-v" style="color:${r.c}">${Math.round(r.s)}</div><div class="bsr-w">${r.w}</div>`;
