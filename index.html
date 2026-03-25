@@ -1752,7 +1752,7 @@ function updFGWDisp(){
 
 // ═══ FEAR & GREED ═══
 function fgSig(fg){if(fg<=10)return 88;if(fg<=20)return 78;if(fg<=35)return 65;if(fg<=55)return 50;if(fg<=70)return 38;if(fg<=80)return 28;return 15;}
-function fgLbl(fg){if(fg<=20)return{t:'Extreme Fear',c:'#00d97e'};if(fg<=40)return{t:'Fear',c:'#4dd9a0'};if(fg<=60)return{t:'Neutral',c:'#f0b429'};if(fg<=80)return{t:'Greed',c:'#ff7c8a'};return{t:'Extreme Greed',c:'#ff4560'};}
+function fgLbl(fg){if(fg<=20)return{t:'Extreme Fear',c:'#ff4560'};if(fg<=40)return{t:'Fear',c:'#ff9a7c'};if(fg<=60)return{t:'Neutral',c:'#f0b429'};if(fg<=80)return{t:'Greed',c:'#4dd9a0'};return{t:'Extreme Greed',c:'#00d97e'};}
 function drawFGA(score){
   const cv=document.getElementById('fgCanvas');if(!cv)return;
   const ctx=cv.getContext('2d');ctx.clearRect(0,0,70,40);
@@ -1905,7 +1905,7 @@ Return ONLY the JSON object.`;
 
   try{
     let res, lastErr, attempts=0;
-    const maxAttempts=3;
+    const maxAttempts=4;
     while(attempts<maxAttempts){
       attempts++;
       so.textContent=attempts>1?`Retry ${attempts-1}/${maxAttempts-1}…`:'';
@@ -1917,18 +1917,31 @@ Return ONLY the JSON object.`;
           messages:[{role:'user',content:`Search for current technical analysis data for ${ticker} and return the JSON scorecard.`}]
         })
       });
-      if(res.ok)break;
-      const eBody=await res.json().catch(()=>({}));
-      lastErr=new Error(eBody.error?.message||'API error '+res.status);
-      const isOverload=res.status===529||res.status===503||(eBody.error?.type==='overloaded_error');
-      if(!isOverload||attempts>=maxAttempts)throw lastErr;
-      // Wait before retry: 3s, then 7s
-      const delay=attempts===1?3000:7000;
-      dot.className='sdot loading';st.textContent=`API overloaded — retrying in ${delay/1000}s… (${attempts}/${maxAttempts})`;
+      // Parse body regardless of status to check for overload errors
+      const body=await res.json().catch(()=>({}));
+      if(res.ok){
+        // Check if body itself contains an overload error (worker may forward as 200)
+        const bodyErr=body?.error?.type||body?.type||'';
+        if(!bodyErr.includes('overload')){
+          // Success — re-wrap body as fake response for downstream code
+          res._parsedBody=body; break;
+        }
+        lastErr=new Error('API overloaded');
+      } else {
+        lastErr=new Error(body?.error?.message||'API error '+res.status);
+        const isOverload=res.status===529||res.status===503||res.status===429||res.status===500||
+                         (body?.error?.type||'').includes('overload');
+        if(!isOverload||attempts>=maxAttempts)throw lastErr;
+      }
+      if(attempts>=maxAttempts) throw lastErr;
+      const delay=attempts===1?4000:attempts===2?8000:12000;
+      dot.className='sdot loading';
+      st.textContent=`API overloaded — retrying in ${delay/1000}s… (${attempts}/${maxAttempts-1})`;
+      so.textContent='Will retry automatically…';
       await new Promise(r=>setTimeout(r,delay));
     }
-    if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error?.message||'API error '+res.status);}
-    const data=await res.json();
+    if(!res.ok && !res._parsedBody){const e=await res.json().catch(()=>({}));throw new Error(e.error?.message||'API error '+res.status);}
+    const data=res._parsedBody || await res.json().catch(()=>({}));
     // Extract text blocks (may include tool_use blocks which we skip)
     const raw=data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
     so.textContent=raw.slice(0,120)+'…';
