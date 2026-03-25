@@ -56,6 +56,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
 @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
 .stext{color:var(--text2);font-size:13px;}
 .stext.active{color:var(--text);font-weight:500;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
 .sticker{color:var(--accent);font-weight:600;}
 .sstream{color:var(--text3);font-size:10px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:italic;}
 
@@ -1816,7 +1817,7 @@ async function runAnalysis(){
   const ticker=document.getElementById('ticker-input').value.trim().toUpperCase();
   if(!ticker){alert('Enter a ticker symbol.');return;}
   const btn=document.getElementById('run-btn'),dot=document.getElementById('sdot'),st=document.getElementById('stext'),so=document.getElementById('sstream');
-  btn.disabled=true;btn.classList.add('loading');dot.className='sdot loading';st.className='stext';st.textContent=`Analyzing ${ticker} with live web search…`;so.textContent='';
+  btn.disabled=true;btn.classList.add('loading');dot.className='sdot loading';st.className='stext';st.style.color='var(--bear)';st.style.animation='blink 0.7s step-end infinite';st.textContent=`Analyzing ${ticker}…`;so.textContent='';
   // Reset weights to baseline on every new Analyze run
   customBW={...BASELINE_BW};
   ['high','med','low'].forEach(b=>INDS[b].forEach(i=>i.iW=BASELINE_IW[i.id]));
@@ -1845,6 +1846,8 @@ async function runAnalysis(){
 
   // Also try to fetch price in parallel
   fetchPrice();
+  // Auto-fetch Fear & Greed
+  fetchFG();
 
   // Fetch fundamentals in parallel (separate API call)
   fundData = null;
@@ -1893,7 +1896,7 @@ Return ONLY the JSON object.`;
     // Render orientation chart at top of indicators panel
     renderOrientationChart(ticker);
   }catch(err){
-    dot.className='sdot error';st.className='stext';st.textContent='Error: '+err.message;
+    dot.className='sdot error';st.className='stext';st.style.color='';st.style.animation='';st.textContent='Error: '+err.message;
     so.textContent='Check browser console for details.';console.error('TA·WEIGHT:',err);
   }finally{btn.disabled=false;btn.classList.remove('loading');}
 }
@@ -2232,6 +2235,12 @@ async function fetchTides(){
 document.addEventListener('DOMContentLoaded',()=>{
   buildAll();
   updWtBadge();
+  // Auto-open and load tide panel
+  (function(){
+    const body=document.getElementById('tide-body');
+    const chev=document.getElementById('tide-chevron');
+    if(body){body.classList.add('open');if(chev)chev.classList.add('open');fetchTides();}
+  })();
   // Load from URL hash first, else load MU preload
   if(window.location.hash&&window.location.hash.length>3){
     loadFromUrl();
