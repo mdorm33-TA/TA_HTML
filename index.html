@@ -1032,7 +1032,7 @@ async function fetchFundamentals(ticker, ac){
   const isLimited = FUND_LIMITED[ac];
 
   // Streamlined prompt — no web search, no sector comparison, just 7 key metrics
-  const sys = `You are a financial data analyst. Return ONLY a valid JSON object with these fields for the given ticker, using your training knowledge. No markdown, no extra text:
+  const sys = `You are a JSON API. Respond with ONLY a raw JSON object — no text before or after, no explanation, start with { end with }. Financial data for the given ticker:
 {"sector":"sector or category","pe_fwd":"value or N/A","rev_growth":"value% or N/A","fcf_yield":"value% or N/A","debt_equity":"value or N/A","div_yield":"value% or N/A","return_3yr":"value% or N/A","return_5yr":"value% or N/A","return_10yr":"value% or N/A","context":"one sentence of key context or null"}
 return_3yr, return_5yr, return_10yr must be TOTAL RETURN (price + dividends reinvested), annualised. Not price-only return.
 ${isLimited ? 'This is a Bond/MLP/ETF — pe_fwd and rev_growth likely N/A. Focus on div_yield and total returns.' : ''}
@@ -1043,7 +1043,7 @@ All values plain text only — no HTML, no citations. Use N/A if unknown. Return
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
-        model:'claude-sonnet-4-20250514', max_tokens:300, system:sys,
+        model:'claude-sonnet-4-20250514', max_tokens:600, system:sys,
         messages:[{role:'user',content:`Return fundamental data JSON for ${ticker}.`}]
       })
     });
