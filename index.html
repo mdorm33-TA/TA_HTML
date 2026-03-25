@@ -419,11 +419,15 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
         <div id="orient-status" class="orient-status">Enter a ticker and click Analyze</div>
       </div>
       <div id="orient-price-wrap" style="display:none;">
-        <canvas id="orientPriceChart" style="width:100%;height:180px;"></canvas>
+        <div style="position:relative;height:180px;width:100%;">
+          <canvas id="orientPriceChart"></canvas>
+        </div>
       </div>
       <div id="orient-rsi-wrap" style="display:none;margin-top:4px;">
         <div class="orient-rsi-lbl">RSI (14)</div>
-        <canvas id="orientRSIChart" style="width:100%;height:80px;"></canvas>
+        <div style="position:relative;height:80px;width:100%;">
+          <canvas id="orientRSIChart"></canvas>
+        </div>
       </div>
     </div>
 
