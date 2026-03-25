@@ -44,6 +44,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
 .spinner{width:10px;height:10px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;display:none;}
 .run-btn.loading .spinner{display:block;}
 .run-btn.loading .btn-text{display:none;}
+.run-btn.loading{background:#c0392b;animation:btnFlash 0.7s step-end infinite;}
+@keyframes btnFlash{0%,100%{background:#c0392b;}50%{background:#e74c3c;}}
 @keyframes spin{to{transform:rotate(360deg);}}
 
 /* ── STATUS BAR ── */
@@ -668,11 +670,16 @@ const BASELINE_IW={
 let customBW={...BASELINE_BW};
 // customIW is managed via INDS[b][i].iW directly; BASELINE_IW is read-only reference
 const FG_IW={equity:.8,crypto:1.5,gold:1.2,bond:.6};
+// Alternative.me has no CORS restrictions; CNN blocks browser fetches from GitHub Pages
+const FG_ALT_URL='https://api.alternative.me/fng/?limit=1';
+const FG_ALT_GET=d=>parseInt(d.data?.[0]?.value);
+const FG_CNN_URL='https://production.dataviz.cnn.io/index/fearandgreed/graphdata';
+const FG_CNN_GET=d=>d.fear_and_greed?.score;
 const FG_SRC={
-  equity:{lbl:'CNN (Equity)',   url:'https://production.dataviz.cnn.io/index/fearandgreed/graphdata',  get:d=>d.fear_and_greed?.score},
-  crypto: {lbl:'Alternative.me',url:'https://api.alternative.me/fng/?limit=1',                         get:d=>parseInt(d.data?.[0]?.value)},
-  gold:   {lbl:'CNN (proxy)',   url:'https://production.dataviz.cnn.io/index/fearandgreed/graphdata',  get:d=>d.fear_and_greed?.score},
-  bond:   {lbl:'CNN (proxy)',   url:'https://production.dataviz.cnn.io/index/fearandgreed/graphdata',  get:d=>d.fear_and_greed?.score},
+  equity:{lbl:'CNN (Equity)',   url:FG_CNN_URL,  get:FG_CNN_GET, alt:FG_ALT_URL, altGet:FG_ALT_GET},
+  crypto: {lbl:'Alternative.me',url:FG_ALT_URL,  get:FG_ALT_GET},
+  gold:   {lbl:'CNN (proxy)',   url:FG_CNN_URL,  get:FG_CNN_GET, alt:FG_ALT_URL, altGet:FG_ALT_GET},
+  bond:   {lbl:'CNN (proxy)',   url:FG_CNN_URL,  get:FG_CNN_GET, alt:FG_ALT_URL, altGet:FG_ALT_GET},
 };
 const FG_WN={
   equity:'Market context — stock-specifics dominate',
@@ -1315,14 +1322,21 @@ async function renderOrientationChart(ticker){
 async function fetchOHLCForCharts(ticker){
   if(ohlcCache && ohlcCache.ticker === ticker) return ohlcCache;
   const fetchBars = async (interval, range) => {
-    // Try direct first, fall back to allorigins proxy for CORS
     const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=${interval}&range=${range}`;
-    let res = await fetch(yahooUrl).catch(()=>null);
-    if(!res || !res.ok){
-      const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`;
-      res = await fetch(proxy);
+    const proxies = [
+      yahooUrl,
+      `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`,
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`,
+      `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(yahooUrl)}`,
+    ];
+    let res = null;
+    for(const url of proxies){
+      try{
+        res = await fetch(url);
+        if(res.ok) break;
+      }catch(e){ res = null; }
     }
-    if(!res.ok) throw new Error('OHLC fetch failed');
+    if(!res || !res.ok) throw new Error('OHLC fetch failed for '+interval);
     const data = await res.json();
     const r = data?.chart?.result?.[0];
     if(!r) throw new Error('No chart data');
@@ -1762,48 +1776,42 @@ async function fetchFG(){
   const ac=getAC(),src=FG_SRC[ac],btn=document.getElementById('fg-fetch-btn');
   btn.textContent='↻ Fetching…';btn.classList.add('spinning');btn.disabled=true;
 
-  // Try direct fetch first, then CORS proxy as fallback
-  async function tryFetch(url){
+  async function tryUrl(url, getter){
     const res=await fetch(url,{headers:{'Accept':'application/json'}});
     if(!res.ok)throw new Error('HTTP '+res.status);
-    return await res.json();
+    const data=await res.json();
+    const score=getter(data);
+    if(score===undefined||score===null||isNaN(Number(score)))throw new Error('Bad data');
+    return Math.round(Number(score));
   }
 
-  try{
-    let data,score;
-    const proxyUrl='https://corsproxy.io/?'+encodeURIComponent(src.url);
-    try{
-      data=await tryFetch(src.url);
-    }catch(e1){
-      // Direct fetch failed (likely CORS) — try proxy
-      console.warn('F&G direct fetch failed, trying proxy:',e1.message);
-      data=await tryFetch(proxyUrl);
-    }
-    score=src.get(data);
-    if(score===undefined||score===null||isNaN(score))throw new Error('Bad response');
-    setFGDisplay(Math.round(Number(score)));
-    btn.textContent='✓ Loaded';setTimeout(()=>{btn.textContent='↻ Fetch Live';btn.classList.remove('spinning');btn.disabled=false;},1500);
-  }catch(err){
-    // Final fallback: ask Cloudflare worker for the score
-    try{
-      const wRes=await fetch('https://tacall.mdorm33.workers.dev',{
-        method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({feargreed:true,ac:ac})
-      });
-      if(wRes.ok){
-        const wData=await wRes.json();
-        if(wData&&typeof wData.score==='number'){
-          setFGDisplay(Math.round(wData.score));
-          btn.textContent='✓ Loaded';setTimeout(()=>{btn.textContent='↻ Fetch Live';btn.classList.remove('spinning');btn.disabled=false;},1500);
-          return;
-        }
-      }
-    }catch(e2){console.warn('F&G worker fallback also failed:',e2.message);}
-    btn.textContent='⚠ Failed — use manual';btn.classList.remove('spinning');btn.disabled=false;
-    document.getElementById('fg-sent').textContent='fetch error — enter manually';
-    document.getElementById('fg-sent').style.color='var(--bear)';
-    console.warn('F&G fetch error:',err.message,'— Use manual override field below.');
+  const attempts = [];
+  // For equity/gold/bond: try Alternative.me first (no CORS), then CNN direct, then CNN via proxy
+  if(src.alt){
+    attempts.push({url:src.alt,    get:src.altGet});
+    attempts.push({url:src.url,    get:src.get});
+    attempts.push({url:'https://corsproxy.io/?'+encodeURIComponent(src.url), get:src.get});
+  } else {
+    // crypto: Alternative.me is already primary
+    attempts.push({url:src.url, get:src.get});
   }
+
+  for(const {url,get} of attempts){
+    try{
+      const score=await tryUrl(url,get);
+      setFGDisplay(score);
+      btn.textContent='✓ Loaded';
+      setTimeout(()=>{btn.textContent='↻ Fetch Live';btn.classList.remove('spinning');btn.disabled=false;},1500);
+      return;
+    }catch(e){
+      console.warn('F&G attempt failed:',url,e.message);
+    }
+  }
+
+  // All attempts failed
+  btn.textContent='⚠ Failed — use manual';btn.classList.remove('spinning');btn.disabled=false;
+  document.getElementById('fg-sent').textContent='fetch error — enter manually';
+  document.getElementById('fg-sent').style.color='var(--bear)';
 }
 function applyFGManual(){const v=parseInt(document.getElementById('fg-manual').value);if(isNaN(v)||v<0||v>100){alert('Enter 0–100.');return;}setFGDisplay(v);}
 
