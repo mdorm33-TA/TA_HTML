@@ -1209,10 +1209,7 @@ async function renderOrientationChart(ticker){
     if(!ohlc || ohlc.daily.length < 10) throw new Error('Insufficient data');
 
     const bars = ohlc.daily.slice(-252); // ~1 year
-    const labels = bars.map(b => {
-      const d = new Date(b.t * 1000);
-      return d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
-    });
+    const labels = bars.map(b => b.t); // b.t is already formatted 'Mon DD'
     const closes = bars.map(b => b.c);
 
     // Calculate SMA
@@ -1328,7 +1325,7 @@ async function fetchOHLCForCharts(ticker){
     const out = [];
     for(let i=0;i<ts.length;i++){
       if(q.close[i]!=null) out.push({
-        t: new Date(ts[i]*1000).toLocaleDateString('en-US',{month:'short',day:'numeric'}),
+        t: (function(d){const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return mo[d.getMonth()]+' '+d.getDate();})(new Date(ts[i]*1000)),
         o:q.open[i], h:q.high[i], l:q.low[i], c:q.close[i], v:q.volume[i]||0
       });
     }
