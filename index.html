@@ -148,6 +148,11 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
 .gdisp{font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:3px;}
 .gdisp-bar{height:4px;border-radius:2px;background:var(--border);margin-top:2px;margin-bottom:1px;overflow:hidden;}
 .gdisp-fill{height:100%;border-radius:2px;transition:width .4s;}
+.gdisp-legend{font-size:9px;color:var(--text3);margin-top:4px;display:flex;flex-wrap:wrap;gap:6px;line-height:1.6;}
+.iw{font-family:var(--mono);font-size:10px;font-weight:600;padding:1px 5px;border-radius:3px;cursor:default;white-space:nowrap;}
+.iw.eff-hi{background:#00d97e18;color:#00d97e;}
+.iw.eff-med{background:#4c8ef718;color:var(--accent);}
+.iw.eff-lo{background:var(--surface3);color:var(--text3);}
 .bdown-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;}
 .bsr{display:flex;align-items:center;gap:7px;margin-bottom:6px;}
 .bsr:last-child{margin-bottom:0;}
@@ -522,6 +527,13 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
         <div class="gconf">Confidence: <span id="gconf">—</span></div>
         <div class="gdisp">Agreement: <span id="gdisp-lbl">—</span>
           <div class="gdisp-bar"><div class="gdisp-fill" id="gdisp-fill"></div></div>
+          <div class="gdisp-legend">
+            <span style="color:#00d97e">●</span> Strong (σ&lt;8)
+            <span style="color:#4dd9a0">●</span> Good (8–14)
+            <span style="color:#f0b429">●</span> Moderate (15–21)
+            <span style="color:#ff9a7c">●</span> Weak (22–29)
+            <span style="color:#ff4560">●</span> Conflicted (30+)
+          </div>
         </div>
       </div>
 
@@ -1744,7 +1756,11 @@ function updWB(){
     const is=INDS[b],tw=is.reduce((s,i)=>s+i.iW,0);
     is.forEach(i=>{
       const el=document.getElementById('wb-'+i.id);
-      if(el) el.textContent=((i.iW/tw)*customBW[b]*100).toFixed(1)+'%';
+      if(!el) return;
+      const eff=((i.iW/tw)*customBW[b]*100);
+      el.textContent=eff.toFixed(1)+'%';
+      el.className='iw '+(eff>=10?'eff-hi':eff>=6?'eff-med':'eff-lo');
+      el.title=`Effective influence: ${eff.toFixed(1)}%\niW=${i.iW.toFixed(1)}, bucket totalIW=${tw.toFixed(1)}, bucket weight=${(customBW[b]*100).toFixed(0)}%\nFormula: (${i.iW.toFixed(1)}/${tw.toFixed(1)}) × ${(customBW[b]*100).toFixed(0)}% = ${eff.toFixed(1)}%`;
     });
   });
 }
