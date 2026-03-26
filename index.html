@@ -2035,13 +2035,14 @@ async function fetchFG(){
   }
 
   const attempts = [];
-  // For equity/gold/bond: try Alternative.me first (no CORS), then CNN direct, then CNN via proxy
   if(src.alt){
-    attempts.push({url:src.alt,    get:src.altGet});
-    attempts.push({url:src.url,    get:src.get});
+    // Equity/Gold/Bond: CNN is the CORRECT source — try it first via proxies, Alt.me only as last resort
+    attempts.push({url:src.url,    get:src.get});   // CNN direct (works on GitHub Pages)
     attempts.push({url:'https://corsproxy.io/?'+encodeURIComponent(src.url), get:src.get});
+    attempts.push({url:'https://api.allorigins.win/raw?url='+encodeURIComponent(src.url), get:src.get});
+    attempts.push({url:src.alt,    get:src.altGet}); // Alternative.me LAST — it's crypto, not equity!
   } else {
-    // crypto: Alternative.me is already primary
+    // Crypto: Alternative.me is the correct primary source
     attempts.push({url:src.url, get:src.get});
   }
 
@@ -2049,6 +2050,12 @@ async function fetchFG(){
     try{
       const score=await tryUrl(url,get);
       setFGDisplay(score);
+      // Show which source actually delivered the data
+      const srcLabel = url.includes('alternative.me') ? 'Alternative.me (crypto proxy)' :
+                       url.includes('cnn.io')         ? 'CNN (Equity)' :
+                       url.includes('corsproxy')      ? 'CNN via proxy' :
+                       url.includes('allorigins')     ? 'CNN via proxy' : 'Live';
+      document.getElementById('fg-src-lbl').textContent = srcLabel;
       btn.textContent='✓ Loaded';
       setTimeout(()=>{btn.textContent='↻ Fetch Live';btn.classList.remove('spinning');btn.disabled=false;},1500);
       return;
@@ -2071,14 +2078,27 @@ async function fetchPrice(){
   const lbl=document.getElementById('price-fetch-lbl');
   lbl.textContent='…'; lbl.style.color='var(--neu)';
   try{
-    // Yahoo Finance unofficial endpoint — no API key needed
-    const url=`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d`;
-    const res=await fetch(url);
-    if(!res.ok)throw new Error('HTTP '+res.status);
-    const data=await res.json();
-    const meta=data?.chart?.result?.[0]?.meta;
-    const price=meta?.regularMarketPrice;
-    if(!price||isNaN(price))throw new Error('No price in response');
+    // Yahoo Finance — try multiple endpoints for CORS compatibility
+    const yahooBase = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d`;
+    const priceUrls = [
+      yahooBase,
+      `https://query2.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d`,
+      `https://corsproxy.io/?${encodeURIComponent(yahooBase)}`,
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooBase)}`,
+    ];
+    let meta = null;
+    for(const u of priceUrls){
+      try{
+        const ctrl=new AbortController(); const tid=setTimeout(()=>ctrl.abort(),5000);
+        const r=await fetch(u,{signal:ctrl.signal}); clearTimeout(tid);
+        if(!r.ok) continue;
+        const d=await r.json();
+        const m=d?.chart?.result?.[0]?.meta;
+        if(m?.regularMarketPrice){ meta=m; break; }
+      }catch(e){ /* try next */ }
+    }
+    if(!meta||!meta.regularMarketPrice) throw new Error('No price available');
+    const price=meta.regularMarketPrice;
     document.getElementById('price-val').textContent='$'+Number(price).toFixed(2);syncPriceLvl();
     // Store company long name for display in status bar
     const ln=meta?.longName||meta?.shortName||'';
