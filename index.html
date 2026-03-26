@@ -637,7 +637,7 @@ const TIPS = {
   vol_profile:  {name:'Volume Profile',    desc:'Identifies price levels where large institutional transactions occurred. The Point of Control (POC) is the price with the highest traded volume — acts as a magnet. Price above POC = bullish structure; below = bearish.'},
   sma_200:      {name:'SMA 200 Trend',     desc:'The 200-day Simple Moving Average is the most widely watched long-term trend indicator. Price consistently above it = healthy uptrend. Often used as the dividing line between bull and bear markets. Use dividend-adjusted data for income instruments.'},
   sma_cross:    {name:'MA Cross 50/200',   desc:'The Golden Cross (50-day crosses above 200-day) is a bullish structural signal; the Death Cross is bearish. Strong historical track record on equities but lags — it confirms a trend, not predicts it.'},
-  rsi_extreme:  {name:'RSI Extreme',       desc:'The 14-period RSI is most powerful at extremes. Below 30 = oversold (potential buy), above 70 = overbought (potential sell). In a strong uptrend, RSI can stay above 70 for extended periods. Score neutral if mid-range (40–60) — the signal only fires at extremes.'},
+  rsi_extreme:  {name:'RSI Extreme',       desc:'CONTRARIAN indicator. RSI <30 = oversold → scored BULLISH (potential reversal up, sellers exhausted). RSI >70 = overbought → scored BEARISH (potential reversal down, buyers exhausted). RSI 40–60 = neutral (no extreme signal). In strong trends RSI can remain extreme for extended periods — check trend context.'},
   demark_seq:   {name:'DeMark Sequential (computed)', desc:'TD Sequential counts 9 consecutive closes vs close[4] bars ago to identify price exhaustion. A completed Setup 9 — especially "perfected" — is a high-conviction reversal signal. Countdown 13 is the strongest signal. This score is computed from real OHLC data when hosted online, not inferred by AI.'},
   macd_weekly:  {name:'MACD (Weekly)',     desc:'Weekly MACD (12,26,9) removes daily noise. A bullish crossover (MACD line above signal line) with a positive histogram is a strong intermediate-term buy signal. Weekly MACD has significantly more predictive value than daily.'},
   ichimoku:     {name:'Ichimoku Cloud',    desc:'A complete system: price above the cloud is bullish, below is bearish. The Kumo (cloud) acts as dynamic support/resistance. Tenkan-Sen crossing above Kijun-Sen = buy signal. The lagging Chikou Span confirms the trend. Strong at trend confirmation, weak at reversals.'},
@@ -1320,6 +1320,95 @@ async function runDeMarkComputed(ticker){
     console.warn('DeMark computation failed:', errMsg);
   }
 }
+
+// ═══ MA CROSS 50/200 — COMPUTED FROM OHLC ═══
+async function runMAComputed(ticker){
+  const subEl = document.getElementById('sub-sma_cross');
+  if(subEl) subEl.textContent = 'Golden / Death cross — computing…';
+
+  const timeout = setTimeout(()=>{
+    const s = document.getElementById('sub-sma_cross');
+    if(s && s.textContent.includes('computing')) s.textContent = 'Golden / Death cross — AI estimate';
+  }, 15000);
+
+  try{
+    const ohlcPromise = fetchOHLCForCharts(ticker);
+    const ohlcTimeout = new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),15000));
+    const ohlc = await Promise.race([ohlcPromise, ohlcTimeout]);
+    clearTimeout(timeout);
+    if(!ohlc || !ohlc.daily || ohlc.daily.length < 210) throw new Error('Need 210+ bars for SMA200');
+
+    const closes = ohlc.daily.map(b => b.c);
+    const n = closes.length;
+
+    // Compute SMA50 and SMA200 for last 60 bars to detect cross
+    function smaN(arr, period, idx){
+      if(idx < period - 1) return null;
+      return arr.slice(idx - period + 1, idx + 1).reduce((s,v)=>s+v,0) / period;
+    }
+
+    const lookback = Math.min(60, n - 200);
+    let crossType = null;       // 'golden' | 'death' | null
+    let barsAgo = null;
+    let prevAbove = null;
+
+    for(let i = n - lookback; i < n; i++){
+      const s50  = smaN(closes, 50,  i);
+      const s200 = smaN(closes, 200, i);
+      if(s50 === null || s200 === null) continue;
+      const above = s50 > s200;
+      if(prevAbove !== null && above !== prevAbove){
+        crossType = above ? 'golden' : 'death';
+        barsAgo = n - 1 - i;
+      }
+      prevAbove = above;
+    }
+
+    // Current relationship (most recent bar)
+    const curS50  = smaN(closes, 50,  n-1);
+    const curS200 = smaN(closes, 200, n-1);
+    const currentlyAbove = curS50 !== null && curS200 !== null && curS50 > curS200;
+
+    // Score: Golden cross or currently above = bullish; Death cross or currently below = bearish
+    // Recency of cross matters — recent cross is stronger signal
+    let score, detail;
+    const STALE = 30; // bars
+
+    if(crossType === 'golden'){
+      const fresh = barsAgo <= STALE ? Math.max(0, 1 - barsAgo/STALE) : 0;
+      score = Math.round(72 + fresh * 18);  // 72–90
+      detail = `Golden Cross · ${barsAgo}b ago`;
+    } else if(crossType === 'death'){
+      const fresh = barsAgo <= STALE ? Math.max(0, 1 - barsAgo/STALE) : 0;
+      score = Math.round(28 - fresh * 18);  // 10–28
+      detail = `Death Cross · ${barsAgo}b ago`;
+    } else {
+      // No recent cross — score by current position
+      if(currentlyAbove){
+        score = 68; detail = 'SMA50 > SMA200 (no recent cross)';
+      } else {
+        score = 32; detail = 'SMA50 < SMA200 (no recent cross)';
+      }
+    }
+
+    setSl('sma_cross', score, true);
+    if(subEl) subEl.textContent = detail;
+
+    // Update notes
+    const noteEl = document.getElementById('nt-sma_cross');
+    if(noteEl && !noteEl.value){
+      const pos = currentlyAbove ? 'SMA50 ABOVE SMA200' : 'SMA50 BELOW SMA200';
+      noteEl.value = `[Computed from ${n} daily bars] ${pos}${crossType ? ' · ' + detail : ''}`;
+    }
+
+  } catch(err){
+    clearTimeout(timeout);
+    const s = document.getElementById('sub-sma_cross');
+    if(s) s.textContent = 'Golden / Death cross — AI estimate';
+    console.warn('MA Cross computation failed:', err.message);
+  }
+}
+
 let ohlcCache = null;      // {ticker, daily:[], weekly:[]}
 let chartInstances = {};   // id → Chart instance
 let orientCharts = {};     // orientation chart instances
@@ -1606,8 +1695,8 @@ async function renderChart(id){
       const rsiColors = rsi.map(v=>v===null?'transparent':v<=30?'#0a8a4e':v>=70?'#cc2840':'#1a6fd4');
       cfg = { type:'line', data:{ labels:labels_d, datasets:[
         {label:'RSI 14',data:rsi,borderColor:'#1a6fd4',borderWidth:1.5,pointRadius:0,tension:0.2,segment:{borderColor:ctx=>rsi[ctx.p1DataIndex]<=30?'#0a8a4e':rsi[ctx.p1DataIndex]>=70?'#cc2840':'#1a6fd4'}},
-        {label:'Overbought (70)',data:Array(labels_d.length).fill(70),borderColor:'#cc284055',borderWidth:1,pointRadius:0,borderDash:[4,4]},
-        {label:'Oversold (30)',data:Array(labels_d.length).fill(30),borderColor:'#0a8a4e55',borderWidth:1,pointRadius:0,borderDash:[4,4]},
+        {label:'Overbought (70) → Bearish signal',data:Array(labels_d.length).fill(70),borderColor:'#cc284055',borderWidth:1,pointRadius:0,borderDash:[4,4]},
+        {label:'Oversold (30) → Bullish signal',data:Array(labels_d.length).fill(30),borderColor:'#0a8a4e55',borderWidth:1,pointRadius:0,borderDash:[4,4]},
         {label:'Midline (50)',data:Array(labels_d.length).fill(50),borderColor:'#d0d6e055',borderWidth:1,pointRadius:0,borderDash:[2,4]},
       ]}, options:{...baseOpts, scales:{...baseOpts.scales, y:{...baseOpts.scales.y,min:0,max:100}}}};
 
@@ -1665,7 +1754,7 @@ function clearChartCache(){
 
 // ═══ BUILD ROWS ═══
 const CHARTABLE = {
-  vol_profile:true, sma_200:true, sma_cross:true,
+  vol_profile:true, sma_200:true, sma_cross:true,  // sma_cross also gets computed override
   rsi_extreme:true, macd_weekly:true, macd_daily:true, bollinger:true
 };
 function buildRow(ind,bkt){
@@ -2029,6 +2118,8 @@ async function runAnalysis(){
   const dmSub=document.getElementById('sub-demark_seq');
   if(dmSub) dmSub.textContent='TD 9/13 — computing…';
   if(TIPS.demark_seq) TIPS.demark_seq.name='DeMark Sequential (estimate)';
+  const maSub = document.getElementById('sub-sma_cross');
+  if(maSub) maSub.textContent='Golden / Death cross — computing…';
   // Reset orientation chart
   const os=document.getElementById('orient-status');
   if(os) os.textContent='Loading…';
@@ -2058,6 +2149,8 @@ async function runAnalysis(){
   const sys=`JSON API for technical analysis. Respond with ONLY a raw JSON object — no text before or after. Use web search for current data. Output this exact structure:
 {"ticker":"SYMBOL","price":"123.45","indicators":{"vol_profile":0-100,"sma_200":0-100,"sma_cross":0-100,"rsi_extreme":0-100,"demark_seq":0-100,"macd_weekly":0-100,"ichimoku":0-100,"fibonacci":0-100,"bollinger":0-100,"obv":0-100,"supertrend":0-100,"anch_vwap":0-100,"fear_greed":0-100,"elliott":0-100,"demark_combo":0-100},"levels":{"r1":"","r2":"","s1":"","s2":"","stop":"","target":""},"divNote":"brief dividend/return context"}
 Scale: 0=Strongly Bearish, 25=Bearish, 50=Neutral, 75=Bullish, 100=Strongly Bullish.
+CRITICAL for rsi_extreme: Score as a CONTRARIAN indicator. RSI <30 (oversold) = score 75-90 (BULLISH — potential reversal up). RSI >70 (overbought) = score 10-25 (BEARISH — potential reversal down). RSI 40-60 = score 50 (neutral, no extreme signal). RSI is NOT a trend-following indicator here.
+CRITICAL for sma_cross: Golden Cross (SMA50 crosses ABOVE SMA200) = score 75-90 (BULLISH). Death Cross (SMA50 crosses BELOW SMA200) = score 10-25 (BEARISH). SMA50 currently above SMA200 with no recent cross = score 65-70. SMA50 currently below SMA200 = score 30-35. This will be verified and overridden by computed OHLC data.
 price: plain number only, no $ or HTML. divNote: plain text only. Score 50 for unknown indicators.
 Return ONLY the JSON object.`;
 
@@ -2123,8 +2216,22 @@ Return ONLY the JSON object.`;
     const _cname=window._lastSymbolName?` · ${window._lastSymbolName}`:'';
     st.innerHTML=`<span class="sticker">${parsed.ticker}</span>${_cname} — live web search populated · $${cleanPrice} · ${nowStamp()}`;
     so.textContent='';
+    // fetchPrice() runs in parallel — if name not set yet, retry after it likely finishes
+    if(!window._lastSymbolName){
+      setTimeout(()=>{
+        if(window._lastSymbolName){
+          const _cn2=` · ${window._lastSymbolName}`;
+          const cur=document.getElementById('stext');
+          if(cur && cur.textContent.includes('live web search populated') && !cur.textContent.includes(' · ')){
+            cur.innerHTML=`<span class="sticker">${parsed.ticker}</span>${_cn2} — live web search populated · $${cleanPrice} · ${nowStamp()}`;
+          }
+        }
+      }, 3000);
+    }
     // After AI populates, compute DeMark from real OHLC (overwrites AI estimate)
     runDeMarkComputed(ticker);
+    // Compute MA Cross from real OHLC (overwrites AI estimate)
+    runMAComputed(ticker);
     // Render orientation chart at top of indicators panel
     renderOrientationChart(ticker);
   }catch(err){
