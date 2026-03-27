@@ -638,43 +638,39 @@ const TIPS = {
   sma_200:      {name:'SMA 200 Trend',     desc:'The 200-day Simple Moving Average is the most widely watched long-term trend indicator. Price consistently above it = healthy uptrend. Often used as the dividing line between bull and bear markets. Use dividend-adjusted data for income instruments.'},
   sma_cross:    {name:'MA Cross 50/200',   desc:'The Golden Cross (50-day crosses above 200-day) is a bullish structural signal; the Death Cross is bearish. Strong historical track record on equities but lags — it confirms a trend, not predicts it.'},
   rsi_extreme:  {name:'RSI Extreme',       desc:'CONTRARIAN indicator. RSI <30 = oversold → scored BULLISH (potential reversal up, sellers exhausted). RSI >70 = overbought → scored BEARISH (potential reversal down, buyers exhausted). RSI 40–60 = neutral (no extreme signal). In strong trends RSI can remain extreme for extended periods — check trend context.'},
-  demark_seq:   {name:'DeMark Sequential (computed)', desc:'TD Sequential counts 9 consecutive closes vs close[4] bars ago to identify price exhaustion. A completed Setup 9 — especially "perfected" — is a high-conviction reversal signal. Countdown 13 is the strongest signal. This score is computed from real OHLC data when hosted online, not inferred by AI.'},
-  macd_weekly:  {name:'MACD (Weekly)',     desc:'Weekly MACD (12,26,9) removes daily noise. A bullish crossover (MACD line above signal line) with a positive histogram is a strong intermediate-term buy signal. Weekly MACD has significantly more predictive value than daily.'},
-  ichimoku:     {name:'Ichimoku Cloud',    desc:'A complete system: price above the cloud is bullish, below is bearish. The Kumo (cloud) acts as dynamic support/resistance. Tenkan-Sen crossing above Kijun-Sen = buy signal. The lagging Chikou Span confirms the trend. Strong at trend confirmation, weak at reversals.'},
-  fibonacci:    {name:'Fibonacci Levels',  desc:'Retracement levels (23.6%, 38.2%, 50%, 61.8%) identify where pullbacks often pause. The 38.2–61.8% zone is the "golden zone" — a common re-entry area in uptrends. Partly self-fulfilling due to widespread use. Score higher when price is bouncing from a Fib level.'},
-  bollinger:    {name:'Bollinger Bands',   desc:'Price touching the upper band (2σ above 20-day MA) signals overbought in ranging markets; touching lower band signals oversold. In strong trends, price can "walk the band." A break outside the bands often precedes a sharp move. Score based on where price sits relative to bands.'},
-  obv:          {name:'OBV Trend',         desc:'On-Balance Volume tracks cumulative volume flow. Rising OBV with rising price confirms accumulation (bullish). Divergence — OBV falling while price rises — warns of distribution. One of the best leading indicators for identifying institutional buying/selling.'},
+  demark_seq:   {name:'DeMark Sequential', desc:'TD Sequential counts 9 consecutive closes vs close[4] bars ago to identify price exhaustion. A completed Setup 9 — especially "perfected" — is a high-conviction reversal signal. Countdown 13 is the strongest signal. Computed from real OHLC data.'},
+  macd_weekly:  {name:'MACD (Weekly)',     desc:'Weekly MACD (12,26,9) removes daily noise. A bullish crossover (MACD line above signal line) with a positive histogram is a strong intermediate-term buy signal. Weekly MACD has significantly more predictive value than daily. Computed from real OHLC data.'},
+  ichimoku:     {name:'Ichimoku Cloud ⚠ AI Estimate', desc:'A complete system: price above the cloud is bullish, below is bearish. The Kumo (cloud) acts as dynamic support/resistance. Tenkan-Sen crossing above Kijun-Sen = buy signal. Requires judgment on Chikou Span and cloud twist context — scored by AI estimate.'},
+  fibonacci:    {name:'Fibonacci Levels ⚠ AI Estimate', desc:'Retracement levels (23.6%, 38.2%, 50%, 61.8%) identify where pullbacks often pause. The 38.2–61.8% zone is the "golden zone." Requires identifying the correct swing high and low — inherently subjective. Scored by AI estimate.'},
+  bollinger:    {name:'Bollinger Bands',   desc:'Price touching the upper band (2σ above 20-day MA) signals overbought in ranging markets; touching lower band signals oversold. In strong trends, price can "walk the band." Computed from real OHLC data using %B positioning.'},
+  obv:          {name:'OBV Trend',         desc:'On-Balance Volume tracks cumulative volume flow. Rising OBV with rising price confirms accumulation (bullish). Divergence — OBV falling while price rises — warns of distribution. Computed from real OHLC+volume data.'},
   fear_greed:   {name:'Fear & Greed',      desc:'A composite sentiment index (CNN for equities, Alternative.me for crypto). Acts as a CONTRARIAN indicator — Extreme Fear (<20) is typically a buy signal; Extreme Greed (>80) is a sell signal. Weight scales by asset class: highest for crypto (sentiment IS the driver), lowest for bonds.'},
-  elliott:      {name:'Elliott Wave (estimate)',      desc:'Price moves in 5-wave impulse patterns and 3-wave corrections. A Wave 3 is the strongest and longest; Wave 4 is a correction; Wave 5 completes the pattern. Highly subjective — two analysts will often count the same chart differently. Use as context only, not a primary signal.'},
-  adx:          {name:'ADX + DI Lines',    desc:'ADX measures TREND STRENGTH, not direction. Below 20 = no trend (choppy). Above 25 = trending. Above 40 = strong trend. The +DI and -DI lines show direction. When +DI > -DI and ADX > 25, that is a strong bullish trend. Score based on directional strength, not the ADX value alone.'},
-  channels:     {name:'Parallel Channels', desc:'Ascending channels have a lower support rail and upper resistance rail. Price at the lower rail = potential buy; at upper rail = potential sell. A decisive break of either rail is a significant signal. Subjective to draw but widely respected. Useful for setting price targets.'},
-  supertrend:   {name:'SuperTrend', desc:'An ATR-based trend-following indicator that flips green (bullish) when price closes above the band and red (bearish) when price closes below. Unlike moving averages, it adapts dynamically to volatility — widening in choppy markets and tightening in calm ones. Backtested at 67% accuracy and 11% average profit per trade. Score bullish when green and price is above the line; bearish when red and price is below.'},
-  anch_vwap:    {name:'Anchored VWAP', desc:'Volume-Weighted Average Price anchored to a meaningful event (earnings, major swing low/high, breakout). Shows the average price weighted by volume since that anchor — the true institutional cost basis. Institutions often defend AVWAP levels. Price consistently above AVWAP = buyers in control. Price below = sellers. Score based on where price sits relative to the AVWAP anchored to the most recent significant event.'},
-  demark_combo: {name:'DeMark Combo (estimate)',      desc:'TD Combo is a variation of DeMark Sequential with different counting rules, generally requiring fewer bars. It activates more frequently than Sequential but has less independent validation. Best used to confirm a Sequential signal, not as a standalone indicator.'},
+  elliott:      {name:'Elliott Wave ⚠ AI Estimate', desc:'Price moves in 5-wave impulse patterns and 3-wave corrections. Highly subjective — two analysts will often count the same chart differently. Cannot be reliably computed algorithmically. Scored by AI estimate only.'},
+  adx:          {name:'ADX + DI Lines',    desc:'ADX measures TREND STRENGTH, not direction. Below 20 = no trend (choppy). Above 25 = trending. Above 40 = strong trend. The +DI and -DI lines show direction. When +DI > -DI and ADX > 25, that is a strong bullish trend.'},
+  channels:     {name:'Parallel Channels', desc:'Ascending channels have a lower support rail and upper resistance rail. Price at the lower rail = potential buy; at upper rail = potential sell. Subjective to draw but widely respected.'},
+  supertrend:   {name:'SuperTrend', desc:'An ATR-based trend-following indicator that flips green (bullish) when price closes above the band and red (bearish) when price closes below. Adapts dynamically to volatility. Computed from real OHLC data using ATR(10) with 3.0 multiplier.'},
+  anch_vwap:    {name:'Anchored VWAP ⚠ AI Estimate', desc:'Volume-Weighted Average Price anchored to a meaningful event (earnings, major swing low/high, breakout). The anchor point selection is a judgment call — cannot be determined algorithmically. Scored by AI estimate.'},
+  demark_combo: {name:'DeMark Combo', desc:'TD Combo is a variation of DeMark Sequential using close[i] vs close[i-2] (vs Sequential\'s close[i-4]), activating more frequently. Computed from real OHLC data.'},
   atr:          {name:'ATR Volatility',    desc:'Average True Range measures daily price volatility. HIGH ATR = wide swings, elevated risk, larger position sizing required. LOW ATR = tight range, potential for a volatility expansion. NOT a directional signal — score neutral unless volatility context is unusually high (bearish risk) or compressing (potential bullish breakout setup).'},
 };
 
 const INDS={
   high:[
-    {id:'vol_profile', name:'Volume Profile',   sub:'POC / VAH / VAL',          iW:1.4},
-    {id:'sma_200',     name:'SMA 200 Trend',    sub:'Price vs. 200-day (div-adj)',iW:1.3},
-    {id:'sma_cross',   name:'MA Cross 50/200',  sub:'Golden / Death cross',      iW:1.1},
-    {id:'rsi_extreme', name:'RSI Extreme',      sub:'14-period at <30 or >70',   iW:1.2},
-    {id:'demark_seq',  name:'DeMark Sequential (computed)',sub:'TD 9/13 — computing…',  iW:1.0},
+    {id:'vol_profile', name:'Volume Profile',   sub:'POC / VAH / VAL — computing…',    iW:1.4},
+    {id:'sma_200',     name:'SMA 200 Trend',    sub:'Price vs. 200-day (div-adj)',       iW:1.3},
+    {id:'sma_cross',   name:'MA Cross 50/200',  sub:'Golden / Death cross',              iW:1.1},
+    {id:'rsi_extreme', name:'RSI Extreme',      sub:'14-period — computing…',            iW:1.2},
+    {id:'demark_seq',  name:'DeMark Sequential',sub:'TD 9/13 — computing…',             iW:1.0},
   ],
   med:[
-    {id:'macd_weekly', name:'MACD (Weekly)',    sub:'12,26,9 weekly timeframe',  iW:1.1},
-    {id:'ichimoku',    name:'Ichimoku Cloud',   sub:'Price vs. Kumo position',   iW:1.0},
-    {id:'fibonacci',   name:'Fibonacci Levels', sub:'38.2% / 50% / 61.8% zone', iW:0.9},
-    {id:'bollinger',   name:'Bollinger Bands',  sub:'20-period 2σ mean revert',  iW:0.9},
-    {id:'obv',         name:'OBV Trend',        sub:'On-Balance Volume dir.',    iW:1.0},
-    {id:'supertrend',   name:'SuperTrend',       sub:'ATR trend flip — bull/bear', iW:1.1},
-    {id:'anch_vwap',    name:'Anchored VWAP',    sub:'VWAP from key event/level',  iW:0.9},
-
+    {id:'macd_weekly', name:'MACD (Weekly)',    sub:'12,26,9 weekly — computing…',      iW:1.1},
+    {id:'ichimoku',    name:'Ichimoku Cloud',   sub:'Ichimoku — computing…',            iW:1.0},
+    {id:'bollinger',   name:'Bollinger Bands',  sub:'20-period 2σ — computing…',        iW:0.9},
+    {id:'obv',         name:'OBV Trend',        sub:'On-Balance Volume — computing…',   iW:1.0},
+    {id:'supertrend',  name:'SuperTrend',       sub:'ATR trend flip — computing…',      iW:1.1},
   ],
   low:[
-    {id:'elliott',     name:'Elliott Wave (estimate)',     sub:'Preferred count — AI estimate',    iW:0.8},
-    {id:'demark_combo',name:'DeMark Combo (estimate)',sub:'TD Combo — AI estimate',          iW:0.8},
+    {id:'demark_combo',name:'DeMark Combo',     sub:'TD Combo — computing…',            iW:0.8},
   ]
 };
 
@@ -682,10 +678,10 @@ const INDS={
 const CONFLICT_PAIRS = [
   ['sma_200',    'rsi_extreme', 'SMA 200 and RSI are strongly disagreeing'],
   ['ichimoku',   'macd_weekly', 'Ichimoku and weekly MACD conflict'],
-  ['vol_profile','fibonacci',   'Volume Profile and Fibonacci disagree on key levels'],
   ['obv',        'bollinger',   'OBV (volume) and Bollinger Bands (price) conflict'],
   ['demark_seq', 'sma_200',     'DeMark exhaustion vs. trend direction conflict'],
   ['macd_weekly','rsi_extreme', 'Weekly MACD trend vs. RSI extreme reading conflict'],
+  ['supertrend', 'ichimoku',    'SuperTrend and Ichimoku trend direction conflict'],
 ];
 const CONFLICT_THRESH = 40; // abs difference to flag
 
@@ -694,18 +690,17 @@ const BW={high:.50,med:.30,low:.20};
 // ── Baseline weights (your recommended defaults — always preserved for reference) ──
 const BASELINE_BW={high:.50,med:.30,low:.20};
 const BASELINE_IW={
-  vol_profile:1.4,sma_200:1.3,sma_cross:1.1,rsi_extreme:1.2,demark_seq:1.0,
-  macd_weekly:1.1,ichimoku:1.0,fibonacci:0.9,bollinger:0.9,obv:1.0,supertrend:1.1,anch_vwap:0.9,
-  elliott:0.8,demark_combo:0.8
+  vol_profile:1.4, sma_200:1.3,  sma_cross:1.1, rsi_extreme:1.2, demark_seq:1.0,
+  macd_weekly:1.1, ichimoku:1.0, bollinger:0.9, obv:1.0, supertrend:1.1,
+  demark_combo:0.8
 };
 // Custom weights — start at baseline, user can modify
 let customBW={...BASELINE_BW};
 // customIW is managed via INDS[b][i].iW directly; BASELINE_IW is read-only reference
 
 // ── TIMEFRAME PRESETS ──
-// Each preset defines bucket weights (bw) and individual iW overrides.
-// Logic: shorter TF → RSI/Bollinger/DeMark matter more, SMA200/Elliott less.
-//        longer TF → SMA200/Elliott/Ichimoku matter more, RSI/Bollinger less.
+// Logic: shorter TF → RSI/Bollinger/DeMark/SuperTrend matter more, SMA200/Ichimoku less.
+//        longer TF → SMA200/Ichimoku/VolProfile matter more, RSI/Bollinger less.
 const TF_PRESETS = {
   swing: {
     label: 'Swing (1–2 wk)',
@@ -713,20 +708,18 @@ const TF_PRESETS = {
     bw: { high:0.45, med:0.35, low:0.20 },
     iw: {
       vol_profile:1.2, sma_200:0.8,  sma_cross:0.9,  rsi_extreme:1.5, demark_seq:1.4,
-      macd_weekly:0.8, ichimoku:0.8,  fibonacci:1.1,  bollinger:1.4,   obv:1.1,
-      supertrend:1.3,  anch_vwap:1.2,
-      elliott:0.6,     demark_combo:1.0,
+      macd_weekly:0.8, ichimoku:0.7,  bollinger:1.4,   obv:1.1, supertrend:1.3,
+      demark_combo:1.0,
     }
   },
   position: {
     label: 'Position (1–3 mo)',
     desc: 'Balanced blend — the system default.',
     bw: { high:0.50, med:0.30, low:0.20 },
-    iw: {  // exact baseline
+    iw: {
       vol_profile:1.4, sma_200:1.3,  sma_cross:1.1,  rsi_extreme:1.2, demark_seq:1.0,
-      macd_weekly:1.1, ichimoku:1.0,  fibonacci:0.9,  bollinger:0.9,   obv:1.0,
-      supertrend:1.1,  anch_vwap:0.9,
-      elliott:0.8,     demark_combo:0.8,
+      macd_weekly:1.1, ichimoku:1.0,  bollinger:0.9,   obv:1.0, supertrend:1.1,
+      demark_combo:0.8,
     }
   },
   intermediate: {
@@ -735,9 +728,8 @@ const TF_PRESETS = {
     bw: { high:0.55, med:0.28, low:0.17 },
     iw: {
       vol_profile:1.5, sma_200:1.5,  sma_cross:1.3,  rsi_extreme:0.9, demark_seq:0.8,
-      macd_weekly:1.2, ichimoku:1.3,  fibonacci:1.0,  bollinger:0.7,   obv:1.1,
-      supertrend:1.2,  anch_vwap:1.0,
-      elliott:1.0,     demark_combo:0.7,
+      macd_weekly:1.2, ichimoku:1.3,  bollinger:0.7,   obv:1.1, supertrend:1.2,
+      demark_combo:0.7,
     }
   },
   longterm: {
@@ -746,9 +738,8 @@ const TF_PRESETS = {
     bw: { high:0.55, med:0.25, low:0.20 },
     iw: {
       vol_profile:1.4, sma_200:1.8,  sma_cross:1.5,  rsi_extreme:0.6, demark_seq:0.5,
-      macd_weekly:1.0, ichimoku:1.4,  fibonacci:1.2,  bollinger:0.5,   obv:1.2,
-      supertrend:1.0,  anch_vwap:0.8,
-      elliott:1.4,     demark_combo:0.6,
+      macd_weekly:1.0, ichimoku:1.4,  bollinger:0.5,   obv:1.2, supertrend:1.0,
+      demark_combo:0.6,
     }
   }
 };
@@ -808,8 +799,8 @@ let vals={}, fgVal=null;
 
 // MU preload
 const MU_PRELOAD={
-  ticker:'MU',price:'422.90',
-  indicators:{vol_profile:72,sma_200:62,sma_cross:68,rsi_extreme:47,demark_seq:62,macd_weekly:72,ichimoku:70,fibonacci:65,bollinger:52,obv:75,supertrend:65,anch_vwap:60,fear_greed:50,elliott:65,demark_combo:58},
+  ticker:'MU', price:'422.90',
+  indicators:{vol_profile:72,sma_200:62,sma_cross:68,rsi_extreme:47,demark_seq:62,macd_weekly:72,ichimoku:70,bollinger:52,obv:75,supertrend:65,demark_combo:58},
   levels:{r1:'$455–$471',r2:'$503–$515',s1:'$395–$415',s2:'$375',stop:'$390',target:'$500–$525'},
   divNote:'MU ~0.13% TTM yield. Total return is price-driven. Div-adj SMA 200 ≈ price-only.'
 };
@@ -1406,6 +1397,524 @@ async function runMAComputed(ticker){
     const s = document.getElementById('sub-sma_cross');
     if(s) s.textContent = 'Golden / Death cross — AI estimate';
     console.warn('MA Cross computation failed:', err.message);
+  }
+}
+
+// ═══ RSI EXTREME — COMPUTED FROM OHLC ═══
+async function runRSIComputed(ticker){
+  const subEl = document.getElementById('sub-rsi_extreme');
+  if(subEl) subEl.textContent = '14-period — computing…';
+
+  try{
+    const ohlcPromise = fetchOHLCForCharts(ticker);
+    const ohlcTimeout = new Promise((_,rej)=>setTimeout(()=>rej(new Error('OHLC timeout')),15000));
+    const ohlc = await Promise.race([ohlcPromise, ohlcTimeout]);
+    if(!ohlc || ohlc.daily.length < 20) throw new Error('Insufficient bars');
+
+    const closes = ohlc.daily.map(b => b.c);
+    const n = closes.length;
+
+    // Wilder's RSI (14-period)
+    const period = 14;
+    let avgGain = 0, avgLoss = 0;
+    for(let i = 1; i <= period; i++){
+      const diff = closes[i] - closes[i-1];
+      if(diff >= 0) avgGain += diff; else avgLoss -= diff;
+    }
+    avgGain /= period; avgLoss /= period;
+    for(let i = period + 1; i < n; i++){
+      const diff = closes[i] - closes[i-1];
+      const gain = diff >= 0 ? diff : 0;
+      const loss = diff < 0 ? -diff : 0;
+      avgGain = (avgGain * (period-1) + gain) / period;
+      avgLoss = (avgLoss * (period-1) + loss) / period;
+    }
+    const rsiValue = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
+    const rsi = Math.round(rsiValue * 10) / 10;
+
+    // CONTRARIAN scoring: RSI >70 = overbought = BEARISH score; RSI <30 = oversold = BULLISH score
+    let score, detail;
+    if(rsi >= 80){
+      score = 10; detail = `RSI ${rsi} — Extremely Overbought (bearish)`;
+    } else if(rsi >= 70){
+      const t = (rsi - 70) / 10; // 0→1 as RSI goes 70→80
+      score = Math.round(25 - t * 15); // 25 → 10
+      detail = `RSI ${rsi} — Overbought (bearish signal)`;
+    } else if(rsi <= 20){
+      score = 90; detail = `RSI ${rsi} — Extremely Oversold (bullish)`;
+    } else if(rsi <= 30){
+      const t = (30 - rsi) / 10; // 0→1 as RSI goes 30→20
+      score = Math.round(75 + t * 15); // 75 → 90
+      detail = `RSI ${rsi} — Oversold (bullish signal)`;
+    } else {
+      // 30–70: neutral, but shade slightly toward extremes
+      score = Math.round(50 + (50 - rsi) * 0.3); // slight lean
+      detail = `RSI ${rsi} — Neutral range`;
+    }
+
+    setSl('rsi_extreme', score, true);
+    if(subEl) subEl.textContent = detail;
+
+    // Auto-fill notes if empty
+    const noteEl = document.getElementById('nt-rsi_extreme');
+    if(noteEl && !noteEl.value){
+      noteEl.value = `[Computed from ${n} daily bars] ${detail}`;
+    }
+
+  } catch(err){
+    const s = document.getElementById('sub-rsi_extreme');
+    if(s) s.textContent = '14-period at <30 or >70';
+    console.warn('RSI computation failed:', err.message);
+  }
+}
+
+// ═══ MACD WEEKLY — COMPUTED FROM OHLC ═══
+async function runMACDComputed(ticker){
+  const subEl = document.getElementById('sub-macd_weekly');
+  if(subEl) subEl.textContent = '12,26,9 weekly — computing…';
+  try{
+    const ohlc = await Promise.race([fetchOHLCForCharts(ticker), new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),15000))]);
+    if(!ohlc || ohlc.weekly.length < 35) throw new Error('Insufficient weekly bars ('+((ohlc?.weekly?.length)||0)+')');
+    const closes = ohlc.weekly.map(b => b.c);
+    const ema12 = ema(closes, 12);
+    const ema26 = ema(closes, 26);
+    const macdLine = closes.map((_,i) => ema12[i]!==null && ema26[i]!==null ? ema12[i]-ema26[i] : null);
+    const validMacd = macdLine.filter(v => v !== null);
+    const signalRaw = ema(validMacd, 9);
+    // Re-align signal back onto full array
+    const signalFull = macdLine.map((v,i) => {
+      const idx = macdLine.slice(0,i+1).filter(v=>v!==null).length - 1;
+      return signalRaw[idx] ?? null;
+    });
+    const n = closes.length;
+    const lastMACD  = macdLine[n-1];
+    const lastSig   = signalFull[n-1];
+    const prevMACD  = macdLine[n-2];
+    const prevSig   = signalFull[n-2];
+    if(lastMACD === null || lastSig === null) throw new Error('Not enough data for MACD signal');
+    const hist      = lastMACD - lastSig;
+    const prevHist  = (prevMACD !== null && prevSig !== null) ? prevMACD - prevSig : 0;
+    const bullCross = prevMACD < prevSig && lastMACD >= lastSig;
+    const bearCross = prevMACD > prevSig && lastMACD <= lastSig;
+    let score, detail;
+    if(bullCross){
+      score = lastMACD > 0 ? 88 : 75;
+      detail = `Bullish crossover${lastMACD > 0 ? ' above zero' : ' below zero'}`;
+    } else if(bearCross){
+      score = lastMACD < 0 ? 12 : 25;
+      detail = `Bearish crossover${lastMACD < 0 ? ' below zero' : ' above zero'}`;
+    } else if(lastMACD > lastSig){
+      // Above signal — grade by histogram momentum and zero-line position
+      const momentum = hist > prevHist ? 'expanding' : 'contracting';
+      score = lastMACD > 0
+        ? (momentum === 'expanding' ? 78 : 68)
+        : (momentum === 'expanding' ? 65 : 58);
+      detail = `MACD > Signal${lastMACD > 0 ? ', above zero' : ', below zero'} · hist ${momentum}`;
+    } else {
+      const momentum = hist < prevHist ? 'expanding' : 'contracting';
+      score = lastMACD < 0
+        ? (momentum === 'expanding' ? 22 : 32)
+        : (momentum === 'expanding' ? 35 : 42);
+      detail = `MACD < Signal${lastMACD < 0 ? ', below zero' : ', above zero'} · hist ${momentum}`;
+    }
+    setSl('macd_weekly', score, true);
+    if(subEl) subEl.textContent = detail;
+    const noteEl = document.getElementById('nt-macd_weekly');
+    if(noteEl && !noteEl.value) noteEl.value = `[Computed from ${ohlc.weekly.length} weekly bars] ${detail}`;
+  } catch(err){
+    const s = document.getElementById('sub-macd_weekly');
+    if(s) s.textContent = '12,26,9 weekly timeframe';
+    console.warn('MACD Weekly computation failed:', err.message);
+  }
+}
+
+// ═══ BOLLINGER BANDS — COMPUTED FROM OHLC ═══
+async function runBollingerComputed(ticker){
+  const subEl = document.getElementById('sub-bollinger');
+  if(subEl) subEl.textContent = '20-period 2σ — computing…';
+  try{
+    const ohlc = await Promise.race([fetchOHLCForCharts(ticker), new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),15000))]);
+    if(!ohlc || ohlc.daily.length < 25) throw new Error('Insufficient bars');
+    const closes = ohlc.daily.map(b => b.c);
+    const n = closes.length;
+    const period = 20;
+    // Calculate current band
+    const slice = closes.slice(n - period);
+    const mean = slice.reduce((s,v)=>s+v,0) / period;
+    const sd = Math.sqrt(slice.reduce((s,v)=>s+(v-mean)**2,0) / period);
+    const upper = mean + 2*sd;
+    const lower = mean - 2*sd;
+    const price = closes[n-1];
+    const bandwidth = (upper - lower) / mean; // normalized
+    // %B: 0=at lower band, 1=at upper band, 0.5=at midline
+    const pctB = (price - lower) / (upper - lower);
+    // Score: %B near 0 (at/below lower) = bullish reversal signal; near 1 (at/above upper) = bearish
+    // BUT also consider bandwidth — tight bands = potential breakout, not an extreme signal
+    const isTight = bandwidth < 0.04;
+    let score, detail;
+    if(isTight){
+      score = 52; // Squeeze — breakout imminent but direction unknown
+      detail = `Band squeeze (${(bandwidth*100).toFixed(1)}% width) — breakout pending`;
+    } else if(pctB >= 1.0){
+      score = 12; detail = `Price above upper band (%B=${pctB.toFixed(2)}) — overbought`;
+    } else if(pctB >= 0.85){
+      score = 22; detail = `Near upper band (%B=${pctB.toFixed(2)}) — extended`;
+    } else if(pctB <= 0.0){
+      score = 88; detail = `Price below lower band (%B=${pctB.toFixed(2)}) — oversold`;
+    } else if(pctB <= 0.15){
+      score = 78; detail = `Near lower band (%B=${pctB.toFixed(2)}) — oversold zone`;
+    } else if(pctB >= 0.45 && pctB <= 0.55){
+      score = 50; detail = `At midline (%B=${pctB.toFixed(2)})`;
+    } else if(pctB > 0.55){
+      score = Math.round(50 + (pctB - 0.55) * 40);
+      detail = `Upper half (%B=${pctB.toFixed(2)})`;
+    } else {
+      score = Math.round(50 - (0.45 - pctB) * 40);
+      detail = `Lower half (%B=${pctB.toFixed(2)})`;
+    }
+    setSl('bollinger', score, true);
+    if(subEl) subEl.textContent = detail;
+    const noteEl = document.getElementById('nt-bollinger');
+    if(noteEl && !noteEl.value) noteEl.value = `[Computed from ${n} daily bars] Upper:${upper.toFixed(2)} Mid:${mean.toFixed(2)} Lower:${lower.toFixed(2)} · ${detail}`;
+  } catch(err){
+    const s = document.getElementById('sub-bollinger');
+    if(s) s.textContent = '20-period 2σ mean revert';
+    console.warn('Bollinger computation failed:', err.message);
+  }
+}
+
+// ═══ OBV TREND — COMPUTED FROM OHLC ═══
+async function runOBVComputed(ticker){
+  const subEl = document.getElementById('sub-obv');
+  if(subEl) subEl.textContent = 'OBV — computing…';
+  try{
+    const ohlc = await Promise.race([fetchOHLCForCharts(ticker), new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),15000))]);
+    if(!ohlc || ohlc.daily.length < 50) throw new Error('Insufficient bars');
+    const bars = ohlc.daily;
+    const n = bars.length;
+    // Build OBV series
+    const obvSeries = [0];
+    for(let i=1; i<n; i++){
+      const prev = obvSeries[i-1];
+      if(bars[i].c > bars[i-1].c)      obvSeries.push(prev + bars[i].v);
+      else if(bars[i].c < bars[i-1].c) obvSeries.push(prev - bars[i].v);
+      else                              obvSeries.push(prev);
+    }
+    // OBV trend: compare SMA(20) of OBV vs SMA(50) of OBV, and slope of recent 20 bars
+    function smaArr(arr, period, idx){ if(idx<period-1)return null; return arr.slice(idx-period+1,idx+1).reduce((s,v)=>s+v,0)/period; }
+    const obv20 = smaArr(obvSeries, 20, n-1);
+    const obv50 = smaArr(obvSeries, 50, n-1);
+    const obv20_prev = smaArr(obvSeries, 20, n-6); // 5 bars ago
+    const priceNow  = bars[n-1].c;
+    const price20ago = bars[n-21]?.c;
+    // Divergence: price up but OBV down (bearish div) or price down but OBV up (bullish div)
+    const priceTrend = price20ago ? (priceNow > price20ago ? 'up' : 'down') : null;
+    const obvTrend   = obv20_prev ? (obv20 > obv20_prev ? 'up' : 'down') : null;
+    const divergence = priceTrend && obvTrend && priceTrend !== obvTrend;
+    let score, detail;
+    if(obv20 !== null && obv50 !== null){
+      const bullTrend = obv20 > obv50;
+      if(divergence && priceTrend === 'up' && obvTrend === 'down'){
+        score = 28; detail = 'Bearish divergence — price rising, OBV falling';
+      } else if(divergence && priceTrend === 'down' && obvTrend === 'up'){
+        score = 72; detail = 'Bullish divergence — price falling, OBV rising';
+      } else if(bullTrend){
+        const slope = obv20_prev ? (obv20 - obv20_prev) / Math.abs(obv20_prev || 1) : 0;
+        score = slope > 0.02 ? 78 : 68;
+        detail = `OBV rising · SMA20 > SMA50${slope > 0.02 ? ' · accelerating' : ''}`;
+      } else {
+        const slope = obv20_prev ? (obv20 - obv20_prev) / Math.abs(obv20_prev || 1) : 0;
+        score = slope < -0.02 ? 22 : 32;
+        detail = `OBV falling · SMA20 < SMA50${slope < -0.02 ? ' · accelerating' : ''}`;
+      }
+    } else {
+      score = 50; detail = 'Insufficient data for OBV trend';
+    }
+    setSl('obv', score, true);
+    if(subEl) subEl.textContent = detail;
+    const noteEl = document.getElementById('nt-obv');
+    if(noteEl && !noteEl.value) noteEl.value = `[Computed from ${n} daily bars] ${detail}`;
+  } catch(err){
+    const s = document.getElementById('sub-obv');
+    if(s) s.textContent = 'On-Balance Volume dir.';
+    console.warn('OBV computation failed:', err.message);
+  }
+}
+
+// ═══ SUPERTREND — COMPUTED FROM OHLC ═══
+async function runSuperTrendComputed(ticker){
+  const subEl = document.getElementById('sub-supertrend');
+  if(subEl) subEl.textContent = 'SuperTrend — computing…';
+  try{
+    const ohlc = await Promise.race([fetchOHLCForCharts(ticker), new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),15000))]);
+    if(!ohlc || ohlc.daily.length < 30) throw new Error('Insufficient bars');
+    const bars = ohlc.daily;
+    const n = bars.length;
+    const period = 10, multiplier = 3.0;
+    // ATR (Wilder's smoothing)
+    const tr = [0];
+    for(let i=1; i<n; i++){
+      tr.push(Math.max(
+        bars[i].h - bars[i].l,
+        Math.abs(bars[i].h - bars[i-1].c),
+        Math.abs(bars[i].l - bars[i-1].c)
+      ));
+    }
+    const atrSeries = [tr[0]];
+    for(let i=1; i<n; i++){
+      atrSeries.push((atrSeries[i-1] * (period-1) + tr[i]) / period);
+    }
+    // SuperTrend bands
+    let direction = 1; // 1=bullish, -1=bearish
+    let supertrend = 0;
+    let prevUpper = 0, prevLower = 0;
+    for(let i=period; i<n; i++){
+      const hl2 = (bars[i].h + bars[i].l) / 2;
+      const atr  = atrSeries[i];
+      let upperBand = hl2 + multiplier * atr;
+      let lowerBand = hl2 - multiplier * atr;
+      // Adjust bands to avoid widening
+      if(lowerBand < prevLower || bars[i-1].c < prevLower) lowerBand = lowerBand;
+      else lowerBand = prevLower;
+      if(upperBand > prevUpper || bars[i-1].c > prevUpper) upperBand = upperBand;
+      else upperBand = prevUpper;
+      // Determine direction
+      if(bars[i].c > prevUpper)       direction = 1;
+      else if(bars[i].c < prevLower)  direction = -1;
+      supertrend = direction === 1 ? lowerBand : upperBand;
+      prevUpper = upperBand; prevLower = lowerBand;
+    }
+    const lastClose = bars[n-1].c;
+    const distPct = Math.abs(lastClose - supertrend) / lastClose * 100;
+    let score, detail;
+    if(direction === 1){
+      // Bullish — price above supertrend line
+      score = distPct > 5 ? 82 : distPct > 2 ? 72 : 65;
+      detail = `Bullish · price ${distPct.toFixed(1)}% above SuperTrend (${supertrend.toFixed(2)})`;
+    } else {
+      // Bearish — price below supertrend line
+      score = distPct > 5 ? 18 : distPct > 2 ? 28 : 35;
+      detail = `Bearish · price ${distPct.toFixed(1)}% below SuperTrend (${supertrend.toFixed(2)})`;
+    }
+    setSl('supertrend', score, true);
+    if(subEl) subEl.textContent = detail;
+    const noteEl = document.getElementById('nt-supertrend');
+    if(noteEl && !noteEl.value) noteEl.value = `[Computed from ${n} daily bars] ${detail}`;
+  } catch(err){
+    const s = document.getElementById('sub-supertrend');
+    if(s) s.textContent = 'ATR trend flip — bull/bear';
+    console.warn('SuperTrend computation failed:', err.message);
+  }
+}
+
+// ═══ DEMARK COMBO — COMPUTED FROM OHLC ═══
+async function runDeMarkComboComputed(ticker){
+  const subEl = document.getElementById('sub-demark_combo');
+  if(subEl) subEl.textContent = 'TD Combo — computing…';
+  try{
+    const ohlc = await Promise.race([fetchOHLCForCharts(ticker), new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),15000))]);
+    if(!ohlc || ohlc.daily.length < 25) throw new Error('Insufficient bars');
+    const bars = ohlc.daily;
+    const n = bars.length;
+    const close = bars.map(b=>b.c), high = bars.map(b=>b.h), low = bars.map(b=>b.l);
+    // TD Combo Setup: 9 consecutive closes vs close[2] bars ago (vs Sequential's close[4])
+    const setupDone = [], setupType = [];
+    let buyC = 0, sellC = 0;
+    for(let i=0; i<n; i++){
+      setupDone.push(null); setupType.push(null);
+      if(i < 2) continue;
+      if(close[i] < close[i-2])       { buyC++;  sellC=0; if(buyC  >= 9){ setupDone[i]='buy';  buyC=0;  } }
+      else if(close[i] > close[i-2])  { sellC++; buyC=0;  if(sellC >= 9){ setupDone[i]='sell'; sellC=0; } }
+      else { buyC=0; sellC=0; }
+    }
+    // Find most recent setup and active count
+    let lastSetup=null, lastSetupBar=null;
+    let activeBuy=0, activeSell=0;
+    let bc=0, sc=0;
+    for(let i=2; i<n; i++){
+      if(close[i]<close[i-2]){ bc++; sc=0; if(bc>=9) bc=0; }
+      else if(close[i]>close[i-2]){ sc++; bc=0; if(sc>=9) sc=0; }
+      else { bc=0; sc=0; }
+    }
+    activeBuy=bc; activeSell=sc;
+    for(let i=n-1; i>=2; i--){ if(setupDone[i]){ lastSetup=setupDone[i]; lastSetupBar=i; break; } }
+    const barsSince = lastSetupBar !== null ? n-1-lastSetupBar : null;
+    const STALE = 18;
+    let score, detail;
+    if(lastSetup && barsSince <= STALE){
+      const fresh = Math.max(0, 1-barsSince/STALE);
+      if(lastSetup==='buy'){
+        score = Math.round(78 + fresh*12);
+        detail = `Combo Setup 9 BUY — ${barsSince}b ago`;
+      } else {
+        score = Math.round(22 - fresh*12);
+        detail = `Combo Setup 9 SELL — ${barsSince}b ago`;
+      }
+    } else if(activeBuy >= 5){
+      score = Math.round(50 + activeBuy/9*8);
+      detail = `Active BUY setup: bar ${activeBuy}/9`;
+    } else if(activeSell >= 5){
+      score = Math.round(50 - activeSell/9*8);
+      detail = `Active SELL setup: bar ${activeSell}/9`;
+    } else {
+      score = 50; detail = 'No active Combo signal';
+    }
+    setSl('demark_combo', score, true);
+    if(subEl) subEl.textContent = detail;
+    const noteEl = document.getElementById('nt-demark_combo');
+    if(noteEl && !noteEl.value) noteEl.value = `[Computed from ${n} daily bars] ${detail}`;
+  } catch(err){
+    const s = document.getElementById('sub-demark_combo');
+    if(s) s.textContent = 'TD Combo — AI estimate';
+    console.warn('DeMark Combo computation failed:', err.message);
+  }
+}
+
+// ═══ VOLUME PROFILE — COMPUTED FROM OHLC ═══
+async function runVolProfileComputed(ticker){
+  const subEl = document.getElementById('sub-vol_profile');
+  if(subEl) subEl.textContent = 'POC / VAH / VAL — computing…';
+  try{
+    const ohlc = await Promise.race([fetchOHLCForCharts(ticker), new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),15000))]);
+    if(!ohlc || ohlc.daily.length < 30) throw new Error('Insufficient bars');
+    const bars = ohlc.daily;
+    const n = bars.length;
+    // Use last 252 bars (~1 year) for VP — enough context without going too stale
+    const lookback = Math.min(n, 252);
+    const recent = bars.slice(n - lookback);
+    const mn = Math.min(...recent.map(b=>b.l));
+    const mx = Math.max(...recent.map(b=>b.h));
+    const BUCKETS = 24;
+    const step = (mx - mn) / BUCKETS;
+    const vols = Array(BUCKETS).fill(0);
+    recent.forEach(b => {
+      const idx = Math.min(Math.floor((b.c - mn) / step), BUCKETS-1);
+      vols[idx] += b.v;
+    });
+    // POC = bucket with highest volume
+    const pocIdx = vols.indexOf(Math.max(...vols));
+    const poc = mn + (pocIdx + 0.5) * step;
+    // Value Area: 70% of total volume centered around POC
+    const totalVol = vols.reduce((s,v)=>s+v,0);
+    const target = totalVol * 0.70;
+    let vaVol = vols[pocIdx], vaLow = pocIdx, vaHigh = pocIdx;
+    while(vaVol < target && (vaLow > 0 || vaHigh < BUCKETS-1)){
+      const addLow  = vaLow  > 0          ? vols[vaLow-1]  : 0;
+      const addHigh = vaHigh < BUCKETS-1  ? vols[vaHigh+1] : 0;
+      if(addHigh >= addLow){ vaHigh++; vaVol += addHigh; }
+      else                  { vaLow--;  vaVol += addLow;  }
+    }
+    const vah = mn + (vaHigh + 1) * step;
+    const val = mn + vaLow * step;
+    const price = recent[recent.length-1].c;
+    // Score: price vs POC and value area
+    let score, detail;
+    if(price > vah){
+      const abovePct = (price - vah) / vah * 100;
+      score = abovePct > 5 ? 78 : 68;
+      detail = `Price ${abovePct.toFixed(1)}% above VAH ($${vah.toFixed(2)}) · POC $${poc.toFixed(2)}`;
+    } else if(price >= val && price <= vah){
+      // Inside value area — score by position relative to POC
+      const pctB = (price - val) / (vah - val);
+      score = Math.round(45 + pctB * 20); // 45–65
+      const rel = price >= poc ? 'above' : 'below';
+      detail = `Inside VA · price ${rel} POC ($${poc.toFixed(2)}) · VAH $${vah.toFixed(2)} VAL $${val.toFixed(2)}`;
+    } else {
+      const belowPct = (val - price) / val * 100;
+      score = belowPct > 5 ? 22 : 32;
+      detail = `Price ${belowPct.toFixed(1)}% below VAL ($${val.toFixed(2)}) · POC $${poc.toFixed(2)}`;
+    }
+    setSl('vol_profile', score, true);
+    if(subEl) subEl.textContent = detail;
+    const noteEl = document.getElementById('nt-vol_profile');
+    if(noteEl && !noteEl.value) noteEl.value = `[Computed from ${lookback} daily bars] POC:$${poc.toFixed(2)} VAH:$${vah.toFixed(2)} VAL:$${val.toFixed(2)} · ${detail}`;
+  } catch(err){
+    const s = document.getElementById('sub-vol_profile');
+    if(s) s.textContent = 'POC / VAH / VAL';
+    console.warn('Volume Profile computation failed:', err.message);
+  }
+}
+
+// ═══ ICHIMOKU CLOUD — COMPUTED FROM OHLC ═══
+async function runIchimokuComputed(ticker){
+  const subEl = document.getElementById('sub-ichimoku');
+  if(subEl) subEl.textContent = 'Ichimoku — computing…';
+  try{
+    const ohlc = await Promise.race([fetchOHLCForCharts(ticker), new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),15000))]);
+    if(!ohlc || ohlc.daily.length < 80) throw new Error('Insufficient bars (need 80+, got '+(ohlc?.daily?.length||0)+')');
+    const bars = ohlc.daily;
+    const n = bars.length;
+
+    function midHL(arr, period, idx){
+      if(idx < period-1) return null;
+      const slice = arr.slice(idx-period+1, idx+1);
+      return (Math.max(...slice.map(b=>b.h)) + Math.min(...slice.map(b=>b.l))) / 2;
+    }
+
+    const tenkan  = midHL(bars, 9,  n-1);
+    const kijun   = midHL(bars, 26, n-1);
+    // Kumo at current price = spans plotted 26 bars ago
+    const kumoA   = (()=>{ const t=midHL(bars,9,n-27), k=midHL(bars,26,n-27); return t&&k?(t+k)/2:null; })();
+    const kumoB   = midHL(bars, 52, n-27);
+    const chikou  = bars[n-1].c;
+    const priceRef= bars[n-27]?.c ?? null;
+    const price   = bars[n-1].c;
+    const kumoTop    = kumoA !== null && kumoB !== null ? Math.max(kumoA, kumoB) : null;
+    const kumoBottom = kumoA !== null && kumoB !== null ? Math.min(kumoA, kumoB) : null;
+    const cloudBullish = kumoA !== null && kumoB !== null && kumoA > kumoB;
+
+    let signals = [];
+
+    if(kumoTop !== null && kumoBottom !== null){
+      // 1. Price vs Cloud — 35%
+      if(price > kumoTop){
+        const gap = (price - kumoTop) / kumoTop;
+        signals.push({ w:0.35, v: Math.min(1, 0.70 + gap*2), label:'Price above cloud' });
+      } else if(price < kumoBottom){
+        const gap = (kumoBottom - price) / kumoBottom;
+        signals.push({ w:0.35, v: Math.max(0, 0.30 - gap*2), label:'Price below cloud' });
+      } else {
+        const pctThrough = (price - kumoBottom) / (kumoTop - kumoBottom);
+        signals.push({ w:0.35, v: 0.35 + pctThrough*0.30, label:'Price inside cloud' });
+      }
+      // 2. Cloud color — 20%
+      signals.push({ w:0.20, v: cloudBullish ? 0.75 : 0.25, label: cloudBullish ? 'Green cloud' : 'Red cloud' });
+    }
+
+    // 3. Tenkan / Kijun cross — 25%
+    if(tenkan !== null && kijun !== null){
+      const prevTenkan = midHL(bars, 9,  n-2);
+      const prevKijun  = midHL(bars, 26, n-2);
+      const bullCross  = prevTenkan !== null && prevKijun !== null && prevTenkan <= prevKijun && tenkan > kijun;
+      const bearCross  = prevTenkan !== null && prevKijun !== null && prevTenkan >= prevKijun && tenkan < kijun;
+      if(bullCross){
+        signals.push({ w:0.25, v: price > (kumoTop||0) ? 0.90 : 0.72, label:'TK bullish cross' });
+      } else if(bearCross){
+        signals.push({ w:0.25, v: price < (kumoBottom||9999) ? 0.10 : 0.28, label:'TK bearish cross' });
+      } else {
+        signals.push({ w:0.25, v: tenkan > kijun ? 0.65 : 0.35, label: tenkan > kijun ? 'Tenkan > Kijun' : 'Tenkan < Kijun' });
+      }
+    }
+
+    // 4. Chikou confirmation — 20%
+    if(priceRef !== null){
+      signals.push({ w:0.20, v: chikou > priceRef ? 0.70 : 0.30, label: chikou > priceRef ? 'Chikou confirms' : 'Chikou weak' });
+    }
+
+    const totalW = signals.reduce((s,x)=>s+x.w, 0);
+    const score  = totalW > 0 ? Math.max(5, Math.min(95, Math.round(signals.reduce((s,x)=>s+x.v*x.w,0)/totalW*100))) : 50;
+    const detail = signals.sort((a,b)=>b.w-a.w).slice(0,2).map(s=>s.label).join(' · ');
+
+    setSl('ichimoku', score, true);
+    if(subEl) subEl.textContent = detail;
+    const noteEl = document.getElementById('nt-ichimoku');
+    if(noteEl && !noteEl.value){
+      noteEl.value = `[Computed from ${n} bars] Kumo ${kumoBottom?.toFixed(2)}–${kumoTop?.toFixed(2)} · TK ${tenkan?.toFixed(2)}/${kijun?.toFixed(2)} · ${detail}`;
+    }
+  } catch(err){
+    const s = document.getElementById('sub-ichimoku');
+    if(s) s.textContent = 'Kumo position — insufficient data';
+    console.warn('Ichimoku computation failed:', err.message);
   }
 }
 
@@ -2114,7 +2623,8 @@ async function fetchPrice(){
 
 // ═══ LOAD PRESET ═══
 function loadPreset(d){
-  Object.entries(d.indicators).forEach(([id,v])=>setSl(id,v,true));
+  if(d.indicators) Object.entries(d.indicators).forEach(([id,v])=>setSl(id,v,true));
+  if(d.fear_greed !== undefined && d.fear_greed !== null) setFGDisplay(Math.round(Number(d.fear_greed)));
   if(d.levels)['r1','r2','s1','s2','stop','target'].forEach(k=>{const el=document.getElementById(k);if(el&&d.levels[k])el.value=d.levels[k];});
   if(d.divNote) document.getElementById('div-note').value = d.divNote.replace(/<cite[^>]*>/gi,'').replace(/<\/cite>/gi,'').replace(/<[^>]*>/g,'').trim();
   const cleanPrice = String(d.price).replace(/<[^>]*>/g,'').replace(/\$cite[^>]*/g,'').trim();
@@ -2140,6 +2650,22 @@ async function runAnalysis(){
   if(TIPS.demark_seq) TIPS.demark_seq.name='DeMark Sequential (estimate)';
   const maSub = document.getElementById('sub-sma_cross');
   if(maSub) maSub.textContent='Golden / Death cross — computing…';
+  const rsiSub = document.getElementById('sub-rsi_extreme');
+  if(rsiSub) rsiSub.textContent='14-period — computing…';
+  const macdSub = document.getElementById('sub-macd_weekly');
+  if(macdSub) macdSub.textContent='12,26,9 weekly — computing…';
+  const bollSub = document.getElementById('sub-bollinger');
+  if(bollSub) bollSub.textContent='20-period 2σ — computing…';
+  const obvSub = document.getElementById('sub-obv');
+  if(obvSub) obvSub.textContent='OBV — computing…';
+  const stSub = document.getElementById('sub-supertrend');
+  if(stSub) stSub.textContent='SuperTrend — computing…';
+  const dcSub = document.getElementById('sub-demark_combo');
+  if(dcSub) dcSub.textContent='TD Combo — computing…';
+  const vpSub = document.getElementById('sub-vol_profile');
+  if(vpSub) vpSub.textContent='POC / VAH / VAL — computing…';
+  const ichSub = document.getElementById('sub-ichimoku');
+  if(ichSub) ichSub.textContent='Ichimoku — computing…';
   // Reset orientation chart
   const os=document.getElementById('orient-status');
   if(os) os.textContent='Loading…';
@@ -2167,11 +2693,12 @@ async function runAnalysis(){
   fetchFundamentals(ticker, getAC());
 
   const sys=`JSON API for technical analysis. Respond with ONLY a raw JSON object — no text before or after. Use web search for current data. Output this exact structure:
-{"ticker":"SYMBOL","price":"123.45","indicators":{"vol_profile":0-100,"sma_200":0-100,"sma_cross":0-100,"rsi_extreme":0-100,"demark_seq":0-100,"macd_weekly":0-100,"ichimoku":0-100,"fibonacci":0-100,"bollinger":0-100,"obv":0-100,"supertrend":0-100,"anch_vwap":0-100,"fear_greed":0-100,"elliott":0-100,"demark_combo":0-100},"levels":{"r1":"","r2":"","s1":"","s2":"","stop":"","target":""},"divNote":"brief dividend/return context"}
-Scale: 0=Strongly Bearish, 25=Bearish, 50=Neutral, 75=Bullish, 100=Strongly Bullish.
-CRITICAL for rsi_extreme: Score as a CONTRARIAN indicator. RSI <30 (oversold) = score 75-90 (BULLISH — potential reversal up). RSI >70 (overbought) = score 10-25 (BEARISH — potential reversal down). RSI 40-60 = score 50 (neutral, no extreme signal). RSI is NOT a trend-following indicator here.
-CRITICAL for sma_cross: Golden Cross (SMA50 crosses ABOVE SMA200) = score 75-90 (BULLISH). Death Cross (SMA50 crosses BELOW SMA200) = score 10-25 (BEARISH). SMA50 currently above SMA200 with no recent cross = score 65-70. SMA50 currently below SMA200 = score 30-35. This will be verified and overridden by computed OHLC data.
-price: plain number only, no $ or HTML. divNote: plain text only. Score 50 for unknown indicators.
+{"ticker":"SYMBOL","price":"123.45","fear_greed":0-100,"levels":{"r1":"","r2":"","s1":"","s2":"","stop":"","target":""},"divNote":"brief dividend/return context"}
+fear_greed: current CNN Fear & Greed index value for equities/gold/bonds; Alternative.me crypto fear & greed for crypto. Integer 0–100.
+price: current market price, plain number only, no $ or HTML.
+levels: key support and resistance price levels as plain text strings (e.g. "$142–$145"). Leave empty string if unknown.
+divNote: one sentence on dividend yield or total return context. Plain text only.
+All indicator scores are computed from live OHLC data — do not include them.
 Return ONLY the JSON object.`;
 
   // Haiku only — fast, low congestion, sufficient for structured JSON + web search
@@ -2248,10 +2775,17 @@ Return ONLY the JSON object.`;
         }
       }, 3000);
     }
-    // After AI populates, compute DeMark from real OHLC (overwrites AI estimate)
+    // After AI populates, compute all OHLC-derivable indicators (overwrites AI estimates)
     runDeMarkComputed(ticker);
-    // Compute MA Cross from real OHLC (overwrites AI estimate)
     runMAComputed(ticker);
+    runRSIComputed(ticker);
+    runMACDComputed(ticker);
+    runBollingerComputed(ticker);
+    runOBVComputed(ticker);
+    runSuperTrendComputed(ticker);
+    runDeMarkComboComputed(ticker);
+    runVolProfileComputed(ticker);
+    runIchimokuComputed(ticker);
     // Render orientation chart at top of indicators panel
     renderOrientationChart(ticker);
   }catch(err){
