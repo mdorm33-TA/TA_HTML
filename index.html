@@ -1746,9 +1746,10 @@ async function runSuperTrendComputed(ticker){
       let upperBand = hl2 + multiplier * atr;
       let lowerBand = hl2 - multiplier * atr;
       // Adjust bands to avoid widening
-      if(lowerBand < prevLower || bars[i-1].c < prevLower) lowerBand = lowerBand;
+      // Standard SuperTrend: only raise lowerBand (trailing stop), only lower upperBand
+      if(lowerBand > prevLower || bars[i-1].c < prevLower) lowerBand = lowerBand;
       else lowerBand = prevLower;
-      if(upperBand > prevUpper || bars[i-1].c > prevUpper) upperBand = upperBand;
+      if(upperBand < prevUpper || bars[i-1].c > prevUpper) upperBand = upperBand;
       else upperBand = prevUpper;
       // Determine direction
       if(bars[i].c > prevUpper)       direction = 1;
