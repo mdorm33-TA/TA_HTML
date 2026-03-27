@@ -702,6 +702,8 @@ const CONFLICT_PAIRS = [
   ['demark_seq', 'sma_200',     'DeMark exhaustion vs. trend direction conflict'],
   ['macd_weekly','rsi_extreme', 'Weekly MACD trend vs. RSI extreme reading conflict'],
   ['supertrend', 'ichimoku',    'SuperTrend and Ichimoku trend direction conflict'],
+  ['sma_cross',  'supertrend',  'MA Cross and SuperTrend trend signals disagree'],
+  ['obv',        'sma_200',     'Volume flow (OBV) and price trend (SMA200) diverging'],
 ];
 const CONFLICT_THRESH = 40; // abs difference to flag
 
@@ -1366,7 +1368,7 @@ async function runMAComputed(ticker){
       return arr.slice(idx - period + 1, idx + 1).reduce((s,v)=>s+v,0) / period;
     }
 
-    const lookback = Math.min(60, n - 200);
+    const lookback = Math.min(120, n - 200);
     let crossType = null;       // 'golden' | 'death' | null
     let barsAgo = null;
     let prevAbove = null;
@@ -1387,11 +1389,12 @@ async function runMAComputed(ticker){
     const curS50  = smaN(closes, 50,  n-1);
     const curS200 = smaN(closes, 200, n-1);
     const currentlyAbove = curS50 !== null && curS200 !== null && curS50 > curS200;
+    const spreadPct = curS50 && curS200 ? Math.abs(curS50 - curS200) / curS200 * 100 : 0;
 
     // Score: Golden cross or currently above = bullish; Death cross or currently below = bearish
     // Recency of cross matters — recent cross is stronger signal
     let score, detail;
-    const STALE = 30; // bars
+    const STALE = 60; // bars before a cross becomes "old news"
 
     if(crossType === 'golden'){
       const fresh = barsAgo <= STALE ? Math.max(0, 1 - barsAgo/STALE) : 0;
@@ -1402,11 +1405,13 @@ async function runMAComputed(ticker){
       score = Math.round(28 - fresh * 18);  // 10–28
       detail = `Death Cross · ${barsAgo}b ago`;
     } else {
-      // No recent cross — score by current position
+      // No recent cross — grade by SMA spread (wider = stronger trend)
       if(currentlyAbove){
-        score = 68; detail = 'SMA50 > SMA200 (no recent cross)';
+        score = spreadPct > 8 ? 75 : spreadPct > 4 ? 70 : 64;
+        detail = `SMA50 > SMA200 · spread ${spreadPct.toFixed(1)}%`;
       } else {
-        score = 32; detail = 'SMA50 < SMA200 (no recent cross)';
+        score = spreadPct > 8 ? 25 : spreadPct > 4 ? 30 : 36;
+        detail = `SMA50 < SMA200 · spread ${spreadPct.toFixed(1)}%`;
       }
     }
 
@@ -2276,7 +2281,8 @@ async function renderOrientationChart(ticker){
       }
       return result;
     }
-    const rsiVals = rsi(closes, 14);
+    // Compute RSI on full dataset for proper warmup, then slice to display window
+    const rsiVals = rsi(allCloses, 14).slice(-displayCount);
 
     // Destroy old charts
     if(orientCharts.price){ orientCharts.price.destroy(); delete orientCharts.price; }
