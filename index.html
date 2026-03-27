@@ -818,9 +818,17 @@ const MU_PRELOAD={
 // ═══ HELPERS ═══
 function getSig(v){return SIGS.find(s=>v>=s.min&&v<s.max)||SIGS[2];}
 function sbg(v){
-  if(v===50) return 'linear-gradient(to right,#d0d6e0 0%,#d0d6e0 100%)';
-  if(v<50){const p=v+'%';return`linear-gradient(to right,#cc2840 0%,#cc2840 ${p},#e8eaed ${p},#e8eaed 100%)`;}
-  else{const p=v+'%';return`linear-gradient(to right,#0a8a4e 0%,#0a8a4e ${p},#e8eaed ${p},#e8eaed 100%)`;}
+  // Center-origin fill: thumb at 50=center, bearish fills red leftward, bullish fills green rightward
+  if(v===50) return 'linear-gradient(to right,#e8eaed 0%,#e8eaed 100%)';
+  if(v<50){
+    // Bearish: red fills from thumb position to 50% (center), gray elsewhere
+    const p=v+'%';
+    return`linear-gradient(to right,#e8eaed 0%,#e8eaed ${p},#cc2840 ${p},#cc2840 50%,#e8eaed 50%,#e8eaed 100%)`;
+  } else {
+    // Bullish: green fills from 50% (center) to thumb position, gray elsewhere
+    const p=v+'%';
+    return`linear-gradient(to right,#e8eaed 0%,#e8eaed 50%,#0a8a4e 50%,#0a8a4e ${p},#e8eaed ${p},#e8eaed 100%)`;
+  }
 }
 function getAC(){return document.getElementById('asset-class').value;}
 function syncPriceLvl(){
