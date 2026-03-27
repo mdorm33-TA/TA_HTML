@@ -2008,9 +2008,9 @@ async function runCandleSignalComputed(ticker){
     const avgVol = bars.slice(n-20).reduce((s,b)=>s+b.v,0)/20;
 
     // Detect uptrend / downtrend context (5-bar slope)
-    const slope5 = bars[n-1].c - bars[n-6].c;
-    const priceRange5High = Math.max(...bars.slice(n-6,n).map(b=>b.h));
-    const priceRange5Low  = Math.min(...bars.slice(n-6,n).map(b=>b.l));
+    const slope5 = n >= 7 ? bars[n-1].c - bars[n-6].c : 0;
+    const priceRange5High = Math.max(...bars.slice(Math.max(0,n-6),n).map(b=>b.h));
+    const priceRange5Low  = Math.min(...bars.slice(Math.max(0,n-6),n).map(b=>b.l));
 
     for(let i = n - LOOKBACK; i < n; i++){
       const bar = bars[i];
@@ -2045,18 +2045,9 @@ async function runCandleSignalComputed(ticker){
         if(aboveSMA200)  strength -= 5;
         if(confirmed)    strength -= 7;
         strength = Math.max(10, strength);
-        if(!bestSignal || barsAgo < bestSignal.barsAgo || strength < bestSignal.score){
-          bestSignal = {
-            type:'Topping Tail',
-            score: Math.round(strength),
-            barsAgo,
-            confirmed: confirmed === null ? 'today' : confirmed ? 'yes' : 'unconfirmed',
-            detail:`upper wick ${(upperShadow/range*100).toFixed(0)}% of range`
-              + (nearResist ? ' · near resistance' : '')
-              + (isHighVol  ? ' · elevated vol'    : '')
-              + (afterUptrend ? ' · after uptrend'  : '')
-          };
-        }
+        const sig = {type:'Topping Tail', score:Math.round(strength), barsAgo, confirmed:confirmed===null?'today':confirmed?'yes':'unconfirmed',
+          detail:`upper wick ${(upperShadow/range*100).toFixed(0)}% of range`+(nearResist?' · near resistance':'')+(isHighVol?' · elevated vol':'')+(afterUptrend?' · after uptrend':'')};
+        if(!bestSignal || barsAgo < bestSignal.barsAgo || (barsAgo===bestSignal.barsAgo && Math.abs(sig.score-50) > Math.abs(bestSignal.score-50))) bestSignal=sig;
       }
 
       // ── BOTTOMING TAIL (Hammer) ──
@@ -2077,18 +2068,9 @@ async function runCandleSignalComputed(ticker){
         if(belowSMA200)    strength += 5;
         if(confirmed)      strength += 7;
         strength = Math.min(90, strength);
-        if(!bestSignal || barsAgo < bestSignal.barsAgo || Math.abs(strength-50) > Math.abs(bestSignal.score-50)){
-          bestSignal = {
-            type:'Bottoming Tail',
-            score: Math.round(strength),
-            barsAgo,
-            confirmed: confirmed === null ? 'today' : confirmed ? 'yes' : 'unconfirmed',
-            detail:`lower wick ${(lowerShadow/range*100).toFixed(0)}% of range`
-              + (nearSupport ? ' · near support' : '')
-              + (isHighVol   ? ' · elevated vol'  : '')
-              + (afterDowntrend ? ' · after downtrend' : '')
-          };
-        }
+        const sig2 = {type:'Bottoming Tail', score:Math.round(strength), barsAgo, confirmed:confirmed===null?'today':confirmed?'yes':'unconfirmed',
+          detail:`lower wick ${(lowerShadow/range*100).toFixed(0)}% of range`+(nearSupport?' · near support':'')+(isHighVol?' · elevated vol':'')+(afterDowntrend?' · after downtrend':'')};
+        if(!bestSignal || barsAgo < bestSignal.barsAgo || (barsAgo===bestSignal.barsAgo && Math.abs(sig2.score-50) > Math.abs(bestSignal.score-50))) bestSignal=sig2;
       }
 
       // ── BULLISH ENGULFING ──
@@ -2105,15 +2087,9 @@ async function runCandleSignalComputed(ticker){
           if(slope5 < 0) strength += 7; // reversal from downtrend
           if(bar.c > sma200) strength -= 5; // above SMA200 weakens reversal case
           strength = Math.min(90, Math.round(strength));
-          if(!bestSignal || barsAgo < bestSignal.barsAgo || strength > bestSignal.score){
-            bestSignal = {
-              type:'Bullish Engulfing',
-              score: strength,
-              barsAgo,
-              confirmed: null,
-              detail:'engulfs prior bearish bar'+(isHighVol?' · high vol':'')
-            };
-          }
+          const sig3 = {type:'Bullish Engulfing', score:strength, barsAgo, confirmed:null,
+            detail:'engulfs prior bearish bar'+(isHighVol?' · high vol':'')};
+          if(!bestSignal || barsAgo < bestSignal.barsAgo || (barsAgo===bestSignal.barsAgo && Math.abs(sig3.score-50) > Math.abs(bestSignal.score-50))) bestSignal=sig3;
         }
 
         // ── BEARISH ENGULFING ──
@@ -2128,15 +2104,9 @@ async function runCandleSignalComputed(ticker){
           if(slope5 > 0) strength -= 7; // reversal from uptrend
           if(bar.c < sma200) strength += 5;
           strength = Math.max(10, Math.round(strength));
-          if(!bestSignal || barsAgo < bestSignal.barsAgo || strength < bestSignal.score){
-            bestSignal = {
-              type:'Bearish Engulfing',
-              score: strength,
-              barsAgo,
-              confirmed: null,
-              detail:'engulfs prior bullish bar'+(isHighVol?' · high vol':'')
-            };
-          }
+          const sig4 = {type:'Bearish Engulfing', score:strength, barsAgo, confirmed:null,
+            detail:'engulfs prior bullish bar'+(isHighVol?' · high vol':'')};
+          if(!bestSignal || barsAgo < bestSignal.barsAgo || (barsAgo===bestSignal.barsAgo && Math.abs(sig4.score-50) > Math.abs(bestSignal.score-50))) bestSignal=sig4;
         }
       }
     }
@@ -3098,10 +3068,9 @@ Return ONLY the JSON object.`;
     if(!window._lastSymbolName){
       setTimeout(()=>{
         if(window._lastSymbolName){
-          const _cn2=` · ${window._lastSymbolName}`;
           const cur=document.getElementById('stext');
-          if(cur && cur.textContent.includes('live web search populated') && !cur.textContent.includes(' · ')){
-            cur.innerHTML=`<span class="sticker">${parsed.ticker}</span>${_cn2} — live web search populated · $${cleanPrice} · ${nowStamp()}`;
+          if(cur && cur.textContent.includes('live web search populated')){
+            cur.innerHTML=`<span class="sticker">${parsed.ticker}</span> · ${window._lastSymbolName} — live web search populated · $${cleanPrice} · ${nowStamp()}`;
           }
         }
       }, 3000);
