@@ -2300,19 +2300,19 @@ async function renderOrientationChart(ticker){
     // Quick Volume Profile for price chart annotations (252-bar lookback)
     const vpBars = allBars.slice(Math.max(0, allBars.length-252));
     const vpMn = Math.min(...vpBars.map(b=>b.l)), vpMx = Math.max(...vpBars.map(b=>b.h));
-    const vpStep = (vpMx - vpMn) / 24;
+    const vpStep = vpMx > vpMn ? (vpMx - vpMn) / 24 : 0;
     const vpVols = Array(24).fill(0);
-    vpBars.forEach(b=>{ const idx=Math.min(Math.floor((b.c-vpMn)/vpStep),23); vpVols[idx]+=b.v; });
+    if(vpStep > 0) vpBars.forEach(b=>{ const idx=Math.min(Math.floor((b.c-vpMn)/vpStep),23); vpVols[idx]+=b.v; });
     const vpPocIdx = vpVols.indexOf(Math.max(...vpVols));
-    const vpPoc = vpMn+(vpPocIdx+0.5)*vpStep;
+    const vpPoc = vpStep > 0 ? vpMn+(vpPocIdx+0.5)*vpStep : null;
     const vpTotalVol = vpVols.reduce((s,v)=>s+v,0);
     let vpVaVol=vpVols[vpPocIdx], vpLo=vpPocIdx, vpHi=vpPocIdx;
     while(vpVaVol<vpTotalVol*0.70&&(vpLo>0||vpHi<23)){
       const aL=vpLo>0?vpVols[vpLo-1]:0, aH=vpHi<23?vpVols[vpHi+1]:0;
       if(aH>=aL){vpHi++;vpVaVol+=aH;}else{vpLo--;vpVaVol+=aL;}
     }
-    const vpVAH = vpMn+(vpHi+1)*vpStep;
-    const vpVAL = vpMn+vpLo*vpStep;
+    const vpVAH = vpStep > 0 ? vpMn+(vpHi+1)*vpStep : null;
+    const vpVAL = vpStep > 0 ? vpMn+vpLo*vpStep : null;
 
     // Price chart
     const pCtx = document.getElementById('orientPriceChart').getContext('2d');
@@ -2330,9 +2330,9 @@ async function renderOrientationChart(ticker){
           legend:{display:true,position:'top',labels:{boxWidth:20,font:{size:10},color:'#546070'}},
           tooltip:{enabled:true},
           annotation:{annotations:{
-            vah:{type:'line',yMin:vpVAH,yMax:vpVAH,borderColor:'rgba(26,111,212,0.5)',borderWidth:1,borderDash:[4,3],label:{content:'VAH',display:true,position:'end',font:{size:8},color:'rgba(26,111,212,0.8)',backgroundColor:'transparent',padding:2}},
-            val:{type:'line',yMin:vpVAL,yMax:vpVAL,borderColor:'rgba(10,138,78,0.5)',borderWidth:1,borderDash:[4,3],label:{content:'VAL',display:true,position:'end',font:{size:8},color:'rgba(10,138,78,0.8)',backgroundColor:'transparent',padding:2}},
-            poc:{type:'line',yMin:vpPoc,yMax:vpPoc,borderColor:'rgba(240,180,41,0.5)',borderWidth:1,borderDash:[2,3],label:{content:'POC',display:true,position:'end',font:{size:8},color:'rgba(240,180,41,0.9)',backgroundColor:'transparent',padding:2}},
+            ...(vpVAH!=null?{vah:{type:'line',yMin:vpVAH,yMax:vpVAH,borderColor:'rgba(26,111,212,0.5)',borderWidth:1,borderDash:[4,3],label:{content:'VAH',display:true,position:'end',font:{size:8},color:'rgba(26,111,212,0.8)',backgroundColor:'transparent',padding:2}}}:{}),
+            ...(vpVAL!=null?{val:{type:'line',yMin:vpVAL,yMax:vpVAL,borderColor:'rgba(10,138,78,0.5)',borderWidth:1,borderDash:[4,3],label:{content:'VAL',display:true,position:'end',font:{size:8},color:'rgba(10,138,78,0.8)',backgroundColor:'transparent',padding:2}}}:{}),
+            ...(vpPoc!=null?{poc:{type:'line',yMin:vpPoc,yMax:vpPoc,borderColor:'rgba(240,180,41,0.5)',borderWidth:1,borderDash:[2,3],label:{content:'POC',display:true,position:'end',font:{size:8},color:'rgba(240,180,41,0.9)',backgroundColor:'transparent',padding:2}}}:{}),
           }}
         },
         scales:{
