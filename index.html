@@ -166,6 +166,36 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15
 .confl-strength{font-family:var(--mono);font-size:9px;padding:1px 5px;border-radius:2px;flex-shrink:0;margin-top:2px;}
 .confl-strength.strong{background:#0a8a4e22;color:var(--bull);}
 .confl-strength.moderate{background:#4dd9a022;color:#22b87a;}
+
+/* ── FALLING KNIFE ALERT ── */
+.knife-card{background:linear-gradient(145deg,#1a0a2e 0%,#120820 100%);border:2px solid #a855f7;border-radius:12px;padding:16px;display:none;box-shadow:0 2px 12px rgba(168,85,247,.2),0 0 20px rgba(168,85,247,.08);position:relative;overflow:hidden;}
+.knife-card::before{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:conic-gradient(from 0deg,transparent,rgba(168,85,247,.06),transparent,rgba(168,85,247,.06),transparent);animation:knifeGlow 6s linear infinite;}
+@keyframes knifeGlow{to{transform:rotate(360deg);}}
+.knife-card.active{display:block;}
+.knife-hdr{display:flex;align-items:center;gap:10px;margin-bottom:10px;position:relative;z-index:1;}
+.knife-icon{font-size:22px;filter:drop-shadow(0 0 6px rgba(168,85,247,.5));}
+.knife-title{font-family:var(--mono);font-size:13px;font-weight:700;color:#d8b4fe;letter-spacing:.08em;text-transform:uppercase;text-shadow:0 0 10px rgba(168,85,247,.3);}
+.knife-body{position:relative;z-index:1;}
+.knife-desc{font-family:var(--sans);font-size:12px;color:#c4b5fd;line-height:1.6;margin-bottom:10px;}
+.knife-desc strong{color:#e9d5ff;font-weight:600;}
+.knife-signals{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+.knife-sig{font-family:var(--mono);font-size:10px;padding:3px 8px;border-radius:4px;border:1px solid #7c3aed44;}
+.knife-sig.bull{background:#22c55e18;color:#4ade80;border-color:#22c55e44;}
+.knife-sig.bear{background:#ef444418;color:#f87171;border-color:#ef444444;}
+.knife-sig.neu{background:#a855f718;color:#c084fc;border-color:#a855f744;}
+.knife-context{font-family:var(--mono);font-size:10px;color:#8b5cf6;padding:8px 10px;background:#1e1035;border-radius:6px;border:1px solid #7c3aed30;line-height:1.6;}
+.knife-context strong{color:#c4b5fd;}
+/* Light mode override */
+body:not(.dark-mode) .knife-card{background:linear-gradient(145deg,#faf5ff 0%,#f3e8ff 100%);border-color:#a855f7;box-shadow:0 2px 12px rgba(168,85,247,.12);}
+body:not(.dark-mode) .knife-card::before{background:none;}
+body:not(.dark-mode) .knife-title{color:#7c3aed;text-shadow:none;}
+body:not(.dark-mode) .knife-desc{color:#5b21b6;}
+body:not(.dark-mode) .knife-desc strong{color:#4c1d95;}
+body:not(.dark-mode) .knife-sig.bull{background:#0a8a4e14;color:#0a8a4e;border-color:#0a8a4e44;}
+body:not(.dark-mode) .knife-sig.bear{background:#cc284014;color:#cc2840;border-color:#cc284044;}
+body:not(.dark-mode) .knife-sig.neu{background:#7c3aed14;color:#7c3aed;border-color:#7c3aed44;}
+body:not(.dark-mode) .knife-context{background:#f5f0ff;border-color:#c4b5fd;color:#5b21b6;}
+body:not(.dark-mode) .knife-context strong{color:#4c1d95;}
 .conflict-item{display:flex;align-items:flex-start;gap:7px;padding:5px 0;border-bottom:1px solid var(--border);}
 .conflict-item:last-child{border-bottom:none;}
 .ci-icon{font-size:13px;flex-shrink:0;margin-top:1px;}
@@ -544,6 +574,19 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15
         <div class="bw">Weight: <span>20%</span></div>
       </div>
       <div id="bucket-low"></div>
+    </div>
+
+    <!-- FALLING KNIFE ALERT -->
+    <div class="knife-card" id="knife-card">
+      <div class="knife-hdr">
+        <span class="knife-icon">🔪</span>
+        <span class="knife-title">Falling Knife Alert</span>
+      </div>
+      <div class="knife-body">
+        <div class="knife-desc" id="knife-desc"></div>
+        <div class="knife-signals" id="knife-signals"></div>
+        <div class="knife-context" id="knife-context"></div>
+      </div>
     </div>
 
     <!-- CONFLICT DETECTOR -->
@@ -3051,7 +3094,7 @@ function recalc(){
   const mean=scores.reduce((s,v)=>s+v,0)/scores.length;
   const variance=scores.reduce((s,v)=>s+(v-mean)**2,0)/scores.length;
   const dispersion=Math.sqrt(variance); // 0=perfect agreement, ~25=typical, ~35=high conflict
-  drawGauge(t,dispersion); updBD(bs,t); updWB(); detectConflicts();
+  drawGauge(t,dispersion); updBD(bs,t); updWB(); detectConflicts(); detectFallingKnife();
 }
 function sCol(s){if(s>=70)return'#00d97e';if(s>=60)return'#4dd9a0';if(s>=55)return'#a0cfb8';if(s>=45)return'#f0b429';if(s>=40)return'#ff9a7c';if(s>=30)return'#ff7c8a';return'#ff4560';}
 function verd(s){
@@ -3156,6 +3199,104 @@ function detectConfluences(){
       <div class="confl-strength ${cf.strength}">${cf.strength.toUpperCase()}</div>`;
     list.appendChild(d);
   });
+}
+
+// ═══ FALLING KNIFE / BLOW-OFF TOP DETECTOR ═══
+function detectFallingKnife(){
+  const card = document.getElementById('knife-card');
+  const desc = document.getElementById('knife-desc');
+  const sigs = document.getElementById('knife-signals');
+  const ctx  = document.getElementById('knife-context');
+  if(!card) return;
+
+  const rsi      = vals.rsi_extreme ?? 50;
+  const demark   = vals.demark_seq ?? 50;
+  const demarkC  = vals.demark_combo ?? 50;
+  const candle   = vals.candle_signal ?? 50;
+  const sma200   = vals.sma_200 ?? 50;
+  const superT   = vals.supertrend ?? 50;
+  const adx      = vals.adx ?? 50;
+  const obv      = vals.obv ?? 50;
+  const boll     = vals.bollinger ?? 50;
+
+  // ── FALLING KNIFE (capitulation buy setup) ──
+  // Exhaustion indicators fire bullish WHILE candlestick is bearish (the capitulation candle)
+  // AND trend confirms we're in a downtrend
+  const rsiBullish       = rsi >= 65;          // RSI oversold → contrarian buy
+  const demarkBullish    = demark >= 62 || demarkC >= 62;  // DeMark exhaustion buy
+  const candleBearish    = candle <= 40;       // Bearish candle = the capitulation event
+  const trendBearish     = sma200 <= 40 || superT <= 35;   // Confirmed downtrend
+  const bollingerBullish = boll >= 60;         // Near/below lower band
+
+  // ── BLOW-OFF TOP (euphoria sell setup) ──
+  // Exhaustion indicators fire bearish WHILE candlestick is bullish (blow-off candle)
+  const rsiBearish       = rsi <= 35;
+  const demarkBearish    = demark <= 38 || demarkC <= 38;
+  const candleBullish    = candle >= 60;
+  const trendBullish     = sma200 >= 60 || superT >= 65;
+  const bollingerBearish = boll <= 40;
+
+  let alertType = null; // 'knife' | 'blowoff'
+  let strength = 0;     // count of confirming signals
+
+  // Falling Knife: need RSI + (DeMark OR Combo) + bearish candle + bearish trend
+  if(rsiBullish && demarkBullish && candleBearish && trendBearish){
+    alertType = 'knife';
+    strength = 2; // base: RSI + DeMark
+    if(bollingerBullish) strength++;  // Bollinger confirms oversold
+    if(adx >= 60 || adx <= 25) strength++; // ADX either strong trend or fading (both relevant)
+    if(obv >= 60) strength++;  // OBV bullish divergence (accumulation into selloff)
+  }
+
+  // Blow-Off Top: mirror
+  if(rsiBearish && demarkBearish && candleBullish && trendBullish){
+    alertType = 'blowoff';
+    strength = 2;
+    if(bollingerBearish) strength++;
+    if(adx >= 60 || adx <= 25) strength++;
+    if(obv <= 40) strength++;
+  }
+
+  if(!alertType){
+    card.classList.remove('active');
+    return;
+  }
+
+  card.classList.add('active');
+
+  const isKnife = alertType === 'knife';
+  const strengthLabel = strength >= 4 ? 'EXTREME' : strength >= 3 ? 'STRONG' : 'MODERATE';
+
+  // Build description
+  desc.innerHTML = isKnife
+    ? `<strong>Capitulation pattern detected.</strong> Multiple exhaustion indicators are firing BUY signals while a bearish candlestick pattern confirms the panic selling event. This is the signature of a potential capitulation bottom — the exact moment where sellers are most exhausted but fear is highest.`
+    : `<strong>Blow-off top pattern detected.</strong> Multiple exhaustion indicators are firing SELL signals while a bullish candlestick confirms the euphoria event. This is the signature of a potential blow-off top — the exact moment where buyers are most euphoric but the rally is exhausted.`;
+
+  // Build signal tags
+  sigs.innerHTML = '';
+  const addSig = (label, cls) => { sigs.innerHTML += `<span class="knife-sig ${cls}">${label}</span>`; };
+
+  if(isKnife){
+    addSig(`RSI Oversold (${rsi})`, 'bull');
+    addSig(`DeMark BUY (${Math.max(demark,demarkC)})`, 'bull');
+    addSig(`Bearish Candle (${candle})`, 'bear');
+    addSig(`Downtrend Confirmed`, 'bear');
+    if(bollingerBullish) addSig(`Bollinger Oversold (${boll})`, 'bull');
+    if(obv >= 60) addSig(`OBV Accumulation (${obv})`, 'bull');
+  } else {
+    addSig(`RSI Overbought (${rsi})`, 'bear');
+    addSig(`DeMark SELL (${Math.min(demark,demarkC)})`, 'bear');
+    addSig(`Bullish Candle (${candle})`, 'bull');
+    addSig(`Uptrend Confirmed`, 'bull');
+    if(bollingerBearish) addSig(`Bollinger Overbought (${boll})`, 'bear');
+    if(obv <= 40) addSig(`OBV Distribution (${obv})`, 'bear');
+  }
+  addSig(`Strength: ${strengthLabel}`, 'neu');
+
+  // Context box
+  ctx.innerHTML = isKnife
+    ? `<strong>⚠ Falling Knife Risk:</strong> Exhaustion signals do NOT guarantee a bottom. Confirm with: (1) volume spike on the capitulation candle, (2) next-day follow-through (close above prior day's high), (3) OBV divergence showing accumulation. Position sizing should be reduced — use 50% of normal size with a tight stop below the swing low.`
+    : `<strong>⚠ Blow-Off Top Risk:</strong> Exhaustion signals do NOT guarantee a top. Confirm with: (1) volume spike on the euphoria candle, (2) next-day reversal (close below prior day's low), (3) OBV divergence showing distribution. Consider scaling out rather than shorting — blow-off tops can extend further than expected.`;
 }
 
 // ═══ GAUGE ═══
@@ -3655,6 +3796,7 @@ function resetAll(){
   const tfBadge=document.getElementById('tf-badge');if(tfBadge){tfBadge.textContent=TF_PRESETS.position.label;}
   document.getElementById('conflict-card').classList.remove('has-conflicts');
   document.getElementById('confluence-card').classList.remove('has-confluences');
+  document.getElementById('knife-card').classList.remove('active');
   confluenceMultipliers = {};
   ['high','med','low'].forEach(b=>INDS[b].forEach(i=>{
     const row=document.getElementById('row-'+i.id);
@@ -3690,6 +3832,7 @@ function buildRpt(){
     indicators:ais.map(i=>({id:i.id,name:i.name,bucket:i.bkt,signal:vals[i.id],label:getSig(vals[i.id]).txt,notes:(document.getElementById('nt-'+i.id)||{}).value||''})),
     conflicts:conflictList,
     confluences:confluenceList,
+    fallingKnife: document.getElementById('knife-card')?.classList.contains('active') ? (document.getElementById('knife-desc')?.textContent?.includes('Capitulation') ? 'FALLING KNIFE' : 'BLOW-OFF TOP') : null,
     keyLevels:{r1:document.getElementById('r1').value,r2:document.getElementById('r2').value,s1:document.getElementById('s1').value,s2:document.getElementById('s2').value,stop:document.getElementById('stop').value,target:document.getElementById('target').value},
     fearGreed:fgVal!==null?{value:fgVal,sentiment:fgLbl(fgVal).t}:null,
     dividendNote:document.getElementById('div-note').value,
@@ -3708,6 +3851,7 @@ function copyReport(){
     'BUCKET SCORES',`  HIGH (50%) : ${d.bucketScores.high}`,`  MED  (30%) : ${d.bucketScores.med}`,`  LOW  (20%) : ${d.bucketScores.low}`];
   if(d.conflicts.length>0){lines.push('','⚠ CONFLICTS DETECTED',...d.conflicts.map(c=>`  • ${c}`));}
   if(d.confluences.length>0){lines.push('','🔒 CONFLUENCES CONFIRMED',...d.confluences.map(c=>`  • ${c}`));}
+  if(d.fallingKnife){lines.push('',`🔪 ${d.fallingKnife} ALERT ACTIVE`,'  Multiple exhaustion indicators firing against a bearish candlestick pattern.');}
   lines.push('','INDICATOR READINGS','────────────────────────────────────────',
     ...d.indicators.map(i=>{const ln=`[${i.bucket.padEnd(4)}] ${i.name.padEnd(22)} ${i.label.padEnd(16)} (${i.signal}/100)`;return i.notes?ln+`\n         ↳ ${i.notes}`:ln;}),
     '','KEY LEVELS',`  Resistance 1 : ${d.keyLevels.r1||'—'}`,`  Resistance 2 : ${d.keyLevels.r2||'—'}`,`  Support 1    : ${d.keyLevels.s1||'—'}`,`  Support 2    : ${d.keyLevels.s2||'—'}`,`  Stop         : ${d.keyLevels.stop||'—'}`,`  Target       : ${d.keyLevels.target||'—'}`,'');
