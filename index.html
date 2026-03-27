@@ -3159,8 +3159,8 @@ function mobTab(tab){
   if(tab==='ind'){document.getElementById('ind-panel').classList.add('mob-active');}
   else{
     document.getElementById('score-panel').classList.add('mob-active');
-    // Redraw gauge — canvas may have rendered while hidden
-    recalc();
+    // Redraw gauge — canvas renders blank when parent was display:none
+    requestAnimationFrame(()=>recalc());
   }
   document.querySelectorAll('.mob-tab').forEach((t,i)=>t.classList.toggle('active',i===(tab==='ind'?0:1)));
 }
