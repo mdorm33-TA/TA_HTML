@@ -213,7 +213,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15
 /* ── DIV NOTE ── */
 .dnwrap{padding:9px 11px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-top:4px;margin-bottom:10px;}
 .dnlbl{font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:3px;letter-spacing:.08em;text-transform:uppercase;}
-.dnta{width:100%;background:var(--surface3);border:1px solid var(--border);border-radius:4px;color:var(--text2);font-family:var(--sans);font-size:16px;padding:7px 10px;resize:vertical;min-height:55px;outline:none;}
+.dnta{width:100%;background:var(--surface3);border:1px solid var(--border);border-radius:4px;color:var(--text2);font-family:var(--sans);font-size:11px;padding:7px 10px;resize:vertical;min-height:55px;outline:none;}
 .dnta:focus{border-color:var(--accent);}
 
 /* ── ACTIONS ── */
@@ -1468,7 +1468,51 @@ async function runRSIComputed(ticker){
   }
 }
 
-// ═══ MACD WEEKLY — COMPUTED FROM OHLC ═══
+// ═══ SMA 200 TREND — COMPUTED FROM OHLC ═══
+async function runSMA200Computed(ticker){
+  const subEl = document.getElementById('sub-sma_200');
+  if(subEl) subEl.textContent = 'SMA 200 — computing…';
+  try{
+    const ohlc = await Promise.race([fetchOHLCForCharts(ticker), new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),15000))]);
+    if(!ohlc || ohlc.daily.length < 201) throw new Error('Insufficient bars (need 201+, got '+(ohlc?.daily?.length||0)+')');
+    const bars  = ohlc.daily;
+    const n     = bars.length;
+    const closes = bars.map(b => b.c);
+    // SMA 200 on full dataset
+    const sma200val = closes.slice(n-200).reduce((s,v)=>s+v,0) / 200;
+    const price     = closes[n-1];
+    const pctAbove  = (price - sma200val) / sma200val * 100;
+    // Also check SMA 50 relationship for context
+    const sma50val  = closes.slice(n-50).reduce((s,v)=>s+v,0) / 50;
+    let score, detail;
+    if(pctAbove > 15){
+      score = 85; detail = `${pctAbove.toFixed(1)}% above SMA200 ($${sma200val.toFixed(2)}) — extended bull`;
+    } else if(pctAbove > 5){
+      score = 75; detail = `${pctAbove.toFixed(1)}% above SMA200 ($${sma200val.toFixed(2)})`;
+    } else if(pctAbove > 1){
+      score = 65; detail = `${pctAbove.toFixed(1)}% above SMA200 ($${sma200val.toFixed(2)}) — near line`;
+    } else if(pctAbove >= -1){
+      score = 50; detail = `At SMA200 ($${sma200val.toFixed(2)}) — decision point`;
+    } else if(pctAbove >= -5){
+      score = 35; detail = `${Math.abs(pctAbove).toFixed(1)}% below SMA200 ($${sma200val.toFixed(2)}) — near line`;
+    } else if(pctAbove >= -15){
+      score = 25; detail = `${Math.abs(pctAbove).toFixed(1)}% below SMA200 ($${sma200val.toFixed(2)})`;
+    } else {
+      score = 15; detail = `${Math.abs(pctAbove).toFixed(1)}% below SMA200 ($${sma200val.toFixed(2)}) — extended bear`;
+    }
+    setSl('sma_200', score, true);
+    if(subEl) subEl.textContent = detail;
+    const noteEl = document.getElementById('nt-sma_200');
+    if(noteEl && !noteEl.value){
+      const vs50 = price > sma50val ? 'above' : 'below';
+      noteEl.value = `[Computed from ${n} bars] SMA200:$${sma200val.toFixed(2)} SMA50:$${sma50val.toFixed(2)} · Price ${vs50} SMA50 · ${detail}`;
+    }
+  } catch(err){
+    const s = document.getElementById('sub-sma_200');
+    if(s) s.textContent = 'Price vs. 200-day (div-adj)';
+    console.warn('SMA 200 computation failed:', err.message);
+  }
+}
 async function runMACDComputed(ticker){
   const subEl = document.getElementById('sub-macd_weekly');
   if(subEl) subEl.textContent = '12,26,9 weekly — computing…';
@@ -2654,6 +2698,8 @@ async function runAnalysis(){
   if(rsiSub) rsiSub.textContent='14-period — computing…';
   const macdSub = document.getElementById('sub-macd_weekly');
   if(macdSub) macdSub.textContent='12,26,9 weekly — computing…';
+  const sma200Sub = document.getElementById('sub-sma_200');
+  if(sma200Sub) sma200Sub.textContent='SMA 200 — computing…';
   const bollSub = document.getElementById('sub-bollinger');
   if(bollSub) bollSub.textContent='20-period 2σ — computing…';
   const obvSub = document.getElementById('sub-obv');
@@ -2779,6 +2825,7 @@ Return ONLY the JSON object.`;
     runDeMarkComputed(ticker);
     runMAComputed(ticker);
     runRSIComputed(ticker);
+    runSMA200Computed(ticker);
     runMACDComputed(ticker);
     runBollingerComputed(ticker);
     runOBVComputed(ticker);
