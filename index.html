@@ -1851,8 +1851,12 @@ async function runDeMarkComboComputed(ticker){
     } else if(activeSell >= 5){
       score = Math.round(50 - activeSell/9*8);
       detail = `Active SELL setup: bar ${activeSell}/9`;
+    } else if(activeBuy > 0){
+      score = 50; detail = `BUY setup counting: ${activeBuy}/9`;
+    } else if(activeSell > 0){
+      score = 50; detail = `SELL setup counting: ${activeSell}/9`;
     } else {
-      score = 50; detail = 'No active Combo signal';
+      score = 50; detail = 'No active Combo signal · score neutral';
     }
     setSl('demark_combo', score, true);
     if(subEl) subEl.textContent = detail;
@@ -2379,7 +2383,11 @@ async function renderOrientationChart(ticker){
     });
 
     const yrs = (bars.length/252).toFixed(1);
-    if(status) status.textContent = `${bars.length} bars (${yrs}yr) · ${lastClose >= (lastSMA200||0) ? '▲ above SMA200' : '▼ below SMA200'}`;
+    const pctVsSMA200 = lastSMA200 ? ((lastClose/lastSMA200 - 1)*100).toFixed(1) : null;
+    const lastRSI = rsiVals.filter(v=>v!==null).slice(-1)[0];
+    const rsiStr = lastRSI ? ` · RSI ${lastRSI.toFixed(0)}` : '';
+    const smaStr = pctVsSMA200 !== null ? ` · ${lastClose >= lastSMA200 ? '▲' : '▼'} SMA200 ${Math.abs(pctVsSMA200)}%` : '';
+    if(status) status.textContent = `${bars.length} bars (${yrs}yr)${smaStr}${rsiStr}`;
 
   } catch(err){
     if(status) status.textContent = 'Chart unavailable';
