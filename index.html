@@ -2346,8 +2346,10 @@ async function fetchOHLCForCharts(ticker){
   if(ohlcCache && ohlcCache.ticker === ticker) return ohlcCache;
   const fetchBars = async (interval, range) => {
     const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=${interval}&range=${range}`;
+    const yahoo2Url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=${interval}&range=${range}`;
     const proxies = [
       yahooUrl,
+      yahoo2Url,
       `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`,
       `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`,
       `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(yahooUrl)}`,
@@ -2976,6 +2978,8 @@ async function runAnalysis(){
   if(vpSub) vpSub.textContent='POC / VAH / VAL — computing…';
   const ichSub = document.getElementById('sub-ichimoku');
   if(ichSub) ichSub.textContent='Ichimoku — computing…';
+  const csSub = document.getElementById('sub-candle_signal');
+  if(csSub) csSub.textContent='Scanning for patterns…';
   // Reset orientation chart
   const os=document.getElementById('orient-status');
   if(os) os.textContent='Loading…';
