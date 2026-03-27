@@ -29,7 +29,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15
 .hdr-controls{display:flex;align-items:center;gap:10px;padding:7px 18px;flex-wrap:wrap;}
 .logo{font-family:var(--mono);font-size:30px;font-weight:700;color:var(--accent);letter-spacing:.04em;white-space:nowrap;}
 .hdr-logo-img{height:180px;width:auto;border-radius:6px;object-fit:contain;flex-shrink:0;}
-.logo-sub{font-size:9px;color:var(--text3);font-family:var(--mono);margin-top:2px;}.logo-subtitle{font-size:22px;font-weight:700;font-style:italic;color:var(--text2);font-family:var(--mono);margin-top:4px;letter-spacing:.03em;text-align:center;}
+.logo-sub{font-size:9px;color:var(--text3);font-family:var(--mono);margin-top:2px;}.logo-subtitle{font-size:22px;font-weight:700;font-style:italic;color:var(--text2);font-family:var(--mono);margin-top:4px;letter-spacing:.03em;text-align:center;width:100%;}
 .search-bar{display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;flex:1;min-width:0;}
 .search-bar input{background:none;border:none;color:var(--text);font-family:var(--mono);font-size:16px;font-weight:600;outline:none;width:85px;text-transform:uppercase;letter-spacing:.08em;}
 .search-bar input::placeholder{color:var(--text3);font-weight:400;}
@@ -358,7 +358,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15
   .hdr-controls{gap:6px;padding:6px 10px;flex-wrap:wrap;}
   .search-bar{max-width:100%;flex:1;}
   .hdr-logo-img{height:100px;}
-  .logo-subtitle{font-size:15px;}
+  .logo-subtitle{font-size:14px;letter-spacing:.01em;}
+  .logo{font-size:16px;text-align:center;width:100%;}
   .signal-slider{width:100%;min-width:80px;}
   .sw{flex:1;min-width:0;}
   .slbl{min-width:52px;font-size:11px;}
@@ -492,7 +493,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15
     <div class="bucket">
       <div class="bucket-hdr">
         <div class="bpill low">Low Confidence</div>
-        <span class="bdesc">DeMark Combo (computed)</span>
+        <span class="bdesc">DeMark Combo (computed) · Candlestick Signal (computed)</span>
         <div class="bw">Weight: <span>20%</span></div>
       </div>
       <div id="bucket-low"></div>
@@ -601,8 +602,6 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15
 
     </div><!-- /printable-scorecard -->
 
-/div>
-
     <div class="act-row">
       <div class="btn danger" onclick="resetAll()">Reset</div>
       <div class="btn" onclick="toggleExp()">JSON</div>
@@ -661,6 +660,7 @@ const TIPS = {
   supertrend:   {name:'SuperTrend', desc:'An ATR-based trend-following indicator that flips green (bullish) when price closes above the band and red (bearish) when price closes below. Adapts dynamically to volatility. Computed from real OHLC data using ATR(10) with 3.0 multiplier.'},
   anch_vwap:    {name:'Anchored VWAP ⚠ AI Estimate', desc:'Volume-Weighted Average Price anchored to a meaningful event (earnings, major swing low/high, breakout). The anchor point selection is a judgment call — cannot be determined algorithmically. Scored by AI estimate.'},
   demark_combo: {name:'DeMark Combo', desc:'TD Combo is a variation of DeMark Sequential using close[i] vs close[i-2] (vs Sequential\'s close[i-4]), activating more frequently. Computed from real OHLC data.'},
+  candle_signal: {name:'Candlestick Signal', desc:'Detects Topping Tails (Shooting Stars), Bottoming Tails (Hammers), and Engulfing patterns on daily bars. Topping Tails signal potential reversals after uptrends; Bottoming Tails after downtrends. Engulfing candles confirm directional momentum shifts. Stronger signals occur at key levels (VAH/VAL/SMA200) and on elevated volume.'},
   atr:          {name:'ATR Volatility',    desc:'Average True Range measures daily price volatility. HIGH ATR = wide swings, elevated risk, larger position sizing required. LOW ATR = tight range, potential for a volatility expansion. NOT a directional signal — score neutral unless volatility context is unusually high (bearish risk) or compressing (potential bullish breakout setup).'},
 };
 
@@ -680,7 +680,8 @@ const INDS={
     {id:'supertrend',  name:'SuperTrend',       sub:'ATR trend flip — computing…',      iW:1.1},
   ],
   low:[
-    {id:'demark_combo',name:'DeMark Combo',     sub:'TD Combo — computing…',            iW:0.8},
+    {id:'demark_combo',     name:'DeMark Combo',       sub:'TD Combo — computing…',              iW:0.8},
+    {id:'candle_signal',    name:'Candlestick Signal', sub:'Scanning for reversal patterns…',    iW:1.0},
   ]
 };
 
@@ -702,7 +703,7 @@ const BASELINE_BW={high:.50,med:.30,low:.20};
 const BASELINE_IW={
   vol_profile:1.4, sma_200:1.3,  sma_cross:1.1, rsi_extreme:1.2, demark_seq:1.0,
   macd_weekly:1.1, ichimoku:1.0, bollinger:0.9, obv:1.0, supertrend:1.1,
-  demark_combo:0.8
+  demark_combo:0.8, candle_signal:1.0
 };
 // Custom weights — start at baseline, user can modify
 let customBW={...BASELINE_BW};
@@ -719,7 +720,7 @@ const TF_PRESETS = {
     iw: {
       vol_profile:1.2, sma_200:0.8,  sma_cross:0.9,  rsi_extreme:1.5, demark_seq:1.4,
       macd_weekly:0.8, ichimoku:0.7,  bollinger:1.4,   obv:1.1, supertrend:1.3,
-      demark_combo:1.0,
+      demark_combo:1.0, candle_signal:1.2,
     }
   },
   position: {
@@ -729,7 +730,7 @@ const TF_PRESETS = {
     iw: {
       vol_profile:1.4, sma_200:1.3,  sma_cross:1.1,  rsi_extreme:1.2, demark_seq:1.0,
       macd_weekly:1.1, ichimoku:1.0,  bollinger:0.9,   obv:1.0, supertrend:1.1,
-      demark_combo:0.8,
+      demark_combo:0.8, candle_signal:1.0,
     }
   },
   intermediate: {
@@ -739,7 +740,7 @@ const TF_PRESETS = {
     iw: {
       vol_profile:1.5, sma_200:1.5,  sma_cross:1.3,  rsi_extreme:0.9, demark_seq:0.8,
       macd_weekly:1.2, ichimoku:1.3,  bollinger:0.7,   obv:1.1, supertrend:1.2,
-      demark_combo:0.7,
+      demark_combo:0.7, candle_signal:0.8,
     }
   },
   longterm: {
@@ -749,7 +750,7 @@ const TF_PRESETS = {
     iw: {
       vol_profile:1.4, sma_200:1.8,  sma_cross:1.5,  rsi_extreme:0.6, demark_seq:0.5,
       macd_weekly:1.0, ichimoku:1.4,  bollinger:0.5,   obv:1.2, supertrend:1.0,
-      demark_combo:0.6,
+      demark_combo:0.6, candle_signal:0.6,
     }
   }
 };
@@ -810,7 +811,7 @@ let vals={}, fgVal=null;
 // MU preload
 const MU_PRELOAD={
   ticker:'MU', price:'422.90',
-  indicators:{vol_profile:72,sma_200:62,sma_cross:68,rsi_extreme:47,demark_seq:62,macd_weekly:72,ichimoku:70,bollinger:52,obv:75,supertrend:65,demark_combo:58},
+  indicators:{vol_profile:72,sma_200:62,sma_cross:68,rsi_extreme:47,demark_seq:62,macd_weekly:72,ichimoku:70,bollinger:52,obv:75,supertrend:65,demark_combo:58,candle_signal:50},
   levels:{r1:'$455–$471',r2:'$503–$515',s1:'$395–$415',s2:'$375',stop:'$390',target:'$500–$525'},
   divNote:'MU ~0.13% TTM yield. Total return is price-driven. Div-adj SMA 200 ≈ price-only.'
 };
@@ -1985,6 +1986,181 @@ async function runLevelsComputed(ticker){
   }
 }
 
+// ═══ CANDLESTICK SIGNAL — COMPUTED FROM OHLC ═══
+async function runCandleSignalComputed(ticker){
+  const subEl = document.getElementById('sub-candle_signal');
+  if(subEl) subEl.textContent = 'Scanning for reversal patterns…';
+  try{
+    const ohlc = await Promise.race([fetchOHLCForCharts(ticker), new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),15000))]);
+    if(!ohlc || ohlc.daily.length < 10) throw new Error('Insufficient bars');
+    const bars = ohlc.daily;
+    const n = bars.length;
+    // Scan last 10 bars for reversal patterns
+    const LOOKBACK = Math.min(10, n - 1);
+    let bestSignal = null; // {type, score, barsAgo, confirmed, detail}
+
+    // Also need SMA200 and recent high for context
+    const sma200Bars = bars.slice(0, n);
+    const sma200 = sma200Bars.length >= 200
+      ? sma200Bars.slice(n-200).reduce((s,b)=>s+b.c,0)/200
+      : sma200Bars.reduce((s,b)=>s+b.c,0)/sma200Bars.length;
+    const avgVol = bars.slice(n-20).reduce((s,b)=>s+b.v,0)/20;
+
+    // Detect uptrend / downtrend context (5-bar slope)
+    const slope5 = bars[n-1].c - bars[n-6].c;
+    const priceRange5High = Math.max(...bars.slice(n-6,n).map(b=>b.h));
+    const priceRange5Low  = Math.min(...bars.slice(n-6,n).map(b=>b.l));
+
+    for(let i = n - LOOKBACK; i < n; i++){
+      const bar = bars[i];
+      const body = Math.abs(bar.c - bar.o);
+      const upperShadow = bar.h - Math.max(bar.c, bar.o);
+      const lowerShadow = Math.min(bar.c, bar.o) - bar.l;
+      const range = bar.h - bar.l;
+      if(range < 0.0001) continue; // doji/flat — skip
+
+      const barsAgo = n - 1 - i;
+      const isHighVol = bar.v > avgVol * 1.2;
+      // Confirmation: next bar closes beyond body
+      const confirmed = i < n-1
+        ? (bar.c > bar.o ? bars[i+1].c > bar.h : bars[i+1].c < bar.l) // simple next-bar break
+        : null; // can't know yet for today
+
+      // ── TOPPING TAIL (Shooting Star) ──
+      // Long upper wick, small body at bottom, after uptrend or near resistance
+      if(
+        upperShadow >= 2 * Math.max(body, 0.001) &&
+        lowerShadow <= body * 1.5 &&
+        upperShadow >= 0.55 * range
+      ){
+        const nearResist = Math.abs(bar.h - priceRange5High) / priceRange5High < 0.02;
+        const aboveSMA200 = bar.c > sma200;
+        const afterUptrend = slope5 > 0;
+        let strength = 50; // base neutral
+        // Topping → bearish signal → score below 50
+        if(afterUptrend) strength -= 15;
+        if(nearResist)   strength -= 10;
+        if(isHighVol)    strength -= 8;
+        if(aboveSMA200)  strength -= 5;
+        if(confirmed)    strength -= 7;
+        strength = Math.max(10, strength);
+        if(!bestSignal || barsAgo < bestSignal.barsAgo || strength < bestSignal.score){
+          bestSignal = {
+            type:'Topping Tail',
+            score: Math.round(strength),
+            barsAgo,
+            confirmed: confirmed === null ? 'today' : confirmed ? 'yes' : 'unconfirmed',
+            detail:`upper wick ${(upperShadow/range*100).toFixed(0)}% of range`
+              + (nearResist ? ' · near resistance' : '')
+              + (isHighVol  ? ' · elevated vol'    : '')
+              + (afterUptrend ? ' · after uptrend'  : '')
+          };
+        }
+      }
+
+      // ── BOTTOMING TAIL (Hammer) ──
+      // Long lower wick, small body at top, after downtrend or near support
+      if(
+        lowerShadow >= 2 * Math.max(body, 0.001) &&
+        upperShadow <= body * 1.5 &&
+        lowerShadow >= 0.55 * range
+      ){
+        const nearSupport = Math.abs(bar.l - priceRange5Low) / priceRange5Low < 0.02;
+        const belowSMA200 = bar.c < sma200;
+        const afterDowntrend = slope5 < 0;
+        let strength = 50;
+        // Bottoming → bullish signal → score above 50
+        if(afterDowntrend) strength += 15;
+        if(nearSupport)    strength += 10;
+        if(isHighVol)      strength += 8;
+        if(belowSMA200)    strength += 5;
+        if(confirmed)      strength += 7;
+        strength = Math.min(90, strength);
+        if(!bestSignal || barsAgo < bestSignal.barsAgo || Math.abs(strength-50) > Math.abs(bestSignal.score-50)){
+          bestSignal = {
+            type:'Bottoming Tail',
+            score: Math.round(strength),
+            barsAgo,
+            confirmed: confirmed === null ? 'today' : confirmed ? 'yes' : 'unconfirmed',
+            detail:`lower wick ${(lowerShadow/range*100).toFixed(0)}% of range`
+              + (nearSupport ? ' · near support' : '')
+              + (isHighVol   ? ' · elevated vol'  : '')
+              + (afterDowntrend ? ' · after downtrend' : '')
+          };
+        }
+      }
+
+      // ── BULLISH ENGULFING ──
+      if(i > 0){
+        const prev = bars[i-1];
+        if(
+          prev.c < prev.o &&            // prev bar bearish
+          bar.c > bar.o &&              // current bullish
+          bar.o < prev.c &&             // opens below prev close
+          bar.c > prev.o               // closes above prev open
+        ){
+          let strength = 65;
+          if(isHighVol) strength += 8;
+          if(slope5 < 0) strength += 7; // reversal from downtrend
+          if(bar.c > sma200) strength -= 5; // above SMA200 weakens reversal case
+          strength = Math.min(90, Math.round(strength));
+          if(!bestSignal || barsAgo < bestSignal.barsAgo || strength > bestSignal.score){
+            bestSignal = {
+              type:'Bullish Engulfing',
+              score: strength,
+              barsAgo,
+              confirmed: null,
+              detail:'engulfs prior bearish bar'+(isHighVol?' · high vol':'')
+            };
+          }
+        }
+
+        // ── BEARISH ENGULFING ──
+        if(
+          prev.c > prev.o &&            // prev bar bullish
+          bar.c < bar.o &&              // current bearish
+          bar.o > prev.c &&             // opens above prev close
+          bar.c < prev.o               // closes below prev open
+        ){
+          let strength = 35;
+          if(isHighVol) strength -= 8;
+          if(slope5 > 0) strength -= 7; // reversal from uptrend
+          if(bar.c < sma200) strength += 5;
+          strength = Math.max(10, Math.round(strength));
+          if(!bestSignal || barsAgo < bestSignal.barsAgo || strength < bestSignal.score){
+            bestSignal = {
+              type:'Bearish Engulfing',
+              score: strength,
+              barsAgo,
+              confirmed: null,
+              detail:'engulfs prior bullish bar'+(isHighVol?' · high vol':'')
+            };
+          }
+        }
+      }
+    }
+
+    if(bestSignal){
+      setSl('candle_signal', bestSignal.score, true);
+      const ago = bestSignal.barsAgo === 0 ? 'today' : `${bestSignal.barsAgo}d ago`;
+      const conf = bestSignal.confirmed && bestSignal.confirmed !== 'today'
+        ? ` · ${bestSignal.confirmed}` : '';
+      if(subEl) subEl.textContent = `${bestSignal.type} ${ago}${conf} — ${bestSignal.detail}`;
+      const noteEl = document.getElementById('nt-candle_signal');
+      if(noteEl && !noteEl.value){
+        noteEl.value = `[Computed] ${bestSignal.type} ${ago} · Score:${bestSignal.score} · ${bestSignal.detail}`;
+      }
+    } else {
+      setSl('candle_signal', 50, true);
+      if(subEl) subEl.textContent = 'No topping/bottoming tail or engulfing pattern detected (last 10 bars)';
+    }
+  } catch(err){
+    const s = document.getElementById('sub-candle_signal');
+    if(s) s.textContent = 'Candlestick scan unavailable';
+    console.warn('CandleSignal computation failed:', err.message);
+  }
+}
+
 // ═══ ICHIMOKU CLOUD — COMPUTED FROM OHLC ═══
 async function runIchimokuComputed(ticker){
   const subEl = document.getElementById('sub-ichimoku');
@@ -2940,6 +3116,7 @@ Return ONLY the JSON object.`;
     runDeMarkComboComputed(ticker);
     runVolProfileComputed(ticker);
     runIchimokuComputed(ticker);
+    runCandleSignalComputed(ticker);
     // Compute key price levels from OHLC (fills empty fields only — won't overwrite AI or manual values)
     runLevelsComputed(ticker);
     // Render orientation chart at top of indicators panel
