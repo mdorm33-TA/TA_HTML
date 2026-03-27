@@ -361,6 +361,14 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15
   .logo-subtitle{font-size:14px;letter-spacing:.01em;}
   .logo{font-size:16px;text-align:center;width:100%;white-space:normal;}
   .logo-sub{display:none;}
+  .verdict-bar{padding:8px 10px;gap:8px;flex-wrap:wrap;}
+  .vbar-score{font-size:22px;}
+  .vbar-verdict{font-size:14px;}
+  .vbar-conf{font-size:10px;}
+  .vbar-buckets{margin-left:0;gap:8px;}
+  .vbar-divider{height:24px;}
+  .stext{font-size:12px;}
+  .sbar{padding:5px 10px;font-size:11px;}
   .signal-slider{width:100%;min-width:80px;}
   .sw{flex:1;min-width:0;}
   .slbl{min-width:52px;font-size:11px;}
@@ -3149,7 +3157,11 @@ function mobTab(tab){
   document.getElementById('ind-panel').style.display='';
   document.getElementById('score-panel').style.display='';
   if(tab==='ind'){document.getElementById('ind-panel').classList.add('mob-active');}
-  else{document.getElementById('score-panel').classList.add('mob-active');}
+  else{
+    document.getElementById('score-panel').classList.add('mob-active');
+    // Redraw gauge — canvas may have rendered while hidden
+    recalc();
+  }
   document.querySelectorAll('.mob-tab').forEach((t,i)=>t.classList.toggle('active',i===(tab==='ind'?0:1)));
 }
 
@@ -3201,7 +3213,7 @@ function toggleExp(){const el=document.getElementById('exp-out');if(el.classList
 
 function copyReport(){
   const d=buildRpt();
-  const lines=['════════════════════════════════════════','TA WEIGHTED SCORE REPORT v4','════════════════════════════════════════',
+  const lines=['════════════════════════════════════════','TA WEIGHTED SCORE REPORT v5','════════════════════════════════════════',
     `Symbol     : ${d.meta.ticker}`,`Asset Class: ${d.meta.assetClass.toUpperCase()}`,`Price      : ${d.meta.price}`,`Run Date   : ${d.meta.runDate}`,
     `F&G Index  : ${d.fearGreed?d.fearGreed.value+'/100 ('+d.fearGreed.sentiment+')':'not loaded'}`,'',
     `WEIGHTED SCORE : ${d.weightedScore} / 100`,`VERDICT        : ${d.verdict}`,`CONFIDENCE     : ${d.confidence}`,'',
@@ -3229,7 +3241,7 @@ async function exportPDF(){
     // Header
     doc.setFillColor(26,109,212); doc.rect(0,0,W,28,'F');
     doc.setTextColor(76,142,247); doc.setFontSize(14); doc.setFont('courier','bold');
-    doc.text('TA·WEIGHT v4 — SCORECARD',margin,12);
+    doc.text('TA·WEIGHT v5 — SCORECARD',margin,12);
     doc.setTextColor(68,82,106); doc.setFontSize(8); doc.setFont('courier','normal');
     doc.text(`${d.meta.ticker} · ${d.meta.assetClass.toUpperCase()} · ${d.meta.price} · ${d.meta.runDate}`,margin,20);
     y=36;
@@ -3318,7 +3330,7 @@ async function exportPDF(){
     // Footer
     doc.setFillColor(26,109,212); doc.rect(0,285,W,12,'F');
     doc.setTextColor(68,82,106); doc.setFontSize(7); doc.setFont('courier','normal');
-    doc.text('TA·WEIGHT v4 · Generated: '+d.meta.generated,margin,292);
+    doc.text('TA·WEIGHT v5 · Generated: '+d.meta.generated,margin,292);
     doc.text('Page 1',W-margin,292,{align:'right'});
 
     doc.save(`TA_${d.meta.ticker}_${new Date().toISOString().slice(0,10)}.pdf`);
