@@ -213,7 +213,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15
 /* ── DIV NOTE ── */
 .dnwrap{padding:9px 11px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-top:4px;margin-bottom:10px;}
 .dnlbl{font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:3px;letter-spacing:.08em;text-transform:uppercase;}
-.dnta{width:100%;background:var(--surface3);border:1px solid var(--border);border-radius:4px;color:var(--text2);font-family:var(--sans);font-size:11px;padding:7px 10px;resize:vertical;min-height:55px;outline:none;}
+.dnta{width:100%;background:var(--surface3);border:1px solid var(--border);border-radius:4px;color:var(--text2);font-family:var(--sans);font-size:13px;padding:7px 10px;resize:vertical;min-height:55px;outline:none;}
 .dnta:focus{border-color:var(--accent);}
 
 /* ── ACTIONS ── */
@@ -473,7 +473,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15
     <div class="bucket">
       <div class="bucket-hdr">
         <div class="bpill med">Medium Confidence</div>
-        <span class="bdesc">MACD Wkly · Ichimoku · Fibonacci · Bollinger · OBV · SuperTrend · Anch.VWAP</span>
+        <span class="bdesc">MACD Wkly · Ichimoku · Bollinger · OBV · SuperTrend (all computed)</span>
         <div class="bw">Weight: <span>30%</span></div>
       </div>
       <div id="bucket-med"></div>
@@ -482,7 +482,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15
     <div class="bucket">
       <div class="bucket-hdr">
         <div class="bpill low">Low Confidence</div>
-        <span class="bdesc">Elliott Wave (estimate) · DeMark Combo (estimate)</span>
+        <span class="bdesc">DeMark Combo (computed)</span>
         <div class="bw">Weight: <span>20%</span></div>
       </div>
       <div id="bucket-low"></div>
@@ -510,7 +510,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15
     </div>
 
     <div class="dnwrap">
-      <div class="dnlbl" style="font-size:18px;font-weight:700;color:var(--text);">Dividend / Total Return Note</div>
+      <div class="dnlbl" style="font-size:10px;font-weight:600;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;">Dividend / Total Return Note</div>
       <textarea class="dnta" id="div-note" placeholder="e.g. AMLP: ~8.2% yield adds total return floor. Div-adj SMA 200 ~$44 vs price-only $47."></textarea>
     </div>
 
