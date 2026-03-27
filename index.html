@@ -1323,7 +1323,7 @@ async function runDeMarkComputed(ticker){
 
     // Update sub-label with signal detail
     if(subEl){
-      let detail = 'TD 9/13 — computed';
+      let detail;
       if(result.lastCd && result.barsSinceCd<=15)
         detail = `CD13 ${result.lastCd.toUpperCase()} · ${result.barsSinceCd}b ago`;
       else if(result.lastSetup && result.barsSinceSetup<=20)
@@ -1332,6 +1332,12 @@ async function runDeMarkComputed(ticker){
         detail = `Active BUY setup ${result.activeBuyC}/9`;
       else if(result.activeSellC>=5)
         detail = `Active SELL setup ${result.activeSellC}/9`;
+      else if(result.activeBuyC>0)
+        detail = `BUY setup counting: ${result.activeBuyC}/9`;
+      else if(result.activeSellC>0)
+        detail = `SELL setup counting: ${result.activeSellC}/9`;
+      else
+        detail = 'No active signal · score neutral';
       subEl.textContent = detail;
     }
 
@@ -3158,6 +3164,7 @@ function stateToUrl(){
   const state={
     t:document.getElementById('ticker-input').value,
     ac:getAC(),
+    tf:getTF(),
     p:document.getElementById('price-val').textContent,
     v:Object.fromEntries(Object.entries(vals).map(([k,v])=>[k,v])),
     l:{r1:document.getElementById('r1').value,r2:document.getElementById('r2').value,s1:document.getElementById('s1').value,s2:document.getElementById('s2').value,stop:document.getElementById('stop').value,target:document.getElementById('target').value},
@@ -3176,6 +3183,7 @@ function loadFromUrl(){
     const state=JSON.parse(decodeURIComponent(atob(hash.slice(1))));
     if(state.t)document.getElementById('ticker-input').value=state.t;
     if(state.ac)document.getElementById('asset-class').value=state.ac;
+    if(state.tf){const sel=document.getElementById('timeframe-sel');if(sel)sel.value=state.tf;}
     if(state.p){document.getElementById('price-val').textContent=state.p;syncPriceLvl();}
     if(state.v)Object.entries(state.v).forEach(([id,v])=>setSl(id,v,false));
     if(state.l)['r1','r2','s1','s2','stop','target'].forEach(k=>{const el=document.getElementById(k);if(el&&state.l[k])el.value=state.l[k];});
@@ -3227,6 +3235,8 @@ function resetAll(){
   document.getElementById('fg-manual').value='';drawFGA(null);document.getElementById('price-val').textContent='—';
   customBW={...BASELINE_BW};
   ['high','med','low'].forEach(b=>INDS[b].forEach(i=>i.iW=BASELINE_IW[i.id]));
+  const tfSel=document.getElementById('timeframe-sel');if(tfSel)tfSel.value='position';
+  const tfBadge=document.getElementById('tf-badge');if(tfBadge){tfBadge.textContent=TF_PRESETS.position.label;}
   document.getElementById('conflict-card').classList.remove('has-conflicts');
   ['high','med','low'].forEach(b=>INDS[b].forEach(i=>document.getElementById('row-'+i.id)?.classList.remove('conflict-flag')));
   const dot=document.getElementById('sdot'),st=document.getElementById('stext');
@@ -3244,7 +3254,7 @@ function buildRpt(){
   const conflictList=[];
   CONFLICT_PAIRS.forEach(([a,b,desc])=>{if(Math.abs((vals[a]??50)-(vals[b]??50))>=CONFLICT_THRESH)conflictList.push(desc);});
   return{
-    meta:{ticker,price:document.getElementById('price-val').textContent,assetClass:getAC(),runDate:nowStamp(),generated:new Date().toISOString()},
+    meta:{ticker,price:document.getElementById('price-val').textContent,assetClass:getAC(),timeframe:TF_PRESETS[getTF()]?.label||'Position (1-3 mo)',runDate:nowStamp(),generated:new Date().toISOString()},
     weightedScore:Math.round(t*10)/10,verdict:v.l,confidence:v.c,
     bucketScores:{high:Math.round(bs.high*10)/10,med:Math.round(bs.med*10)/10,low:Math.round(bs.low*10)/10},
     indicators:ais.map(i=>({id:i.id,name:i.name,bucket:i.bkt,signal:vals[i.id],label:getSig(vals[i.id]).txt,notes:(document.getElementById('nt-'+i.id)||{}).value||''})),
@@ -3261,7 +3271,7 @@ function toggleExp(){const el=document.getElementById('exp-out');if(el.classList
 function copyReport(){
   const d=buildRpt();
   const lines=['════════════════════════════════════════','TA WEIGHTED SCORE REPORT v5','════════════════════════════════════════',
-    `Symbol     : ${d.meta.ticker}`,`Asset Class: ${d.meta.assetClass.toUpperCase()}`,`Price      : ${d.meta.price}`,`Run Date   : ${d.meta.runDate}`,
+    `Symbol     : ${d.meta.ticker}`,`Asset Class: ${d.meta.assetClass.toUpperCase()}`,`Timeframe  : ${d.meta.timeframe}`,`Price      : ${d.meta.price}`,`Run Date   : ${d.meta.runDate}`,
     `F&G Index  : ${d.fearGreed?d.fearGreed.value+'/100 ('+d.fearGreed.sentiment+')':'not loaded'}`,'',
     `WEIGHTED SCORE : ${d.weightedScore} / 100`,`VERDICT        : ${d.verdict}`,`CONFIDENCE     : ${d.confidence}`,'',
     'BUCKET SCORES',`  HIGH (50%) : ${d.bucketScores.high}`,`  MED  (30%) : ${d.bucketScores.med}`,`  LOW  (20%) : ${d.bucketScores.low}`];
@@ -3290,7 +3300,7 @@ async function exportPDF(){
     doc.setTextColor(76,142,247); doc.setFontSize(14); doc.setFont('courier','bold');
     doc.text('TA·WEIGHT v5 — SCORECARD',margin,12);
     doc.setTextColor(68,82,106); doc.setFontSize(8); doc.setFont('courier','normal');
-    doc.text(`${d.meta.ticker} · ${d.meta.assetClass.toUpperCase()} · ${d.meta.price} · ${d.meta.runDate}`,margin,20);
+    doc.text(`${d.meta.ticker} · ${d.meta.assetClass.toUpperCase()} · ${d.meta.timeframe} · ${d.meta.price} · ${d.meta.runDate}`,margin,20);
     y=36;
 
     // Score block
