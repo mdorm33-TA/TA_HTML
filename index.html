@@ -103,8 +103,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15
 .tip-box .tp-scale{font-family:var(--mono);font-size:10px;border-top:1px solid var(--border);padding-top:6px;}
 .tip-box .tp-row{display:flex;justify-content:space-between;margin-bottom:2px;}
 .tip-box .tv.bear{color:var(--bear);font-weight:500;} .tip-box .tv.bull{color:var(--bull);font-weight:500;} .tip-box .tv.neu{color:var(--neu);font-weight:500;}
-.sw{display:flex;align-items:center;gap:7px;justify-content:flex-start;}
-.signal-slider{-webkit-appearance:none;appearance:none;width:200px;height:5px;border-radius:2.5px;outline:none;cursor:pointer;flex-shrink:0;}
+.sw{display:flex;align-items:center;gap:7px;justify-content:flex-start;width:100%;}
+.signal-slider{-webkit-appearance:none;appearance:none;width:100%;max-width:200px;height:5px;border-radius:2.5px;outline:none;cursor:pointer;flex-shrink:1;}
 .signal-slider::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--text);border:2px solid var(--surface);box-shadow:0 0 0 1px var(--border2);cursor:pointer;transition:transform .1s;}
 .signal-slider::-webkit-slider-thumb:hover{transform:scale(1.25);}
 .slbl{font-family:var(--mono);font-size:12px;min-width:62px;text-align:right;white-space:nowrap;transition:color .15s;}
@@ -353,10 +353,20 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15
   .score-panel{position:static;height:auto;display:none;}
   .ind-panel.mob-active,.score-panel.mob-active{display:flex;flex-direction:column;}
   .score-panel.mob-active{padding-top:12px;}
-  .ind-row{grid-template-columns:160px 1fr 50px;}
-  .nrow{padding-left:170px;}
-  .hdr-controls{gap:6px;padding:6px 10px;}
-  .search-bar{max-width:100%;}
+  .ind-row{grid-template-columns:140px 1fr 44px;gap:4px;padding:5px 4px;}
+  .nrow{padding-left:0;padding-top:4px;}
+  .hdr-controls{gap:6px;padding:6px 10px;flex-wrap:wrap;}
+  .search-bar{max-width:100%;flex:1;}
+  .hdr-logo-img{height:100px;}
+  .logo-subtitle{font-size:15px;}
+  .signal-slider{width:100%;min-width:80px;}
+  .sw{flex:1;min-width:0;}
+  .slbl{min-width:52px;font-size:11px;}
+  .ind-name{font-size:13px;}
+  .iw{font-size:9px;min-width:34px;}
+  body{font-size:14px;}
+  .run-btn{padding:7px 12px;font-size:12px;}
+  .asel{font-size:12px;}
 }
 
 /* ── TIDE TABLE ── */
