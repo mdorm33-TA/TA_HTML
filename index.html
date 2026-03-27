@@ -1638,11 +1638,13 @@ async function runBollingerComputed(ticker){
     } else if(pctB >= 0.45 && pctB <= 0.55){
       score = 50; detail = `At midline (%B=${pctB.toFixed(2)})`;
     } else if(pctB > 0.55){
-      score = Math.round(50 + (pctB - 0.55) * 40);
-      detail = `Upper half (%B=${pctB.toFixed(2)})`;
+      // Upper half: approaching overbought — contrarian lean bearish (blend 50→22)
+      score = Math.round(50 - (pctB - 0.55) / 0.30 * 28);
+      detail = `Upper half (%B=${pctB.toFixed(2)}) — mild overbought`;
     } else {
-      score = Math.round(50 - (0.45 - pctB) * 40);
-      detail = `Lower half (%B=${pctB.toFixed(2)})`;
+      // Lower half: approaching oversold — contrarian lean bullish (blend 50→78)
+      score = Math.round(50 + (0.45 - pctB) / 0.30 * 28);
+      detail = `Lower half (%B=${pctB.toFixed(2)}) — mild oversold`;
     }
     setSl('bollinger', score, true);
     if(subEl) subEl.textContent = detail;
