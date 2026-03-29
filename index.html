@@ -737,6 +737,642 @@ body:not(.dark-mode) .knife-context strong{color:#4c1d95;}
 </div>
 
 <script>
+// ═══════════════════════════════════════════════════════════════
+//  TA·WEIGHT SCORING ENGINE — Shared Module (inlined)
+//  Single source of truth for all indicator computation & scoring.
+//  Used by: this HTML tool and the Alert Scanner (worker.js)
+//  All functions are pure: bars in → scores out. No DOM, no fetch.
+//  Bar format: { t, o, h, l, c, v }
+// ═══════════════════════════════════════════════════════════════
+
+// ─── HELPERS ─────────────────────────────────────────────────
+function emaCalc(data, period) {
+  const k = 2 / (period + 1);
+  const result = [];
+  let prev = null;
+  for (let i = 0; i < data.length; i++) {
+    if (i < period - 1) { result.push(null); continue; }
+    if (prev === null) {
+      prev = data.slice(0, period).reduce((s, v) => s + v, 0) / period;
+      result.push(prev);
+      continue;
+    }
+    prev = data[i] * k + prev * (1 - k);
+    result.push(prev);
+  }
+  return result;
+}
+function smaN(arr, period, idx) {
+  if (idx < period - 1) return null;
+  return arr.slice(idx - period + 1, idx + 1).reduce((s, v) => s + v, 0) / period;
+}
+function smaSlice(arr, period) {
+  const n = arr.length;
+  if (n < period) return null;
+  return arr.slice(n - period).reduce((s, v) => s + v, 0) / period;
+}
+
+// ─── RSI ─────────────────────────────────────────────────────
+function computeRSI(closes, period = 14) {
+  const n = closes.length;
+  if (n < period + 1) return { value: 50 };
+  let avgGain = 0, avgLoss = 0;
+  for (let i = 1; i <= period; i++) {
+    const diff = closes[i] - closes[i - 1];
+    if (diff >= 0) avgGain += diff; else avgLoss -= diff;
+  }
+  avgGain /= period; avgLoss /= period;
+  for (let i = period + 1; i < n; i++) {
+    const diff = closes[i] - closes[i - 1];
+    avgGain = (avgGain * (period - 1) + (diff >= 0 ? diff : 0)) / period;
+    avgLoss = (avgLoss * (period - 1) + (diff < 0 ? -diff : 0)) / period;
+  }
+  const value = avgLoss === 0 ? 100 : Math.round((100 - 100 / (1 + avgGain / avgLoss)) * 10) / 10;
+  return { value };
+}
+function scoreRSI(rsi) {
+  const v = rsi.value;
+  if (v >= 80) return 10;
+  if (v >= 70) return Math.round(25 - ((v - 70) / 10) * 15);
+  if (v <= 20) return 90;
+  if (v <= 30) return Math.round(75 + ((30 - v) / 10) * 15);
+  if (v > 65 && v < 70) return Math.round(50 - ((v - 65) / 5) * 25);
+  if (v > 30 && v < 35) return Math.round(50 + ((35 - v) / 5) * 25);
+  return 50;
+}
+
+// ─── SMA 200 ─────────────────────────────────────────────────
+function computeSMA200(closes) {
+  const n = closes.length;
+  if (n < 200) return null;
+  return closes.slice(n - 200).reduce((s, v) => s + v, 0) / 200;
+}
+function computeSMA(closes, period) {
+  const n = closes.length;
+  if (n < period) return null;
+  return closes.slice(n - period).reduce((s, v) => s + v, 0) / period;
+}
+function scoreSMA200(price, sma200, closes) {
+  if (!sma200) return 50;
+  const pct = (price - sma200) / sma200 * 100;
+  let score;
+  if (pct > 15) score = 85;
+  else if (pct > 5) score = 75;
+  else if (pct > 1) score = 65;
+  else if (pct >= -1) score = 50;
+  else if (pct >= -5) score = 35;
+  else if (pct >= -15) score = 25;
+  else score = 15;
+  if (closes && closes.length >= 210) {
+    const n = closes.length;
+    let recentCross = 0;
+    const startBar = Math.max(200, n - 11);
+    let smaSum = 0;
+    for (let j = startBar - 200; j < startBar; j++) smaSum += closes[j];
+    for (let i = startBar; i < n; i++) {
+      const prevSum = smaSum;
+      smaSum += closes[i] - closes[i - 200];
+      const prevAbove = closes[i - 1] > (prevSum / 200);
+      const currAbove = closes[i] > (smaSum / 200);
+      if (!prevAbove && currAbove) recentCross = 5;
+      if (prevAbove && !currAbove) recentCross = -5;
+    }
+    if (recentCross !== 0) score = Math.max(5, Math.min(95, score + recentCross));
+  }
+  return score;
+}
+
+// ─── MA CROSS 50/200 ────────────────────────────────────────
+function detectGoldenDeathCross(closes) {
+  const n = closes.length;
+  if (n < 210) return { type: null, barsAgo: null, spread: 0, sma50: null, sma200: null };
+  let sum50 = 0, sum200 = 0;
+  for (let i = 0; i < 200; i++) sum200 += closes[i];
+  for (let i = 150; i < 200; i++) sum50 += closes[i];
+  let crossType = null, barsAgo = null, prevAbove = null;
+  let curS50 = sum50 / 50, curS200 = sum200 / 200;
+  for (let i = 199; i < n; i++) {
+    if (i > 199) {
+      sum200 += closes[i] - closes[i - 200];
+      sum50 += closes[i] - closes[i - 50];
+      curS200 = sum200 / 200;
+      curS50 = sum50 / 50;
+    }
+    const above = curS50 > curS200;
+    if (prevAbove !== null && above !== prevAbove) {
+      crossType = above ? 'golden' : 'death';
+      barsAgo = n - 1 - i;
+    }
+    prevAbove = above;
+  }
+  const spread = curS50 && curS200 ? Math.abs(curS50 - curS200) / curS200 * 100 : 0;
+  return { type: crossType, barsAgo, spread: Math.round(spread * 10) / 10, sma50: curS50, sma200: curS200 };
+}
+function scoreSMACross(closes, sma50, sma200, precomputedCross) {
+  if (!sma50 || !sma200) return 50;
+  const cross = precomputedCross || detectGoldenDeathCross(closes);
+  const STALE = 60;
+  if (cross.type === 'golden' && cross.barsAgo !== null && cross.barsAgo <= STALE) {
+    const fresh = Math.max(0, 1 - cross.barsAgo / STALE);
+    return Math.round(72 + fresh * 18);
+  }
+  if (cross.type === 'death' && cross.barsAgo !== null && cross.barsAgo <= STALE) {
+    const fresh = Math.max(0, 1 - cross.barsAgo / STALE);
+    return Math.round(28 - fresh * 18);
+  }
+  const above = sma50 > sma200;
+  const spread = Math.abs(sma50 - sma200) / sma200 * 100;
+  if (above) return spread > 8 ? 75 : spread > 4 ? 70 : 64;
+  return spread > 8 ? 25 : spread > 4 ? 30 : 36;
+}
+
+// ─── BOLLINGER BANDS ─────────────────────────────────────────
+function computeBollinger(closes) {
+  const n = closes.length;
+  if (n < 20) return { pctB: 0.5, bandwidth: 0.05 };
+  const slice = closes.slice(n - 20);
+  const mean = slice.reduce((s, v) => s + v, 0) / 20;
+  const sd = Math.sqrt(slice.reduce((s, v) => s + (v - mean) ** 2, 0) / 20);
+  const upper = mean + 2 * sd, lower = mean - 2 * sd;
+  const pctB = (closes[n - 1] - lower) / (upper - lower);
+  const bandwidth = (upper - lower) / mean;
+  return { pctB, bandwidth, upper, lower, mean };
+}
+function scoreBollinger(boll, price, sma200) {
+  const { pctB, bandwidth } = boll;
+  const trendBull = sma200 && price > sma200 * 1.05;
+  const trendBear = sma200 && price < sma200 * 0.95;
+  if (bandwidth < 0.04) return 52;
+  if (pctB >= 1.0) return trendBull ? 40 : 12;
+  if (pctB >= 0.85) return trendBull ? 48 : 22;
+  if (pctB <= 0.0) return trendBear ? 60 : 88;
+  if (pctB <= 0.15) return trendBear ? 52 : 78;
+  if (pctB >= 0.45 && pctB <= 0.55) return 50;
+  if (pctB > 0.55) return Math.round(50 - (pctB - 0.55) / 0.30 * 28);
+  return Math.round(50 + (0.45 - pctB) / 0.30 * 28);
+}
+
+// ─── MACD ────────────────────────────────────────────────────
+function computeMACD(closes) {
+  const ema12 = emaCalc(closes, 12);
+  const ema26 = emaCalc(closes, 26);
+  const macdLine = closes.map((_, i) => ema12[i] != null && ema26[i] != null ? ema12[i] - ema26[i] : null);
+  const validMacd = macdLine.filter(v => v !== null);
+  const signalRaw = emaCalc(validMacd, 9);
+  const signalFull = macdLine.map((v, i) => {
+    const idx = macdLine.slice(0, i + 1).filter(x => x !== null).length - 1;
+    return signalRaw[idx] ?? null;
+  });
+  const n = closes.length;
+  const last = macdLine[n - 1], prev = macdLine[n - 2];
+  const lastSig = signalFull[n - 1] ?? null, prevSig = signalFull[n - 2] ?? null;
+  return { macd: last, signal: lastSig, prevMacd: prev, prevSignal: prevSig };
+}
+function scoreMACD(m) {
+  if (m.macd === null || m.signal === null) return 50;
+  const hist = m.macd - m.signal;
+  const prevHist = (m.prevMacd != null && m.prevSignal != null) ? m.prevMacd - m.prevSignal : 0;
+  const bullCross = m.prevMacd < m.prevSignal && m.macd >= m.signal;
+  const bearCross = m.prevMacd > m.prevSignal && m.macd <= m.signal;
+  if (bullCross) return m.macd > 0 ? 88 : 75;
+  if (bearCross) return m.macd < 0 ? 12 : 25;
+  if (m.macd > m.signal) {
+    const mom = hist > prevHist ? 'exp' : 'con';
+    return m.macd > 0 ? (mom === 'exp' ? 78 : 68) : (mom === 'exp' ? 65 : 58);
+  }
+  const mom = hist < prevHist ? 'exp' : 'con';
+  return m.macd < 0 ? (mom === 'exp' ? 22 : 32) : (mom === 'exp' ? 35 : 42);
+}
+
+// ─── OBV ─────────────────────────────────────────────────────
+function computeOBV(bars) {
+  const n = bars.length;
+  const obvSeries = [0];
+  for (let i = 1; i < n; i++) {
+    const prev = obvSeries[i - 1];
+    if (bars[i].c > bars[i - 1].c) obvSeries.push(prev + bars[i].v);
+    else if (bars[i].c < bars[i - 1].c) obvSeries.push(prev - bars[i].v);
+    else obvSeries.push(prev);
+  }
+  return obvSeries;
+}
+function scoreOBV(obvSeries, bars) {
+  const n = bars.length;
+  if (n < 50) return 50;
+  const smaArr = (arr, period, idx) => idx < period - 1 ? null : arr.slice(idx - period + 1, idx + 1).reduce((s, v) => s + v, 0) / period;
+  const obv20 = smaArr(obvSeries, 20, n - 1);
+  const obv50 = smaArr(obvSeries, 50, n - 1);
+  const obv20prev = smaArr(obvSeries, 20, n - 6);
+  const priceNow = bars[n - 1].c;
+  const price20ago = bars[n - 21]?.c;
+  const priceTrend = price20ago ? (priceNow > price20ago ? 'up' : 'down') : null;
+  const obvTrend = obv20prev ? (obv20 > obv20prev ? 'up' : 'down') : null;
+  const divergence = priceTrend && obvTrend && priceTrend !== obvTrend;
+  if (obv20 !== null && obv50 !== null) {
+    const bullTrend = obv20 > obv50;
+    if (divergence && priceTrend === 'up' && obvTrend === 'down') return 18;
+    if (divergence && priceTrend === 'down' && obvTrend === 'up') return 82;
+    if (bullTrend) {
+      const slope = obv20prev ? (obv20 - obv20prev) / Math.abs(obv20prev || 1) : 0;
+      return slope > 0.02 ? 78 : 68;
+    }
+    const slope = obv20prev ? (obv20 - obv20prev) / Math.abs(obv20prev || 1) : 0;
+    return slope < -0.02 ? 22 : 32;
+  }
+  return 50;
+}
+
+// ─── SUPERTREND ──────────────────────────────────────────────
+function computeSuperTrend(bars) {
+  const n = bars.length;
+  if (n < 30) return { direction: 0, value: 0, barsSinceFlip: 999 };
+  const period = 10, multiplier = 3.0;
+  const tr = [0];
+  for (let i = 1; i < n; i++) tr.push(Math.max(bars[i].h - bars[i].l, Math.abs(bars[i].h - bars[i - 1].c), Math.abs(bars[i].l - bars[i - 1].c)));
+  const atr = [tr[0]];
+  for (let i = 1; i < n; i++) atr.push((atr[i - 1] * (period - 1) + tr[i]) / period);
+  let dir = 1, st = 0, prevUpper = 0, prevLower = 0, lastFlip = period, prevDir = 1;
+  for (let i = period; i < n; i++) {
+    const hl2 = (bars[i].h + bars[i].l) / 2;
+    let ub = hl2 + multiplier * atr[i], lb = hl2 - multiplier * atr[i];
+    if (lb > prevLower || bars[i - 1].c < prevLower) { /* keep lb */ } else lb = prevLower;
+    if (ub < prevUpper || bars[i - 1].c > prevUpper) { /* keep ub */ } else ub = prevUpper;
+    prevDir = dir;
+    if (bars[i].c > prevUpper) dir = 1;
+    else if (bars[i].c < prevLower) dir = -1;
+    if (dir !== prevDir) lastFlip = i;
+    st = dir === 1 ? lb : ub;
+    prevUpper = ub; prevLower = lb;
+  }
+  return { direction: dir, value: st, barsSinceFlip: n - 1 - lastFlip };
+}
+function scoreSuperTrend(st, price) {
+  const dist = Math.abs(price - st.value) / price * 100;
+  const flipBonus = st.barsSinceFlip <= 5 ? 8 : st.barsSinceFlip <= 40 ? Math.round(8 * (1 - (st.barsSinceFlip - 5) / 35)) : 0;
+  if (st.direction === 1) return Math.min(95, (dist > 5 ? 82 : dist > 2 ? 72 : 65) + flipBonus);
+  return Math.max(5, (dist > 5 ? 18 : dist > 2 ? 28 : 35) - flipBonus);
+}
+
+// ─── ICHIMOKU CLOUD ──────────────────────────────────────────
+function computeIchimoku(bars) {
+  const n = bars.length;
+  if (n < 80) return null;
+  const midHL = (arr, period, idx) => {
+    if (idx < period - 1) return null;
+    let hi = -Infinity, lo = Infinity;
+    for (let j = idx - period + 1; j <= idx; j++) { if (arr[j].h > hi) hi = arr[j].h; if (arr[j].l < lo) lo = arr[j].l; }
+    return (hi + lo) / 2;
+  };
+  const tenkan = midHL(bars, 9, n - 1), kijun = midHL(bars, 26, n - 1);
+  const kumoA = (() => { const t = midHL(bars, 9, n - 27), k = midHL(bars, 26, n - 27); return t && k ? (t + k) / 2 : null; })();
+  const kumoB = midHL(bars, 52, n - 27);
+  const chikou = bars[n - 1].c, priceRef = bars[n - 27]?.c ?? null, price = bars[n - 1].c;
+  const prevTenkan = midHL(bars, 9, n - 2), prevKijun = midHL(bars, 26, n - 2);
+  return { tenkan, kijun, kumoA, kumoB, chikou, priceRef, price, prevTenkan, prevKijun };
+}
+function scoreIchimoku(ich, price) {
+  if (!ich || ich.kumoA === null || ich.kumoB === null) return 50;
+  const kumoTop = Math.max(ich.kumoA, ich.kumoB), kumoBottom = Math.min(ich.kumoA, ich.kumoB);
+  const cloudBull = ich.kumoA > ich.kumoB;
+  const signals = [];
+  if (price > kumoTop) { const gap = (price - kumoTop) / kumoTop; signals.push({ w: 0.35, v: Math.min(1, 0.70 + gap * 2) }); }
+  else if (price < kumoBottom) { const gap = (kumoBottom - price) / kumoBottom; signals.push({ w: 0.35, v: Math.max(0, 0.30 - gap * 2) }); }
+  else { const pct = (price - kumoBottom) / (kumoTop - kumoBottom); signals.push({ w: 0.35, v: 0.35 + pct * 0.30 }); }
+  signals.push({ w: 0.20, v: cloudBull ? 0.75 : 0.25 });
+  if (ich.tenkan !== null && ich.kijun !== null) {
+    if (ich.prevTenkan !== null && ich.prevKijun !== null) {
+      const bullCross = ich.prevTenkan <= ich.prevKijun && ich.tenkan > ich.kijun;
+      const bearCross = ich.prevTenkan >= ich.prevKijun && ich.tenkan < ich.kijun;
+      if (bullCross) signals.push({ w: 0.25, v: price > kumoTop ? 0.90 : 0.72 });
+      else if (bearCross) signals.push({ w: 0.25, v: price < kumoBottom ? 0.10 : 0.28 });
+      else signals.push({ w: 0.25, v: ich.tenkan > ich.kijun ? 0.65 : 0.35 });
+    } else signals.push({ w: 0.25, v: ich.tenkan > ich.kijun ? 0.65 : 0.35 });
+  }
+  if (ich.priceRef !== null) signals.push({ w: 0.20, v: ich.chikou > ich.priceRef ? 0.70 : 0.30 });
+  const totalW = signals.reduce((s, x) => s + x.w, 0);
+  return totalW > 0 ? Math.max(5, Math.min(95, Math.round(signals.reduce((s, x) => s + x.v * x.w, 0) / totalW * 100))) : 50;
+}
+
+// ─── DEMARK SEQUENTIAL ──────────────────────────────────────
+function computeDeMark(bars) {
+  const n = bars.length;
+  const close = bars.map(b => b.c), high = bars.map(b => b.h), low = bars.map(b => b.l);
+  const setupDone = [], setupPerf = [];
+  let buyC = 0, sellC = 0;
+  for (let i = 0; i < n; i++) {
+    setupDone.push(null); setupPerf.push(false);
+    if (i < 4) continue;
+    if (close[i] < close[i - 4]) { buyC++; sellC = 0; if (buyC >= 9) { setupDone[i] = 'buy'; setupPerf[i] = close[i] <= Math.min(low[i - 2], low[i - 3]); buyC = 0; } }
+    else if (close[i] > close[i - 4]) { sellC++; buyC = 0; if (sellC >= 9) { setupDone[i] = 'sell'; setupPerf[i] = close[i] >= Math.max(high[i - 2], high[i - 3]); sellC = 0; } }
+    else { buyC = 0; sellC = 0; }
+  }
+  const cdDone = [];
+  let aCdType = null, aCdCount = 0;
+  for (let i = 0; i < n; i++) {
+    cdDone.push(null);
+    if (i < 2) continue;
+    if (setupDone[i]) { aCdType = setupDone[i]; aCdCount = 0; }
+    if (aCdType) {
+      if (aCdType === 'buy' && close[i] <= low[i - 2]) aCdCount++;
+      if (aCdType === 'sell' && close[i] >= high[i - 2]) aCdCount++;
+      if (aCdCount >= 13) { cdDone[i] = aCdType; aCdType = null; aCdCount = 0; }
+    }
+  }
+  let lastSetup = null, lastSetupBar = null, lastSetupPerf = false, lastCd = null, lastCdBar = null;
+  for (let i = n - 1; i >= 4; i--) {
+    if (!lastSetup && setupDone[i]) { lastSetup = setupDone[i]; lastSetupBar = i; lastSetupPerf = setupPerf[i]; }
+    if (!lastCd && cdDone[i]) { lastCd = cdDone[i]; lastCdBar = i; }
+    if (lastSetup && lastCd) break;
+  }
+  let bc2 = 0, sc2 = 0;
+  for (let i = 4; i < n; i++) {
+    if (close[i] < close[i - 4]) { bc2++; sc2 = 0; if (bc2 >= 9) bc2 = 0; }
+    else if (close[i] > close[i - 4]) { sc2++; bc2 = 0; if (sc2 >= 9) sc2 = 0; }
+    else { bc2 = 0; sc2 = 0; }
+  }
+  return { lastSetup, barsSince: lastSetupBar !== null ? n - 1 - lastSetupBar : null, perfect: lastSetupPerf, lastCd, barsSinceCd: lastCdBar !== null ? n - 1 - lastCdBar : null, activeBuy: bc2, activeSell: sc2 };
+}
+function scoreDeMark(dm) {
+  const STALE_SETUP = 20, STALE_CD = 15;
+  if (dm.lastCd && dm.barsSinceCd !== null && dm.barsSinceCd <= STALE_CD) {
+    const fresh = Math.max(0, 1 - dm.barsSinceCd / STALE_CD);
+    if (dm.lastCd === 'buy') return Math.round(85 + fresh * 10);
+    return Math.round(15 - fresh * 10);
+  }
+  if (dm.lastSetup && dm.barsSince !== null && dm.barsSince <= STALE_SETUP) {
+    const fresh = Math.max(0, 1 - dm.barsSince / STALE_SETUP);
+    if (dm.lastSetup === 'buy') return Math.round((dm.perfect ? 80 : 70) + fresh * 10);
+    return Math.round((dm.perfect ? 20 : 30) - fresh * 10);
+  }
+  if (dm.activeBuy >= 5) return Math.round(50 + dm.activeBuy / 9 * 8);
+  if (dm.activeSell >= 5) return Math.round(50 - dm.activeSell / 9 * 8);
+  return 50;
+}
+
+// ─── DEMARK COMBO ────────────────────────────────────────────
+function computeDeMarkCombo(bars) {
+  const n = bars.length;
+  const close = bars.map(b => b.c);
+  const setupDone = [];
+  let buyC = 0, sellC = 0;
+  for (let i = 0; i < n; i++) {
+    setupDone.push(null);
+    if (i < 2) continue;
+    if (close[i] < close[i - 2]) { buyC++; sellC = 0; if (buyC >= 9) { setupDone[i] = 'buy'; buyC = 0; } }
+    else if (close[i] > close[i - 2]) { sellC++; buyC = 0; if (sellC >= 9) { setupDone[i] = 'sell'; sellC = 0; } }
+    else { buyC = 0; sellC = 0; }
+  }
+  let lastSetup = null, lastSetupBar = null;
+  for (let i = n - 1; i >= 2; i--) { if (setupDone[i]) { lastSetup = setupDone[i]; lastSetupBar = i; break; } }
+  let bc = 0, sc = 0;
+  for (let i = 2; i < n; i++) {
+    if (close[i] < close[i - 2]) { bc++; sc = 0; if (bc >= 9) bc = 0; }
+    else if (close[i] > close[i - 2]) { sc++; bc = 0; if (sc >= 9) sc = 0; }
+    else { bc = 0; sc = 0; }
+  }
+  return { lastSetup, barsSince: lastSetupBar !== null ? n - 1 - lastSetupBar : null, activeBuy: bc, activeSell: sc };
+}
+function scoreDeMarkCombo(dc) {
+  const STALE = 18;
+  if (dc.lastSetup && dc.barsSince !== null && dc.barsSince <= STALE) {
+    const fresh = Math.max(0, 1 - dc.barsSince / STALE);
+    if (dc.lastSetup === 'buy') return Math.round(78 + fresh * 12);
+    return Math.round(22 - fresh * 12);
+  }
+  if (dc.activeBuy >= 5) return Math.round(50 + dc.activeBuy / 9 * 8);
+  if (dc.activeSell >= 5) return Math.round(50 - dc.activeSell / 9 * 8);
+  return 50;
+}
+
+// ─── CANDLESTICK SIGNAL ──────────────────────────────────────
+function computeCandleSignal(bars) {
+  const n = bars.length;
+  if (n < 10) return null;
+  const LOOKBACK = Math.min(5, n - 1);
+  // SMA 200 for structural context (use available bars if < 200)
+  const sma200 = n >= 200
+    ? bars.slice(n - 200).reduce((s, b) => s + b.c, 0) / 200
+    : bars.reduce((s, b) => s + b.c, 0) / n;
+  const avgVol = bars.slice(n - 20).reduce((s, b) => s + b.v, 0) / 20;
+  const slope5 = n >= 7 ? bars[n - 1].c - bars[n - 6].c : 0;
+  // 5-bar range for near-resistance/support detection
+  let range5High = -Infinity, range5Low = Infinity;
+  for (let j = Math.max(0, n - 6); j < n; j++) {
+    if (bars[j].h > range5High) range5High = bars[j].h;
+    if (bars[j].l < range5Low) range5Low = bars[j].l;
+  }
+  let best = null;
+  const pickBest = (sig) => {
+    if (!best || sig.barsAgo < best.barsAgo ||
+        (sig.barsAgo === best.barsAgo && Math.abs(sig.score - 50) > Math.abs(best.score - 50)))
+      best = sig;
+  };
+  for (let i = n - LOOKBACK; i < n; i++) {
+    const bar = bars[i];
+    const body = Math.abs(bar.c - bar.o);
+    const upperShadow = bar.h - Math.max(bar.c, bar.o);
+    const lowerShadow = Math.min(bar.c, bar.o) - bar.l;
+    const range = bar.h - bar.l;
+    if (range < 0.0001) continue;
+    const barsAgo = n - 1 - i;
+    const isHighVol = bar.v > avgVol * 1.2;
+    // Next-bar confirmation (null for most recent bar)
+    const confirmed = i < n - 1
+      ? (bar.c > bar.o ? bars[i + 1].c > bar.h : bars[i + 1].c < bar.l)
+      : null;
+
+    // ── TOPPING TAIL ──
+    if (upperShadow >= 2 * Math.max(body, 0.001) && lowerShadow <= body * 1.5 && upperShadow >= 0.55 * range) {
+      const nearResist = Math.abs(bar.h - range5High) / range5High < 0.02;
+      const aboveSMA200 = bar.c > sma200;
+      let str = 50;
+      if (slope5 > 0) str -= 15;
+      if (nearResist)  str -= 10;
+      if (isHighVol)   str -= 8;
+      if (aboveSMA200) str -= 5;
+      if (confirmed)   str -= 7;
+      str = Math.max(10, str);
+      const detail = `upper wick ${(upperShadow / range * 100).toFixed(0)}% of range`
+        + (nearResist ? ' · near resistance' : '') + (isHighVol ? ' · elevated vol' : '')
+        + (slope5 > 0 ? ' · after uptrend' : '');
+      pickBest({ type: 'Topping Tail', score: Math.round(str), barsAgo,
+        confirmed: confirmed === null ? 'today' : confirmed ? 'yes' : 'unconfirmed', detail });
+    }
+
+    // ── BOTTOMING TAIL ──
+    if (lowerShadow >= 2 * Math.max(body, 0.001) && upperShadow <= body * 1.5 && lowerShadow >= 0.55 * range) {
+      const nearSupport = Math.abs(bar.l - range5Low) / range5Low < 0.02;
+      const belowSMA200 = bar.c < sma200;
+      let str = 50;
+      if (slope5 < 0)   str += 15;
+      if (nearSupport)   str += 10;
+      if (isHighVol)     str += 8;
+      if (belowSMA200)   str += 5;
+      if (confirmed)     str += 7;
+      str = Math.min(90, str);
+      const detail = `lower wick ${(lowerShadow / range * 100).toFixed(0)}% of range`
+        + (nearSupport ? ' · near support' : '') + (isHighVol ? ' · elevated vol' : '')
+        + (slope5 < 0 ? ' · after downtrend' : '');
+      pickBest({ type: 'Bottoming Tail', score: Math.round(str), barsAgo,
+        confirmed: confirmed === null ? 'today' : confirmed ? 'yes' : 'unconfirmed', detail });
+    }
+
+    // ── ENGULFING ──
+    if (i > 0) {
+      const prev = bars[i - 1];
+      if (prev.c < prev.o && bar.c > bar.o && bar.o < prev.c && bar.c > prev.o) {
+        let str = 65;
+        if (isHighVol) str += 8;
+        if (slope5 < 0) str += 7;
+        if (bar.c > sma200) str -= 5;
+        str = Math.min(90, Math.round(str));
+        pickBest({ type: 'Bull Engulfing', score: str, barsAgo, confirmed: null,
+          detail: 'engulfs prior bearish bar' + (isHighVol ? ' · high vol' : '') });
+      }
+      if (prev.c > prev.o && bar.c < bar.o && bar.o > prev.c && bar.c < prev.o) {
+        let str = 35;
+        if (isHighVol) str -= 8;
+        if (slope5 > 0) str -= 7;
+        if (bar.c < sma200) str += 5;
+        str = Math.max(10, Math.round(str));
+        pickBest({ type: 'Bear Engulfing', score: str, barsAgo, confirmed: null,
+          detail: 'engulfs prior bullish bar' + (isHighVol ? ' · high vol' : '') });
+      }
+    }
+  }
+  return best;
+}
+function scoreCandleSignal(cs) { return cs ? cs.score : 50; }
+
+// ─── ADX + DI ────────────────────────────────────────────────
+function computeADX(bars) {
+  const n = bars.length;
+  if (n < 30) return { adx: 0, plusDI: 0, minusDI: 0, adxRising: false };
+  const period = 14;
+  const trArr = [], plusDM = [], minusDM = [];
+  for (let i = 1; i < n; i++) {
+    trArr.push(Math.max(bars[i].h - bars[i].l, Math.abs(bars[i].h - bars[i - 1].c), Math.abs(bars[i].l - bars[i - 1].c)));
+    const up = bars[i].h - bars[i - 1].h, dn = bars[i - 1].l - bars[i].l;
+    plusDM.push(up > dn && up > 0 ? up : 0);
+    minusDM.push(dn > up && dn > 0 ? dn : 0);
+  }
+  if (trArr.length < period) return { adx: 0, plusDI: 0, minusDI: 0, adxRising: false };
+  let atr14 = trArr.slice(0, period).reduce((s, v) => s + v, 0);
+  let pDM14 = plusDM.slice(0, period).reduce((s, v) => s + v, 0);
+  let mDM14 = minusDM.slice(0, period).reduce((s, v) => s + v, 0);
+  const dxArr = [];
+  for (let i = period; i < trArr.length; i++) {
+    if (i > period) { atr14 = atr14 - atr14 / period + trArr[i]; pDM14 = pDM14 - pDM14 / period + plusDM[i]; mDM14 = mDM14 - mDM14 / period + minusDM[i]; }
+    const pDI = atr14 > 0 ? (pDM14 / atr14) * 100 : 0, mDI = atr14 > 0 ? (mDM14 / atr14) * 100 : 0;
+    const diSum = pDI + mDI;
+    dxArr.push({ dx: diSum > 0 ? Math.abs(pDI - mDI) / diSum * 100 : 0, pDI, mDI });
+  }
+  if (dxArr.length < period) return { adx: 0, plusDI: 0, minusDI: 0, adxRising: false };
+  let adxVal = dxArr.slice(0, period).reduce((s, d) => s + d.dx, 0) / period;
+  for (let i = period; i < dxArr.length; i++) adxVal = (adxVal * (period - 1) + dxArr[i].dx) / period;
+  let adxPrev = dxArr.slice(0, period).reduce((s, d) => s + d.dx, 0) / period;
+  for (let i = period; i < dxArr.length - 5; i++) adxPrev = (adxPrev * (period - 1) + dxArr[i].dx) / period;
+  const last = dxArr[dxArr.length - 1];
+  return { adx: Math.round(adxVal * 10) / 10, plusDI: last.pDI, minusDI: last.mDI, adxRising: adxVal > adxPrev };
+}
+function scoreADX(a) {
+  const bull = a.plusDI > a.minusDI;
+  if (a.adx < 15) return 50;
+  if (a.adx < 20) return bull ? 54 : 46;
+  if (a.adx < 30) { if (bull) return a.adxRising ? 72 : 65; return a.adxRising ? 28 : 35; }
+  if (a.adx < 40) { if (bull) return a.adxRising ? 80 : 75; return a.adxRising ? 20 : 25; }
+  return bull ? 82 : 18;
+}
+
+// ─── VOLUME PROFILE ──────────────────────────────────────────
+function computeVolumeProfile(bars) {
+  const n = bars.length;
+  if (n < 30) return null;
+  const lookback = Math.min(n, 252), startIdx = n - lookback;
+  let mn = Infinity, mx = -Infinity;
+  for (let i = startIdx; i < n; i++) { if (bars[i].l < mn) mn = bars[i].l; if (bars[i].h > mx) mx = bars[i].h; }
+  const BUCKETS = 24, step = (mx - mn) / BUCKETS;
+  if (step === 0) return null;
+  const vols = Array(BUCKETS).fill(0);
+  for (let i = startIdx; i < n; i++) { const idx = Math.min(Math.floor((bars[i].c - mn) / step), BUCKETS - 1); vols[idx] += bars[i].v; }
+  let maxVol = 0, pocIdx = 0;
+  for (let i = 0; i < BUCKETS; i++) { if (vols[i] > maxVol) { maxVol = vols[i]; pocIdx = i; } }
+  const poc = mn + (pocIdx + 0.5) * step;
+  const totalVol = vols.reduce((s, v) => s + v, 0), target = totalVol * 0.70;
+  let vaVol = vols[pocIdx], vaLow = pocIdx, vaHigh = pocIdx;
+  while (vaVol < target && (vaLow > 0 || vaHigh < BUCKETS - 1)) {
+    const addLow = vaLow > 0 ? vols[vaLow - 1] : 0, addHigh = vaHigh < BUCKETS - 1 ? vols[vaHigh + 1] : 0;
+    if (addHigh >= addLow) { vaHigh++; vaVol += addHigh; } else { vaLow--; vaVol += addLow; }
+  }
+  const vah = mn + (vaHigh + 1) * step, val = mn + vaLow * step, price = bars[n - 1].c;
+  let vol5 = 0, vol20 = 0;
+  for (let i = n - 5; i < n; i++) vol5 += bars[i].v;
+  vol5 /= 5;
+  const vol20Len = Math.min(20, lookback);
+  for (let i = n - vol20Len; i < n; i++) vol20 += bars[i].v;
+  vol20 /= vol20Len;
+  return { poc, vah, val, price, volRising: vol5 > vol20 * 1.05, volFading: vol5 < vol20 * 0.85 };
+}
+function scoreVolumeProfile(vp) {
+  if (!vp) return 50;
+  const { poc, vah, val, price, volRising, volFading } = vp;
+  if (price > vah) { const abovePct = (price - vah) / vah * 100; if (volFading) return abovePct > 5 ? 62 : 58; if (volRising) return abovePct > 5 ? 82 : 72; return abovePct > 5 ? 78 : 68; }
+  if (price >= val && price <= vah) { const pctB = (price - val) / (vah - val); return Math.round(45 + pctB * 20); }
+  const belowPct = (val - price) / val * 100;
+  if (volFading) return belowPct > 5 ? 28 : 38;
+  if (volRising) return belowPct > 5 ? 15 : 25;
+  return belowPct > 5 ? 22 : 32;
+}
+
+// ─── WEEKLY BAR AGGREGATION ──────────────────────────────────
+function aggregateWeekly(dailyBars) {
+  if (!dailyBars || dailyBars.length === 0) return [];
+  const weeks = [];
+  let current = null, barCount = 0;
+  for (const bar of dailyBars) {
+    let isNewWeek = false;
+    if (current && typeof bar.t === 'number' && typeof current._lastT === 'number') { isNewWeek = bar.t - current._lastT > 216000; }
+    if (!current || isNewWeek || barCount >= 5) {
+      if (current) weeks.push({ t: current.t, o: current.o, h: current.h, l: current.l, c: current.c, v: current.v });
+      current = { _lastT: bar.t, t: bar.t, o: bar.o, h: bar.h, l: bar.l, c: bar.c, v: bar.v };
+      barCount = 1;
+    } else {
+      current.h = Math.max(current.h, bar.h); current.l = Math.min(current.l, bar.l); current.c = bar.c; current.v += bar.v; current._lastT = bar.t;
+      barCount++;
+    }
+  }
+  if (current) weeks.push({ t: current.t, o: current.o, h: current.h, l: current.l, c: current.c, v: current.v });
+  return weeks;
+}
+
+// ─── COMPOSITE: scoreSymbol ──────────────────────────────────
+// Full scorer: all 13 indicators + composite weighted score.
+// The HTML tool calls this once with daily + weekly bars.
+function scoreSymbol(dailyBars, weeklyBars) {
+  const n = dailyBars.length;
+  const closes = dailyBars.map(b => b.c);
+  const price = closes[n - 1];
+  const macdCloses = weeklyBars ? weeklyBars.map(b => b.c) : closes;
+  const rsi = computeRSI(closes), sma200 = computeSMA200(closes), sma50 = computeSMA(closes, 50);
+  const boll = computeBollinger(closes), macd = computeMACD(macdCloses);
+  const obv = computeOBV(dailyBars), superT = computeSuperTrend(dailyBars);
+  const ichimoku = computeIchimoku(dailyBars), demark = computeDeMark(dailyBars);
+  const demarkC = computeDeMarkCombo(dailyBars), candle = computeCandleSignal(dailyBars);
+  const adx = computeADX(dailyBars), volProf = computeVolumeProfile(dailyBars);
+  const cross = detectGoldenDeathCross(closes);
+  const scores = {
+    vol_profile: scoreVolumeProfile(volProf), rsi_extreme: scoreRSI(rsi),
+    sma_200: scoreSMA200(price, sma200, closes), bollinger: scoreBollinger(boll, price, sma200),
+    macd_weekly: scoreMACD(macd), obv: scoreOBV(obv, dailyBars),
+    supertrend: scoreSuperTrend(superT, price), ichimoku: scoreIchimoku(ichimoku, price),
+    demark_seq: scoreDeMark(demark), demark_combo: scoreDeMarkCombo(demarkC),
+    candle_signal: scoreCandleSignal(candle), adx: scoreADX(adx),
+    sma_cross: scoreSMACross(closes, sma50, sma200, cross),
+  };
+  return { price, scores, indicators: { rsi, sma200, sma50, boll, macd, obv, superT, ichimoku, demark, demarkC, candle, adx, volProf, cross } };
+}
+// ═══ END SCORING ENGINE ═══════════════════════════════════════
+
 // ═══════════════════════════════════════════════════
 //  API calls route through Cloudflare Worker proxy
 //  Worker URL: https://tacall.mdorm33.workers.dev
@@ -1394,913 +2030,289 @@ All values plain text only — no HTML, no citations. Use N/A if unknown. Return
   renderFundamentals();
 }
 
-// ═══ TD SEQUENTIAL — COMPUTED FROM OHLC ═══
-function computeTDSequential(bars){
-  const n=bars.length;
-  const close=bars.map(b=>b.c), high=bars.map(b=>b.h), low=bars.map(b=>b.l);
+// ═══ UNIFIED COMPUTED SCORING — uses shared scoring engine ═══
+// Single call replaces all 13 individual run*Computed functions.
+// Fetches OHLC once, calls scoreSymbol(), distributes scores + detail strings.
 
-  // Phase 1: Setup (9 consecutive closes vs close[i-4])
-  const setupDone=[], setupPerf=[];
-  let buyC=0, sellC=0;
-  for(let i=0;i<n;i++){
-    setupDone.push(null); setupPerf.push(false);
-    if(i<4) continue;
-    if(close[i]<close[i-4])      { buyC++; sellC=0; if(buyC>=9){ setupDone[i]='buy';  setupPerf[i]=close[i]<=Math.min(low[i-2],low[i-3]); buyC=0; } }
-    else if(close[i]>close[i-4]) { sellC++; buyC=0; if(sellC>=9){ setupDone[i]='sell'; setupPerf[i]=close[i]>=Math.max(high[i-2],high[i-3]); sellC=0; } }
-    else { buyC=0; sellC=0; }
-  }
-
-  // Phase 2: Countdown (13 non-consecutive bars after Setup 9)
-  const cdDone=[];
-  let aCdType=null, aCdCount=0;
-  for(let i=0;i<n;i++){
-    cdDone.push(null);
-    if(i<2) continue;
-    if(setupDone[i]){ aCdType=setupDone[i]; aCdCount=0; }
-    if(aCdType){
-      if(aCdType==='buy'  && close[i]<=low[i-2])  aCdCount++;
-      if(aCdType==='sell' && close[i]>=high[i-2]) aCdCount++;
-      if(aCdCount>=13){ cdDone[i]=aCdType; aCdType=null; aCdCount=0; }
-    }
-  }
-
-  // Find most recent signals
-  let lastSetup=null, lastSetupBar=null, lastSetupPerf=false;
-  let lastCd=null, lastCdBar=null;
-  let activeBuyC=0, activeSellC=0;
-
-  // Recount for active setup
-  let bc=0, sc=0;
-  for(let i=4;i<n;i++){
-    if(close[i]<close[i-4]){ bc++; sc=0; if(bc>=9) bc=0; }
-    else if(close[i]>close[i-4]){ sc++; bc=0; if(sc>=9) sc=0; }
-    else { bc=0; sc=0; }
-  }
-  activeBuyC=bc; activeSellC=sc;
-
-  for(let i=n-1;i>=4;i--){
-    if(!lastSetup && setupDone[i]){ lastSetup=setupDone[i]; lastSetupBar=i; lastSetupPerf=setupPerf[i]; }
-    if(!lastCd    && cdDone[i])   { lastCd=cdDone[i]; lastCdBar=i; }
-    if(lastSetup && lastCd) break;
-  }
-
-  const barsSinceSetup = lastSetupBar!==null ? n-1-lastSetupBar : null;
-  const barsSinceCd    = lastCdBar!==null    ? n-1-lastCdBar    : null;
-  const STALE_SETUP=20, STALE_CD=15;
-
-  let score=50, rationale='No active DeMark signal — neutral', perfect=false;
-
-  if(lastCd && barsSinceCd<=STALE_CD){
-    const fresh=Math.max(0,1-barsSinceCd/STALE_CD);
-    score = lastCd==='buy' ? Math.round(85+fresh*10) : Math.round(15-fresh*10);
-    rationale=`Countdown 13 ${lastCd.toUpperCase()} — ${barsSinceCd} bars ago`;
-  } else if(lastSetup && barsSinceSetup<=STALE_SETUP){
-    const fresh=Math.max(0,1-barsSinceSetup/STALE_SETUP);
-    if(lastSetup==='buy'){
-      score=Math.round((lastSetupPerf?80:70)+fresh*10);
-      rationale=`Setup 9 BUY${lastSetupPerf?' ★ PERFECT':''} — ${barsSinceSetup} bars ago`;
-    } else {
-      score=Math.round((lastSetupPerf?20:30)-fresh*10);
-      rationale=`Setup 9 SELL${lastSetupPerf?' ★ PERFECT':''} — ${barsSinceSetup} bars ago`;
-    }
-    perfect=lastSetupPerf;
-  } else if(activeBuyC>=5){
-    score=Math.round(50+activeBuyC/9*8);
-    rationale=`Active BUY setup: bar ${activeBuyC}/9 in progress`;
-  } else if(activeSellC>=5){
-    score=Math.round(50-activeSellC/9*8);
-    rationale=`Active SELL setup: bar ${activeSellC}/9 in progress`;
-  }
-
-  return { score, rationale, lastSetup, barsSinceSetup, perfect, lastCd, barsSinceCd, activeBuyC, activeSellC, bars:n };
-}
-
-async function runDeMarkComputed(ticker){
-  // Update sub-label to show computing
-  const subEl=document.getElementById('sub-demark_seq');
-  const rowEl=document.getElementById('row-demark_seq');
-  if(subEl) subEl.textContent='TD 9/13 — fetching OHLC…';
-
-  // Timeout after 10 seconds — fall back gracefully
-  const timeout = setTimeout(()=>{
-    const s=document.getElementById('sub-demark_seq');
-    if(s) s.textContent='TD 9/13 — timed out (AI estimate used)';
-  }, 10000);
-
+async function runAllComputed(ticker){
   try{
-    // Add per-attempt timeout so OHLC proxies don't hang indefinitely
-    const ohlcPromise = fetchOHLCForCharts(ticker);
-    const ohlcTimeout = new Promise((_,rej)=>setTimeout(()=>rej(new Error('OHLC timeout after 15s')),15000));
-    const ohlc = await Promise.race([ohlcPromise, ohlcTimeout]);
-    clearTimeout(timeout);
-    if(!ohlc || !ohlc.daily || ohlc.daily.length < 20) throw new Error('Insufficient bars ('+((ohlc?.daily?.length)||0)+')');
+    const ohlc = await Promise.race([
+      fetchOHLCForCharts(ticker),
+      new Promise((_,r)=>setTimeout(()=>r(new Error('OHLC timeout')),15000))
+    ]);
+    if(!ohlc || !ohlc.daily || ohlc.daily.length < 30) throw new Error('Insufficient bars ('+((ohlc?.daily?.length)||0)+')');
 
-    const result = computeTDSequential(ohlc.daily);
+    const daily = ohlc.daily;
+    const weekly = ohlc.weekly;
+    const n = daily.length;
+    const closes = daily.map(b => b.c);
+    const price = closes[n - 1];
 
-    // Apply computed score — overrides AI estimate
-    setSl('demark_seq', result.score, true);
+    // ── Single call to scoring engine — source of truth ──
+    const result = scoreSymbol(daily, weekly);
+    const S = result.scores;
+    const I = result.indicators;
 
-    // Update sub-label with signal detail
-    if(subEl){
-      let detail;
-      if(result.lastCd && result.barsSinceCd<=15)
-        detail = `CD13 ${result.lastCd.toUpperCase()} · ${result.barsSinceCd}b ago`;
-      else if(result.lastSetup && result.barsSinceSetup<=20)
-        detail = `Setup9 ${result.lastSetup.toUpperCase()}${result.perfect?' ★':''} · ${result.barsSinceSetup}b ago`;
-      else if(result.activeBuyC>=5)
-        detail = `Active BUY setup ${result.activeBuyC}/9`;
-      else if(result.activeSellC>=5)
-        detail = `Active SELL setup ${result.activeSellC}/9`;
-      else if(result.activeBuyC>0)
-        detail = `BUY setup counting: ${result.activeBuyC}/9`;
-      else if(result.activeSellC>0)
-        detail = `SELL setup counting: ${result.activeSellC}/9`;
-      else
-        detail = 'No active signal · score neutral';
-      subEl.textContent = detail;
-    }
+    // ── Distribute all 13 scores to sliders ──
+    Object.entries(S).forEach(([id, score]) => setSl(id, score, true));
 
-    // Update tooltip desc and add computed note to indicator notes
-    // Store computed rationale in notes without opening the row
-    const noteEl=document.getElementById('nt-demark_seq');
-    if(noteEl && !noteEl.value) noteEl.value=`[Computed from ${result.bars} daily bars]\n${result.rationale}`;
+    // ── Build detail strings from raw indicator data ──
 
-    // Update TIPS description to reflect computed status
-    if(TIPS.demark_seq) TIPS.demark_seq.name = 'DeMark Sequential (computed)';
+    // RSI
+    const rsiVal = I.rsi.value;
+    let rsiDetail;
+    if(rsiVal >= 80)      rsiDetail = `RSI ${rsiVal} — Extremely Overbought (bearish)`;
+    else if(rsiVal >= 70) rsiDetail = `RSI ${rsiVal} — Overbought (bearish signal)`;
+    else if(rsiVal <= 20) rsiDetail = `RSI ${rsiVal} — Extremely Oversold (bullish)`;
+    else if(rsiVal <= 30) rsiDetail = `RSI ${rsiVal} — Oversold (bullish signal)`;
+    else if(rsiVal > 65)  rsiDetail = `RSI ${rsiVal} — Approaching overbought`;
+    else if(rsiVal < 35)  rsiDetail = `RSI ${rsiVal} — Approaching oversold`;
+    else                  rsiDetail = `RSI ${rsiVal} — Neutral (no contrarian signal)`;
+    const rsiSub = document.getElementById('sub-rsi_extreme');
+    if(rsiSub) rsiSub.textContent = rsiDetail;
+    const rsiNote = document.getElementById('nt-rsi_extreme');
+    if(rsiNote && !rsiNote.value) rsiNote.value = `[Computed from ${n} daily bars] ${rsiDetail}`;
 
-  } catch(err){
-    clearTimeout(timeout);
-    const errMsg = err.message || 'unknown';
-    if(subEl) subEl.textContent='TD 9/13 — AI estimate (' + errMsg.slice(0,28) + ')';
-    console.warn('DeMark computation failed:', errMsg);
-  }
-}
-
-// ═══ MA CROSS 50/200 — COMPUTED FROM OHLC ═══
-async function runMAComputed(ticker){
-  const subEl = document.getElementById('sub-sma_cross');
-  if(subEl) subEl.textContent = 'Golden / Death cross — computing…';
-
-  const timeout = setTimeout(()=>{
-    const s = document.getElementById('sub-sma_cross');
-    if(s && s.textContent.includes('computing')) s.textContent = 'Golden / Death cross — AI estimate';
-  }, 15000);
-
-  try{
-    const ohlcPromise = fetchOHLCForCharts(ticker);
-    const ohlcTimeout = new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),15000));
-    const ohlc = await Promise.race([ohlcPromise, ohlcTimeout]);
-    clearTimeout(timeout);
-    if(!ohlc || !ohlc.daily || ohlc.daily.length < 210) throw new Error('Need 210+ bars for SMA200');
-
-    const closes = ohlc.daily.map(b => b.c);
-    const n = closes.length;
-
-    // Compute SMA50 and SMA200 for last 60 bars to detect cross
-    function smaN(arr, period, idx){
-      if(idx < period - 1) return null;
-      return arr.slice(idx - period + 1, idx + 1).reduce((s,v)=>s+v,0) / period;
-    }
-
-    const lookback = Math.min(120, n - 200);
-    let crossType = null;       // 'golden' | 'death' | null
-    let barsAgo = null;
-    let prevAbove = null;
-
-    for(let i = n - lookback; i < n; i++){
-      const s50  = smaN(closes, 50,  i);
-      const s200 = smaN(closes, 200, i);
-      if(s50 === null || s200 === null) continue;
-      const above = s50 > s200;
-      if(prevAbove !== null && above !== prevAbove){
-        crossType = above ? 'golden' : 'death';
-        barsAgo = n - 1 - i;
+    // SMA 200
+    if(I.sma200 !== null){
+      const pctAbove = (price - I.sma200) / I.sma200 * 100;
+      let sma200Detail;
+      if(pctAbove > 15)      sma200Detail = `${pctAbove.toFixed(1)}% above SMA200 ($${I.sma200.toFixed(2)}) — extended bull`;
+      else if(pctAbove > 5)  sma200Detail = `${pctAbove.toFixed(1)}% above SMA200 ($${I.sma200.toFixed(2)})`;
+      else if(pctAbove > 1)  sma200Detail = `${pctAbove.toFixed(1)}% above SMA200 ($${I.sma200.toFixed(2)}) — near line`;
+      else if(pctAbove >= -1) sma200Detail = `At SMA200 ($${I.sma200.toFixed(2)}) — decision point`;
+      else if(pctAbove >= -5) sma200Detail = `${Math.abs(pctAbove).toFixed(1)}% below SMA200 ($${I.sma200.toFixed(2)}) — near line`;
+      else if(pctAbove >= -15) sma200Detail = `${Math.abs(pctAbove).toFixed(1)}% below SMA200 ($${I.sma200.toFixed(2)})`;
+      else                     sma200Detail = `${Math.abs(pctAbove).toFixed(1)}% below SMA200 ($${I.sma200.toFixed(2)}) — extended bear`;
+      const sma200Sub = document.getElementById('sub-sma_200');
+      if(sma200Sub) sma200Sub.textContent = sma200Detail;
+      const sma200Note = document.getElementById('nt-sma_200');
+      if(sma200Note && !sma200Note.value){
+        const vs50 = I.sma50 ? (price > I.sma50 ? 'above' : 'below') : '?';
+        sma200Note.value = `[Computed from ${n} bars] SMA200:$${I.sma200.toFixed(2)}${I.sma50 ? ' SMA50:$'+I.sma50.toFixed(2) : ''} · Price ${vs50} SMA50 · ${sma200Detail}`;
       }
-      prevAbove = above;
     }
 
-    // Current relationship (most recent bar)
-    const curS50  = smaN(closes, 50,  n-1);
-    const curS200 = smaN(closes, 200, n-1);
-    const currentlyAbove = curS50 !== null && curS200 !== null && curS50 > curS200;
-    const spreadPct = curS50 && curS200 ? Math.abs(curS50 - curS200) / curS200 * 100 : 0;
+    // MA Cross
+    const cross = I.cross;
+    let maDetail;
+    const spreadPct = cross.sma50 && cross.sma200 ? Math.abs(cross.sma50 - cross.sma200) / cross.sma200 * 100 : 0;
+    if(cross.type === 'golden')     maDetail = `Golden Cross · ${cross.barsAgo}b ago`;
+    else if(cross.type === 'death') maDetail = `Death Cross · ${cross.barsAgo}b ago`;
+    else if(cross.sma50 > cross.sma200) maDetail = `SMA50 > SMA200 · spread ${spreadPct.toFixed(1)}%`;
+    else                                maDetail = `SMA50 < SMA200 · spread ${spreadPct.toFixed(1)}%`;
+    const maSub = document.getElementById('sub-sma_cross');
+    if(maSub) maSub.textContent = maDetail;
+    const maNote = document.getElementById('nt-sma_cross');
+    if(maNote && !maNote.value){
+      const pos = cross.sma50 > cross.sma200 ? 'SMA50 ABOVE SMA200' : 'SMA50 BELOW SMA200';
+      maNote.value = `[Computed from ${n} daily bars] ${pos}${cross.type ? ' · ' + maDetail : ''}`;
+    }
 
-    // Score: Golden cross or currently above = bullish; Death cross or currently below = bearish
-    // Recency of cross matters — recent cross is stronger signal
-    let score, detail;
-    const STALE = 60; // bars before a cross becomes "old news"
-
-    if(crossType === 'golden'){
-      const fresh = barsAgo <= STALE ? Math.max(0, 1 - barsAgo/STALE) : 0;
-      score = Math.round(72 + fresh * 18);  // 72–90
-      detail = `Golden Cross · ${barsAgo}b ago`;
-    } else if(crossType === 'death'){
-      const fresh = barsAgo <= STALE ? Math.max(0, 1 - barsAgo/STALE) : 0;
-      score = Math.round(28 - fresh * 18);  // 10–28
-      detail = `Death Cross · ${barsAgo}b ago`;
-    } else {
-      // No recent cross — grade by SMA spread (wider = stronger trend)
-      if(currentlyAbove){
-        score = spreadPct > 8 ? 75 : spreadPct > 4 ? 70 : 64;
-        detail = `SMA50 > SMA200 · spread ${spreadPct.toFixed(1)}%`;
+    // MACD Weekly
+    const m = I.macd;
+    if(m.macd !== null && m.signal !== null){
+      const hist = m.macd - m.signal;
+      const prevHist = (m.prevMacd != null && m.prevSignal != null) ? m.prevMacd - m.prevSignal : 0;
+      const bullCross = m.prevMacd < m.prevSignal && m.macd >= m.signal;
+      const bearCross = m.prevMacd > m.prevSignal && m.macd <= m.signal;
+      let macdDetail;
+      if(bullCross)      macdDetail = `Bullish crossover${m.macd > 0 ? ' above zero' : ' below zero'}`;
+      else if(bearCross) macdDetail = `Bearish crossover${m.macd < 0 ? ' below zero' : ' above zero'}`;
+      else if(m.macd > m.signal){
+        const mom = hist > prevHist ? 'expanding' : 'contracting';
+        macdDetail = `MACD > Signal${m.macd > 0 ? ', above zero' : ', below zero'} · hist ${mom}`;
       } else {
-        score = spreadPct > 8 ? 25 : spreadPct > 4 ? 30 : 36;
-        detail = `SMA50 < SMA200 · spread ${spreadPct.toFixed(1)}%`;
+        const mom = hist < prevHist ? 'expanding' : 'contracting';
+        macdDetail = `MACD < Signal${m.macd < 0 ? ', below zero' : ', above zero'} · hist ${mom}`;
       }
+      const macdSub = document.getElementById('sub-macd_weekly');
+      if(macdSub) macdSub.textContent = macdDetail;
+      const macdNote = document.getElementById('nt-macd_weekly');
+      if(macdNote && !macdNote.value) macdNote.value = `[Computed from ${weekly.length} weekly bars] ${macdDetail}`;
     }
 
-    setSl('sma_cross', score, true);
-    if(subEl) subEl.textContent = detail;
+    // Bollinger
+    const boll = I.boll;
+    let bollDetail;
+    if(boll.bandwidth < 0.04)        bollDetail = `Band squeeze (${(boll.bandwidth*100).toFixed(1)}% width) — breakout pending`;
+    else if(boll.pctB >= 1.0)        bollDetail = (I.sma200 && price > I.sma200*1.05) ? `Walking upper band (%B=${boll.pctB.toFixed(2)}) — uptrend continuation` : `Price above upper band (%B=${boll.pctB.toFixed(2)}) — overbought`;
+    else if(boll.pctB >= 0.85)       bollDetail = `Near upper band (%B=${boll.pctB.toFixed(2)})`;
+    else if(boll.pctB <= 0.0)        bollDetail = (I.sma200 && price < I.sma200*0.95) ? `Walking lower band (%B=${boll.pctB.toFixed(2)}) — downtrend continuation` : `Price below lower band (%B=${boll.pctB.toFixed(2)}) — oversold`;
+    else if(boll.pctB <= 0.15)       bollDetail = `Near lower band (%B=${boll.pctB.toFixed(2)}) — oversold zone`;
+    else if(boll.pctB >= 0.45 && boll.pctB <= 0.55) bollDetail = `At midline (%B=${boll.pctB.toFixed(2)})`;
+    else if(boll.pctB > 0.55)        bollDetail = `Upper half (%B=${boll.pctB.toFixed(2)}) — mild overbought`;
+    else                              bollDetail = `Lower half (%B=${boll.pctB.toFixed(2)}) — mild oversold`;
+    const bollSub = document.getElementById('sub-bollinger');
+    if(bollSub) bollSub.textContent = bollDetail;
+    const bollNote = document.getElementById('nt-bollinger');
+    if(bollNote && !bollNote.value && boll.upper) bollNote.value = `[Computed from ${n} daily bars] Upper:${boll.upper.toFixed(2)} Mid:${boll.mean.toFixed(2)} Lower:${boll.lower.toFixed(2)} · ${bollDetail}`;
 
-    // Update notes
-    const noteEl = document.getElementById('nt-sma_cross');
-    if(noteEl && !noteEl.value){
-      const pos = currentlyAbove ? 'SMA50 ABOVE SMA200' : 'SMA50 BELOW SMA200';
-      noteEl.value = `[Computed from ${n} daily bars] ${pos}${crossType ? ' · ' + detail : ''}`;
-    }
-
-  } catch(err){
-    clearTimeout(timeout);
-    const s = document.getElementById('sub-sma_cross');
-    if(s) s.textContent = 'Golden / Death cross — AI estimate';
-    console.warn('MA Cross computation failed:', err.message);
-  }
-}
-
-// ═══ RSI EXTREME — COMPUTED FROM OHLC ═══
-async function runRSIComputed(ticker){
-  const subEl = document.getElementById('sub-rsi_extreme');
-  if(subEl) subEl.textContent = '14-period — computing…';
-
-  try{
-    const ohlcPromise = fetchOHLCForCharts(ticker);
-    const ohlcTimeout = new Promise((_,rej)=>setTimeout(()=>rej(new Error('OHLC timeout')),15000));
-    const ohlc = await Promise.race([ohlcPromise, ohlcTimeout]);
-    if(!ohlc || ohlc.daily.length < 20) throw new Error('Insufficient bars');
-
-    const closes = ohlc.daily.map(b => b.c);
-    const n = closes.length;
-
-    // Wilder's RSI (14-period)
-    const period = 14;
-    let avgGain = 0, avgLoss = 0;
-    for(let i = 1; i <= period; i++){
-      const diff = closes[i] - closes[i-1];
-      if(diff >= 0) avgGain += diff; else avgLoss -= diff;
-    }
-    avgGain /= period; avgLoss /= period;
-    for(let i = period + 1; i < n; i++){
-      const diff = closes[i] - closes[i-1];
-      const gain = diff >= 0 ? diff : 0;
-      const loss = diff < 0 ? -diff : 0;
-      avgGain = (avgGain * (period-1) + gain) / period;
-      avgLoss = (avgLoss * (period-1) + loss) / period;
-    }
-    const rsiValue = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
-    const rsi = Math.round(rsiValue * 10) / 10;
-
-    // CONTRARIAN scoring: RSI >70 = overbought = BEARISH score; RSI <30 = oversold = BULLISH score
-    let score, detail;
-    if(rsi >= 80){
-      score = 10; detail = `RSI ${rsi} — Extremely Overbought (bearish)`;
-    } else if(rsi >= 70){
-      const t = (rsi - 70) / 10; // 0→1 as RSI goes 70→80
-      score = Math.round(25 - t * 15); // 25 → 10
-      detail = `RSI ${rsi} — Overbought (bearish signal)`;
-    } else if(rsi <= 20){
-      score = 90; detail = `RSI ${rsi} — Extremely Oversold (bullish)`;
-    } else if(rsi <= 30){
-      const t = (30 - rsi) / 10; // 0→1 as RSI goes 30→20
-      score = Math.round(75 + t * 15); // 75 → 90
-      detail = `RSI ${rsi} — Oversold (bullish signal)`;
-    } else if(rsi > 65 && rsi < 70){
-      // Transition zone: approaching overbought
-      const t = (rsi - 65) / 5; // 0→1 as RSI 65→70
-      score = Math.round(50 - t * 25); // 50 → 25
-      detail = `RSI ${rsi} — Approaching overbought`;
-    } else if(rsi > 30 && rsi < 35){
-      // Transition zone: approaching oversold
-      const t = (35 - rsi) / 5; // 0→1 as RSI 35→30
-      score = Math.round(50 + t * 25); // 50 → 75
-      detail = `RSI ${rsi} — Approaching oversold`;
-    } else {
-      // Dead zone: 35–65 is genuinely neutral — no contrarian signal
-      score = 50;
-      detail = `RSI ${rsi} — Neutral (no contrarian signal)`;
-    }
-
-    setSl('rsi_extreme', score, true);
-    if(subEl) subEl.textContent = detail;
-
-    // Auto-fill notes if empty
-    const noteEl = document.getElementById('nt-rsi_extreme');
-    if(noteEl && !noteEl.value){
-      noteEl.value = `[Computed from ${n} daily bars] ${detail}`;
-    }
-
-  } catch(err){
-    const s = document.getElementById('sub-rsi_extreme');
-    if(s) s.textContent = '14-period at <30 or >70';
-    console.warn('RSI computation failed:', err.message);
-  }
-}
-
-// ═══ SMA 200 TREND — COMPUTED FROM OHLC ═══
-async function runSMA200Computed(ticker){
-  const subEl = document.getElementById('sub-sma_200');
-  if(subEl) subEl.textContent = 'SMA 200 — computing…';
-  try{
-    const ohlc = await Promise.race([fetchOHLCForCharts(ticker), new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),15000))]);
-    if(!ohlc || ohlc.daily.length < 201) throw new Error('Insufficient bars (need 201+, got '+(ohlc?.daily?.length||0)+')');
-    const bars  = ohlc.daily;
-    const n     = bars.length;
-    const closes = bars.map(b => b.c);
-    // SMA 200 on full dataset
-    const sma200val = closes.slice(n-200).reduce((s,v)=>s+v,0) / 200;
-    const price     = closes[n-1];
-    const pctAbove  = (price - sma200val) / sma200val * 100;
-    // Also check SMA 50 relationship for context
-    const sma50val  = closes.slice(n-50).reduce((s,v)=>s+v,0) / 50;
-
-    // Recency bonus: check if price crossed SMA200 within last 10 bars
-    let recentCross = 0; // +5 for fresh reclaim, -5 for fresh break
-    for(let i = Math.max(1, n-10); i < n; i++){
-      const prevAbove = closes[i-1] > (closes.slice(i-200, i).reduce((s,v)=>s+v,0)/200);
-      const currAbove = closes[i]   > (closes.slice(i-199, i+1).reduce((s,v)=>s+v,0)/200);
-      if(!prevAbove && currAbove) recentCross = 5;   // fresh reclaim — bullish
-      if(prevAbove && !currAbove) recentCross = -5;  // fresh break — bearish
-    }
-
-    let score, detail;
-    if(pctAbove > 15){
-      score = 85; detail = `${pctAbove.toFixed(1)}% above SMA200 ($${sma200val.toFixed(2)}) — extended bull`;
-    } else if(pctAbove > 5){
-      score = 75; detail = `${pctAbove.toFixed(1)}% above SMA200 ($${sma200val.toFixed(2)})`;
-    } else if(pctAbove > 1){
-      score = 65; detail = `${pctAbove.toFixed(1)}% above SMA200 ($${sma200val.toFixed(2)}) — near line`;
-    } else if(pctAbove >= -1){
-      score = 50; detail = `At SMA200 ($${sma200val.toFixed(2)}) — decision point`;
-    } else if(pctAbove >= -5){
-      score = 35; detail = `${Math.abs(pctAbove).toFixed(1)}% below SMA200 ($${sma200val.toFixed(2)}) — near line`;
-    } else if(pctAbove >= -15){
-      score = 25; detail = `${Math.abs(pctAbove).toFixed(1)}% below SMA200 ($${sma200val.toFixed(2)})`;
-    } else {
-      score = 15; detail = `${Math.abs(pctAbove).toFixed(1)}% below SMA200 ($${sma200val.toFixed(2)}) — extended bear`;
-    }
-    // Apply recency bonus/penalty (clamped 5–95)
-    if(recentCross !== 0){
-      score = Math.max(5, Math.min(95, score + recentCross));
-      detail += recentCross > 0 ? ' · ★ fresh reclaim' : ' · ★ fresh break';
-    }
-    setSl('sma_200', score, true);
-    if(subEl) subEl.textContent = detail;
-    const noteEl = document.getElementById('nt-sma_200');
-    if(noteEl && !noteEl.value){
-      const vs50 = price > sma50val ? 'above' : 'below';
-      noteEl.value = `[Computed from ${n} bars] SMA200:$${sma200val.toFixed(2)} SMA50:$${sma50val.toFixed(2)} · Price ${vs50} SMA50 · ${detail}`;
-    }
-  } catch(err){
-    const s = document.getElementById('sub-sma_200');
-    if(s) s.textContent = 'Price vs. 200-day (div-adj)';
-    console.warn('SMA 200 computation failed:', err.message);
-  }
-}
-async function runMACDComputed(ticker){
-  const subEl = document.getElementById('sub-macd_weekly');
-  if(subEl) subEl.textContent = '12,26,9 weekly — computing…';
-  try{
-    const ohlc = await Promise.race([fetchOHLCForCharts(ticker), new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),15000))]);
-    if(!ohlc || ohlc.weekly.length < 35) throw new Error('Insufficient weekly bars ('+((ohlc?.weekly?.length)||0)+')');
-    const closes = ohlc.weekly.map(b => b.c);
-    const ema12 = ema(closes, 12);
-    const ema26 = ema(closes, 26);
-    const macdLine = closes.map((_,i) => ema12[i]!==null && ema26[i]!==null ? ema12[i]-ema26[i] : null);
-    const validMacd = macdLine.filter(v => v !== null);
-    const signalRaw = ema(validMacd, 9);
-    // Re-align signal back onto full array
-    const signalFull = macdLine.map((v,i) => {
-      const idx = macdLine.slice(0,i+1).filter(v=>v!==null).length - 1;
-      return signalRaw[idx] ?? null;
-    });
-    const n = closes.length;
-    const lastMACD  = macdLine[n-1];
-    const lastSig   = signalFull[n-1];
-    const prevMACD  = macdLine[n-2];
-    const prevSig   = signalFull[n-2];
-    if(lastMACD === null || lastSig === null) throw new Error('Not enough data for MACD signal');
-    const hist      = lastMACD - lastSig;
-    const prevHist  = (prevMACD !== null && prevSig !== null) ? prevMACD - prevSig : 0;
-    const bullCross = prevMACD < prevSig && lastMACD >= lastSig;
-    const bearCross = prevMACD > prevSig && lastMACD <= lastSig;
-    let score, detail;
-    if(bullCross){
-      score = lastMACD > 0 ? 88 : 75;
-      detail = `Bullish crossover${lastMACD > 0 ? ' above zero' : ' below zero'}`;
-    } else if(bearCross){
-      score = lastMACD < 0 ? 12 : 25;
-      detail = `Bearish crossover${lastMACD < 0 ? ' below zero' : ' above zero'}`;
-    } else if(lastMACD > lastSig){
-      // Above signal — grade by histogram momentum and zero-line position
-      const momentum = hist > prevHist ? 'expanding' : 'contracting';
-      score = lastMACD > 0
-        ? (momentum === 'expanding' ? 78 : 68)
-        : (momentum === 'expanding' ? 65 : 58);
-      detail = `MACD > Signal${lastMACD > 0 ? ', above zero' : ', below zero'} · hist ${momentum}`;
-    } else {
-      const momentum = hist < prevHist ? 'expanding' : 'contracting';
-      score = lastMACD < 0
-        ? (momentum === 'expanding' ? 22 : 32)
-        : (momentum === 'expanding' ? 35 : 42);
-      detail = `MACD < Signal${lastMACD < 0 ? ', below zero' : ', above zero'} · hist ${momentum}`;
-    }
-    setSl('macd_weekly', score, true);
-    if(subEl) subEl.textContent = detail;
-    const noteEl = document.getElementById('nt-macd_weekly');
-    if(noteEl && !noteEl.value) noteEl.value = `[Computed from ${ohlc.weekly.length} weekly bars] ${detail}`;
-  } catch(err){
-    const s = document.getElementById('sub-macd_weekly');
-    if(s) s.textContent = '12,26,9 weekly timeframe';
-    console.warn('MACD Weekly computation failed:', err.message);
-  }
-}
-
-// ═══ BOLLINGER BANDS — COMPUTED FROM OHLC ═══
-async function runBollingerComputed(ticker){
-  const subEl = document.getElementById('sub-bollinger');
-  if(subEl) subEl.textContent = '20-period 2σ — computing…';
-  try{
-    const ohlc = await Promise.race([fetchOHLCForCharts(ticker), new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),15000))]);
-    if(!ohlc || ohlc.daily.length < 25) throw new Error('Insufficient bars');
-    const closes = ohlc.daily.map(b => b.c);
-    const n = closes.length;
-    const period = 20;
-    // Calculate current band
-    const slice = closes.slice(n - period);
-    const mean = slice.reduce((s,v)=>s+v,0) / period;
-    const sd = Math.sqrt(slice.reduce((s,v)=>s+(v-mean)**2,0) / period);
-    const upper = mean + 2*sd;
-    const lower = mean - 2*sd;
-    const price = closes[n-1];
-    const bandwidth = (upper - lower) / mean; // normalized
-    // %B: 0=at lower band, 1=at upper band, 0.5=at midline
-    const pctB = (price - lower) / (upper - lower);
-
-    // Trend context: check if price is in a strong uptrend or downtrend via SMA200
-    // If trending strongly, price "walking the band" is continuation, not reversal
-    const hasSMA200 = n >= 200;
-    const sma200v = hasSMA200 ? closes.slice(n-200).reduce((s,v)=>s+v,0)/200 : null;
-    const trendBull = sma200v !== null && price > sma200v * 1.05; // 5%+ above SMA200
-    const trendBear = sma200v !== null && price < sma200v * 0.95; // 5%+ below SMA200
-
-    const isTight = bandwidth < 0.04;
-    let score, detail;
-    if(isTight){
-      score = 52; // Squeeze — breakout imminent but direction unknown
-      detail = `Band squeeze (${(bandwidth*100).toFixed(1)}% width) — breakout pending`;
-    } else if(pctB >= 1.0){
-      // At/above upper band — but in strong uptrend, this is band-walking (less bearish)
-      score = trendBull ? 40 : 12;
-      detail = trendBull
-        ? `Walking upper band (%B=${pctB.toFixed(2)}) — uptrend continuation`
-        : `Price above upper band (%B=${pctB.toFixed(2)}) — overbought`;
-    } else if(pctB >= 0.85){
-      score = trendBull ? 48 : 22;
-      detail = trendBull
-        ? `Near upper band in uptrend (%B=${pctB.toFixed(2)})`
-        : `Near upper band (%B=${pctB.toFixed(2)}) — extended`;
-    } else if(pctB <= 0.0){
-      // At/below lower band — in strong downtrend, this is band-walking (less bullish)
-      score = trendBear ? 60 : 88;
-      detail = trendBear
-        ? `Walking lower band (%B=${pctB.toFixed(2)}) — downtrend continuation`
-        : `Price below lower band (%B=${pctB.toFixed(2)}) — oversold`;
-    } else if(pctB <= 0.15){
-      score = trendBear ? 52 : 78;
-      detail = trendBear
-        ? `Near lower band in downtrend (%B=${pctB.toFixed(2)})`
-        : `Near lower band (%B=${pctB.toFixed(2)}) — oversold zone`;
-    } else if(pctB >= 0.45 && pctB <= 0.55){
-      score = 50; detail = `At midline (%B=${pctB.toFixed(2)})`;
-    } else if(pctB > 0.55){
-      score = Math.round(50 - (pctB - 0.55) / 0.30 * 28);
-      detail = `Upper half (%B=${pctB.toFixed(2)}) — mild overbought`;
-    } else {
-      score = Math.round(50 + (0.45 - pctB) / 0.30 * 28);
-      detail = `Lower half (%B=${pctB.toFixed(2)}) — mild oversold`;
-    }
-    setSl('bollinger', score, true);
-    if(subEl) subEl.textContent = detail;
-    const noteEl = document.getElementById('nt-bollinger');
-    if(noteEl && !noteEl.value) noteEl.value = `[Computed from ${n} daily bars] Upper:${upper.toFixed(2)} Mid:${mean.toFixed(2)} Lower:${lower.toFixed(2)} · ${detail}`;
-  } catch(err){
-    const s = document.getElementById('sub-bollinger');
-    if(s) s.textContent = '20-period 2σ mean revert';
-    console.warn('Bollinger computation failed:', err.message);
-  }
-}
-
-// ═══ OBV TREND — COMPUTED FROM OHLC ═══
-async function runOBVComputed(ticker){
-  const subEl = document.getElementById('sub-obv');
-  if(subEl) subEl.textContent = 'OBV — computing…';
-  try{
-    const ohlc = await Promise.race([fetchOHLCForCharts(ticker), new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),15000))]);
-    if(!ohlc || ohlc.daily.length < 50) throw new Error('Insufficient bars');
-    const bars = ohlc.daily;
-    const n = bars.length;
-    // Build OBV series
-    const obvSeries = [0];
-    for(let i=1; i<n; i++){
-      const prev = obvSeries[i-1];
-      if(bars[i].c > bars[i-1].c)      obvSeries.push(prev + bars[i].v);
-      else if(bars[i].c < bars[i-1].c) obvSeries.push(prev - bars[i].v);
-      else                              obvSeries.push(prev);
-    }
-    // OBV trend: compare SMA(20) of OBV vs SMA(50) of OBV, and slope of recent 20 bars
-    function smaArr(arr, period, idx){ if(idx<period-1)return null; return arr.slice(idx-period+1,idx+1).reduce((s,v)=>s+v,0)/period; }
-    const obv20 = smaArr(obvSeries, 20, n-1);
-    const obv50 = smaArr(obvSeries, 50, n-1);
-    const obv20_prev = smaArr(obvSeries, 20, n-6); // 5 bars ago
-    const priceNow  = bars[n-1].c;
-    const price20ago = bars[n-21]?.c;
-    // Divergence: price up but OBV down (bearish div) or price down but OBV up (bullish div)
-    const priceTrend = price20ago ? (priceNow > price20ago ? 'up' : 'down') : null;
-    const obvTrend   = obv20_prev ? (obv20 > obv20_prev ? 'up' : 'down') : null;
-    const divergence = priceTrend && obvTrend && priceTrend !== obvTrend;
-    let score, detail;
+    // OBV
+    const obvSeries = I.obv;
+    const smaOBV = (arr, period, idx) => idx < period - 1 ? null : arr.slice(idx - period + 1, idx + 1).reduce((s, v) => s + v, 0) / period;
+    const obv20 = smaOBV(obvSeries, 20, n-1);
+    const obv50 = smaOBV(obvSeries, 50, n-1);
+    const obv20prev = smaOBV(obvSeries, 20, n-6);
+    const priceTrend = daily[n-21] ? (price > daily[n-21].c ? 'up' : 'down') : null;
+    const obvTrend = obv20prev ? (obv20 > obv20prev ? 'up' : 'down') : null;
+    const obvDiv = priceTrend && obvTrend && priceTrend !== obvTrend;
+    let obvDetail;
     if(obv20 !== null && obv50 !== null){
-      const bullTrend = obv20 > obv50;
-      if(divergence && priceTrend === 'up' && obvTrend === 'down'){
-        score = 18; detail = 'Bearish divergence — price rising, OBV falling (distribution)';
-      } else if(divergence && priceTrend === 'down' && obvTrend === 'up'){
-        score = 82; detail = 'Bullish divergence — price falling, OBV rising (accumulation)';
-      } else if(bullTrend){
-        const slope = obv20_prev ? (obv20 - obv20_prev) / Math.abs(obv20_prev || 1) : 0;
-        score = slope > 0.02 ? 78 : 68;
-        detail = `OBV rising · SMA20 > SMA50${slope > 0.02 ? ' · accelerating' : ''}`;
+      if(obvDiv && priceTrend === 'up')       obvDetail = 'Bearish divergence — price rising, OBV falling (distribution)';
+      else if(obvDiv && priceTrend === 'down') obvDetail = 'Bullish divergence — price falling, OBV rising (accumulation)';
+      else if(obv20 > obv50){
+        const slope = obv20prev ? (obv20 - obv20prev) / Math.abs(obv20prev || 1) : 0;
+        obvDetail = `OBV rising · SMA20 > SMA50${slope > 0.02 ? ' · accelerating' : ''}`;
       } else {
-        const slope = obv20_prev ? (obv20 - obv20_prev) / Math.abs(obv20_prev || 1) : 0;
-        score = slope < -0.02 ? 22 : 32;
-        detail = `OBV falling · SMA20 < SMA50${slope < -0.02 ? ' · accelerating' : ''}`;
+        const slope = obv20prev ? (obv20 - obv20prev) / Math.abs(obv20prev || 1) : 0;
+        obvDetail = `OBV falling · SMA20 < SMA50${slope < -0.02 ? ' · accelerating' : ''}`;
       }
+    } else obvDetail = 'Insufficient data for OBV trend';
+    const obvSub = document.getElementById('sub-obv');
+    if(obvSub) obvSub.textContent = obvDetail;
+    const obvNote = document.getElementById('nt-obv');
+    if(obvNote && !obvNote.value) obvNote.value = `[Computed from ${n} daily bars] ${obvDetail}`;
+
+    // SuperTrend
+    const st = I.superT;
+    const stDist = Math.abs(price - st.value) / price * 100;
+    let stDetail;
+    if(st.direction === 1){
+      stDetail = `Bullish · price ${stDist.toFixed(1)}% above SuperTrend (${st.value.toFixed(2)})`;
+      if(st.barsSinceFlip <= 5) stDetail += ' · ★ fresh flip';
+      else if(st.barsSinceFlip <= 15) stDetail += ` · flipped ${st.barsSinceFlip}b ago`;
     } else {
-      score = 50; detail = 'Insufficient data for OBV trend';
+      stDetail = `Bearish · price ${stDist.toFixed(1)}% below SuperTrend (${st.value.toFixed(2)})`;
+      if(st.barsSinceFlip <= 5) stDetail += ' · ★ fresh flip';
+      else if(st.barsSinceFlip <= 15) stDetail += ` · flipped ${st.barsSinceFlip}b ago`;
     }
-    setSl('obv', score, true);
-    if(subEl) subEl.textContent = detail;
-    const noteEl = document.getElementById('nt-obv');
-    if(noteEl && !noteEl.value) noteEl.value = `[Computed from ${n} daily bars] ${detail}`;
-  } catch(err){
-    const s = document.getElementById('sub-obv');
-    if(s) s.textContent = 'On-Balance Volume dir.';
-    console.warn('OBV computation failed:', err.message);
-  }
-}
+    const stSub = document.getElementById('sub-supertrend');
+    if(stSub) stSub.textContent = stDetail;
+    const stNote = document.getElementById('nt-supertrend');
+    if(stNote && !stNote.value) stNote.value = `[Computed from ${n} daily bars] ${stDetail}`;
 
-// ═══ SUPERTREND — COMPUTED FROM OHLC ═══
-async function runSuperTrendComputed(ticker){
-  const subEl = document.getElementById('sub-supertrend');
-  if(subEl) subEl.textContent = 'SuperTrend — computing…';
-  try{
-    const ohlc = await Promise.race([fetchOHLCForCharts(ticker), new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),15000))]);
-    if(!ohlc || ohlc.daily.length < 30) throw new Error('Insufficient bars');
-    const bars = ohlc.daily;
-    const n = bars.length;
-    const period = 10, multiplier = 3.0;
-    // ATR (Wilder's smoothing)
-    const tr = [0];
-    for(let i=1; i<n; i++){
-      tr.push(Math.max(
-        bars[i].h - bars[i].l,
-        Math.abs(bars[i].h - bars[i-1].c),
-        Math.abs(bars[i].l - bars[i-1].c)
-      ));
-    }
-    const atrSeries = [tr[0]];
-    for(let i=1; i<n; i++){
-      atrSeries.push((atrSeries[i-1] * (period-1) + tr[i]) / period);
-    }
-    // SuperTrend bands + track direction flips for recency
-    let direction = 1; // 1=bullish, -1=bearish
-    let supertrend = 0;
-    let prevUpper = 0, prevLower = 0;
-    let lastFlipBar = period; // bar index of last direction change
-    let prevDir = 1;
-    for(let i=period; i<n; i++){
-      const hl2 = (bars[i].h + bars[i].l) / 2;
-      const atr  = atrSeries[i];
-      let upperBand = hl2 + multiplier * atr;
-      let lowerBand = hl2 - multiplier * atr;
-      if(lowerBand > prevLower || bars[i-1].c < prevLower) lowerBand = lowerBand;
-      else lowerBand = prevLower;
-      if(upperBand < prevUpper || bars[i-1].c > prevUpper) upperBand = upperBand;
-      else upperBand = prevUpper;
-      prevDir = direction;
-      if(bars[i].c > prevUpper)       direction = 1;
-      else if(bars[i].c < prevLower)  direction = -1;
-      if(direction !== prevDir) lastFlipBar = i; // track last flip
-      supertrend = direction === 1 ? lowerBand : upperBand;
-      prevUpper = upperBand; prevLower = lowerBand;
-    }
-    const lastClose = bars[n-1].c;
-    const distPct = Math.abs(lastClose - supertrend) / lastClose * 100;
-    const barsSinceFlip = n - 1 - lastFlipBar;
-    // Fresh flip bonus: +8 within 5 bars, decays to 0 by bar 40
-    const flipBonus = barsSinceFlip <= 5 ? 8 : barsSinceFlip <= 40 ? Math.round(8 * (1 - (barsSinceFlip-5)/35)) : 0;
+    // ADX
+    const adx = I.adx;
+    const bullDir = adx.plusDI > adx.minusDI;
+    let adxDetail;
+    if(adx.adx < 15)      adxDetail = `ADX ${adx.adx} — No trend (choppy) · trend indicators unreliable`;
+    else if(adx.adx < 20) adxDetail = `ADX ${adx.adx} — Weak/developing · ${bullDir ? '+DI' : '-DI'} leads`;
+    else if(adx.adx < 30) adxDetail = bullDir
+      ? `ADX ${adx.adx} — Moderate bullish trend · +DI ${adx.plusDI.toFixed(0)} > -DI ${adx.minusDI.toFixed(0)}`
+      : `ADX ${adx.adx} — Moderate bearish trend · -DI ${adx.minusDI.toFixed(0)} > +DI ${adx.plusDI.toFixed(0)}`;
+    else if(adx.adx < 40) adxDetail = bullDir
+      ? `ADX ${adx.adx} — Strong bullish trend · +DI ${adx.plusDI.toFixed(0)} > -DI ${adx.minusDI.toFixed(0)}`
+      : `ADX ${adx.adx} — Strong bearish trend · -DI ${adx.minusDI.toFixed(0)} > +DI ${adx.plusDI.toFixed(0)}`;
+    else adxDetail = bullDir
+      ? `ADX ${adx.adx} — Very strong bull · +DI ${adx.plusDI.toFixed(0)} > -DI ${adx.minusDI.toFixed(0)} (may be extended)`
+      : `ADX ${adx.adx} — Very strong bear · -DI ${adx.minusDI.toFixed(0)} > +DI ${adx.plusDI.toFixed(0)} (capitulation risk)`;
+    if(adx.adxRising && adx.adx >= 20) adxDetail += ' · ADX rising';
+    else if(!adx.adxRising && adx.adx >= 20) adxDetail += ' · ADX fading';
+    const adxSub = document.getElementById('sub-adx');
+    if(adxSub) adxSub.textContent = adxDetail;
+    const adxNote = document.getElementById('nt-adx');
+    if(adxNote && !adxNote.value) adxNote.value = `[Computed from ${n} daily bars] ADX:${adx.adx} +DI:${adx.plusDI.toFixed(1)} -DI:${adx.minusDI.toFixed(1)} · ${adxDetail}`;
 
-    let score, detail;
-    if(direction === 1){
-      score = distPct > 5 ? 82 : distPct > 2 ? 72 : 65;
-      score = Math.min(95, score + flipBonus);
-      detail = `Bullish · price ${distPct.toFixed(1)}% above SuperTrend (${supertrend.toFixed(2)})`;
-      if(barsSinceFlip <= 5) detail += ' · ★ fresh flip';
-      else if(barsSinceFlip <= 15) detail += ` · flipped ${barsSinceFlip}b ago`;
+    // Volume Profile
+    const vp = I.volProf;
+    if(vp){
+      let vpDetail;
+      if(price > vp.vah){
+        const abovePct = (price - vp.vah) / vp.vah * 100;
+        if(vp.volFading)      vpDetail = `${abovePct.toFixed(1)}% above VAH ($${vp.vah.toFixed(2)}) · ⚠ vol fading — breakout suspect`;
+        else if(vp.volRising) vpDetail = `${abovePct.toFixed(1)}% above VAH ($${vp.vah.toFixed(2)}) · ✓ vol confirms breakout`;
+        else                  vpDetail = `Price ${abovePct.toFixed(1)}% above VAH ($${vp.vah.toFixed(2)}) · POC $${vp.poc.toFixed(2)}`;
+      } else if(price >= vp.val && price <= vp.vah){
+        const rel = price >= vp.poc ? 'above' : 'below';
+        vpDetail = `Inside VA · price ${rel} POC ($${vp.poc.toFixed(2)}) · VAH $${vp.vah.toFixed(2)} VAL $${vp.val.toFixed(2)}`;
+      } else {
+        const belowPct = (vp.val - price) / vp.val * 100;
+        if(vp.volFading)      vpDetail = `${belowPct.toFixed(1)}% below VAL ($${vp.val.toFixed(2)}) · vol fading (selling may exhaust)`;
+        else if(vp.volRising) vpDetail = `${belowPct.toFixed(1)}% below VAL ($${vp.val.toFixed(2)}) · ⚠ vol confirms breakdown`;
+        else                  vpDetail = `Price ${belowPct.toFixed(1)}% below VAL ($${vp.val.toFixed(2)}) · POC $${vp.poc.toFixed(2)}`;
+      }
+      const vpSub = document.getElementById('sub-vol_profile');
+      if(vpSub) vpSub.textContent = vpDetail;
+      const vpNote = document.getElementById('nt-vol_profile');
+      if(vpNote && !vpNote.value) vpNote.value = `[Computed from ${Math.min(n,252)} daily bars] POC:$${vp.poc.toFixed(2)} VAH:$${vp.vah.toFixed(2)} VAL:$${vp.val.toFixed(2)} · ${vpDetail}`;
+    }
+
+    // Ichimoku
+    const ich = I.ichimoku;
+    if(ich && ich.kumoA !== null && ich.kumoB !== null){
+      const kumoTop = Math.max(ich.kumoA, ich.kumoB), kumoBottom = Math.min(ich.kumoA, ich.kumoB);
+      const cloudBull = ich.kumoA > ich.kumoB;
+      let ichLabels = [];
+      if(price > kumoTop) ichLabels.push('Price above cloud');
+      else if(price < kumoBottom) ichLabels.push('Price below cloud');
+      else ichLabels.push('Price inside cloud');
+      ichLabels.push(cloudBull ? 'Green cloud' : 'Red cloud');
+      if(ich.tenkan !== null && ich.kijun !== null){
+        if(ich.prevTenkan !== null && ich.prevKijun !== null){
+          if(ich.prevTenkan <= ich.prevKijun && ich.tenkan > ich.kijun) ichLabels.push('TK bullish cross');
+          else if(ich.prevTenkan >= ich.prevKijun && ich.tenkan < ich.kijun) ichLabels.push('TK bearish cross');
+          else ichLabels.push(ich.tenkan > ich.kijun ? 'Tenkan > Kijun' : 'Tenkan < Kijun');
+        } else ichLabels.push(ich.tenkan > ich.kijun ? 'Tenkan > Kijun' : 'Tenkan < Kijun');
+      }
+      const ichDetail = ichLabels.slice(0,2).join(' · ');
+      const ichSub = document.getElementById('sub-ichimoku');
+      if(ichSub) ichSub.textContent = ichDetail;
+      const ichNote = document.getElementById('nt-ichimoku');
+      if(ichNote && !ichNote.value) ichNote.value = `[Computed from ${n} bars] Kumo ${kumoBottom.toFixed(2)}–${kumoTop.toFixed(2)} · TK ${ich.tenkan?.toFixed(2)}/${ich.kijun?.toFixed(2)} · ${ichDetail}`;
+    }
+
+    // DeMark Sequential
+    const dm = I.demark;
+    let dmDetail;
+    if(dm.lastCd && dm.barsSinceCd !== null && dm.barsSinceCd <= 15)
+      dmDetail = `CD13 ${dm.lastCd.toUpperCase()} · ${dm.barsSinceCd}b ago`;
+    else if(dm.lastSetup && dm.barsSince !== null && dm.barsSince <= 20)
+      dmDetail = `Setup9 ${dm.lastSetup.toUpperCase()}${dm.perfect ? ' ★' : ''} · ${dm.barsSince}b ago`;
+    else if(dm.activeBuy >= 5)  dmDetail = `Active BUY setup ${dm.activeBuy}/9`;
+    else if(dm.activeSell >= 5) dmDetail = `Active SELL setup ${dm.activeSell}/9`;
+    else if(dm.activeBuy > 0)   dmDetail = `BUY setup counting: ${dm.activeBuy}/9`;
+    else if(dm.activeSell > 0)  dmDetail = `SELL setup counting: ${dm.activeSell}/9`;
+    else                        dmDetail = 'No active signal · score neutral';
+    const dmSub = document.getElementById('sub-demark_seq');
+    if(dmSub) dmSub.textContent = dmDetail;
+    if(TIPS.demark_seq) TIPS.demark_seq.name = 'DeMark Sequential (computed)';
+    const dmNote = document.getElementById('nt-demark_seq');
+    if(dmNote && !dmNote.value) dmNote.value = `[Computed from ${n} daily bars] ${dmDetail}`;
+
+    // DeMark Combo
+    const dc = I.demarkC;
+    let dcDetail;
+    if(dc.lastSetup && dc.barsSince !== null && dc.barsSince <= 18){
+      dcDetail = dc.lastSetup === 'buy' ? `Combo Setup 9 BUY — ${dc.barsSince}b ago` : `Combo Setup 9 SELL — ${dc.barsSince}b ago`;
+    } else if(dc.activeBuy >= 5)  dcDetail = `Active BUY setup: bar ${dc.activeBuy}/9`;
+    else if(dc.activeSell >= 5)   dcDetail = `Active SELL setup: bar ${dc.activeSell}/9`;
+    else if(dc.activeBuy > 0)     dcDetail = `BUY setup counting: ${dc.activeBuy}/9`;
+    else if(dc.activeSell > 0)    dcDetail = `SELL setup counting: ${dc.activeSell}/9`;
+    else                          dcDetail = 'No active Combo signal · score neutral';
+    const dcSub = document.getElementById('sub-demark_combo');
+    if(dcSub) dcSub.textContent = dcDetail;
+    const dcNote = document.getElementById('nt-demark_combo');
+    if(dcNote && !dcNote.value) dcNote.value = `[Computed from ${n} daily bars] ${dcDetail}`;
+
+    // Candlestick Signal
+    const cs = I.candle;
+    if(cs){
+      const ago = cs.barsAgo === 0 ? 'today' : `${cs.barsAgo}d ago`;
+      const conf = cs.confirmed && cs.confirmed !== 'today' ? ` · ${cs.confirmed}` : '';
+      const csDetail = `${cs.type} ${ago}${conf} — ${cs.detail}`;
+      const csSub = document.getElementById('sub-candle_signal');
+      if(csSub) csSub.textContent = csDetail;
+      const csNote = document.getElementById('nt-candle_signal');
+      if(csNote && !csNote.value) csNote.value = `[Computed] ${cs.type} ${ago} · Score:${cs.score} · ${cs.detail}`;
     } else {
-      score = distPct > 5 ? 18 : distPct > 2 ? 28 : 35;
-      score = Math.max(5, score - flipBonus);
-      detail = `Bearish · price ${distPct.toFixed(1)}% below SuperTrend (${supertrend.toFixed(2)})`;
-      if(barsSinceFlip <= 5) detail += ' · ★ fresh flip';
-      else if(barsSinceFlip <= 15) detail += ` · flipped ${barsSinceFlip}b ago`;
+      const csSub = document.getElementById('sub-candle_signal');
+      if(csSub) csSub.textContent = 'No reversal pattern detected (last 5 bars)';
     }
-    setSl('supertrend', score, true);
-    if(subEl) subEl.textContent = detail;
-    const noteEl = document.getElementById('nt-supertrend');
-    if(noteEl && !noteEl.value) noteEl.value = `[Computed from ${n} daily bars] ${detail}`;
+
   } catch(err){
-    const s = document.getElementById('sub-supertrend');
-    if(s) s.textContent = 'ATR trend flip — bull/bear';
-    console.warn('SuperTrend computation failed:', err.message);
-  }
-}
-
-// ═══ ADX + DI LINES — COMPUTED FROM OHLC ═══
-async function runADXComputed(ticker){
-  const subEl = document.getElementById('sub-adx');
-  if(subEl) subEl.textContent = 'ADX — computing…';
-  try{
-    const ohlc = await Promise.race([fetchOHLCForCharts(ticker), new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),15000))]);
-    if(!ohlc || ohlc.daily.length < 30) throw new Error('Insufficient bars');
-    const bars = ohlc.daily;
-    const n = bars.length;
-    const period = 14;
-
-    // Step 1: True Range, +DM, -DM
-    const trArr = [], plusDM = [], minusDM = [];
-    for(let i=1; i<n; i++){
-      trArr.push(Math.max(
-        bars[i].h - bars[i].l,
-        Math.abs(bars[i].h - bars[i-1].c),
-        Math.abs(bars[i].l - bars[i-1].c)
-      ));
-      const upMove = bars[i].h - bars[i-1].h;
-      const dnMove = bars[i-1].l - bars[i].l;
-      plusDM.push(upMove > dnMove && upMove > 0 ? upMove : 0);
-      minusDM.push(dnMove > upMove && dnMove > 0 ? dnMove : 0);
-    }
-
-    // Step 2: Wilder's smoothing (14-period)
-    if(trArr.length < period) throw new Error('Not enough data');
-    let atr14 = trArr.slice(0,period).reduce((s,v)=>s+v,0);
-    let pDM14 = plusDM.slice(0,period).reduce((s,v)=>s+v,0);
-    let mDM14 = minusDM.slice(0,period).reduce((s,v)=>s+v,0);
-
-    const dxArr = [];
-    for(let i=period; i<trArr.length; i++){
-      if(i > period){
-        atr14 = atr14 - atr14/period + trArr[i];
-        pDM14 = pDM14 - pDM14/period + plusDM[i];
-        mDM14 = mDM14 - mDM14/period + minusDM[i];
-      }
-      const pDI = atr14 > 0 ? (pDM14 / atr14) * 100 : 0;
-      const mDI = atr14 > 0 ? (mDM14 / atr14) * 100 : 0;
-      const diSum = pDI + mDI;
-      const dx = diSum > 0 ? Math.abs(pDI - mDI) / diSum * 100 : 0;
-      dxArr.push({dx, pDI, mDI});
-    }
-
-    // Step 3: ADX = Wilder's smoothed DX (14-period)
-    if(dxArr.length < period) throw new Error('Not enough DX values');
-    let adxVal = dxArr.slice(0,period).reduce((s,d)=>s+d.dx,0) / period;
-    for(let i=period; i<dxArr.length; i++){
-      adxVal = (adxVal * (period-1) + dxArr[i].dx) / period;
-    }
-
-    const last = dxArr[dxArr.length-1];
-    const plusDI = last.pDI;
-    const minusDI = last.mDI;
-    const bullDir = plusDI > minusDI;
-    const adx = Math.round(adxVal * 10) / 10;
-
-    // ADX trend over last 5 readings
-    let adxPrev = dxArr.slice(0,period).reduce((s,d)=>s+d.dx,0) / period;
-    for(let i=period; i<dxArr.length-5; i++){
-      adxPrev = (adxPrev * (period-1) + dxArr[i].dx) / period;
-    }
-    const adxRising = adxVal > adxPrev;
-
-    // Score: ADX determines strength, DI determines direction
-    let score, detail;
-    if(adx < 15){
-      score = 50;
-      detail = `ADX ${adx} — No trend (choppy) · trend indicators unreliable`;
-    } else if(adx < 20){
-      score = bullDir ? 54 : 46;
-      detail = `ADX ${adx} — Weak/developing · ${bullDir ? '+DI' : '-DI'} leads`;
-    } else if(adx < 30){
-      if(bullDir){
-        score = adxRising ? 72 : 65;
-        detail = `ADX ${adx} — Moderate bullish trend · +DI ${plusDI.toFixed(0)} > -DI ${minusDI.toFixed(0)}`;
-      } else {
-        score = adxRising ? 28 : 35;
-        detail = `ADX ${adx} — Moderate bearish trend · -DI ${minusDI.toFixed(0)} > +DI ${plusDI.toFixed(0)}`;
-      }
-    } else if(adx < 40){
-      if(bullDir){
-        score = adxRising ? 80 : 75;
-        detail = `ADX ${adx} — Strong bullish trend · +DI ${plusDI.toFixed(0)} > -DI ${minusDI.toFixed(0)}`;
-      } else {
-        score = adxRising ? 20 : 25;
-        detail = `ADX ${adx} — Strong bearish trend · -DI ${minusDI.toFixed(0)} > +DI ${plusDI.toFixed(0)}`;
-      }
-    } else {
-      // ADX > 40: very strong trend, but may be extended
-      if(bullDir){
-        score = 82;
-        detail = `ADX ${adx} — Very strong bull · +DI ${plusDI.toFixed(0)} > -DI ${minusDI.toFixed(0)} (may be extended)`;
-      } else {
-        score = 18;
-        detail = `ADX ${adx} — Very strong bear · -DI ${minusDI.toFixed(0)} > +DI ${plusDI.toFixed(0)} (capitulation risk)`;
-      }
-    }
-    if(adxRising && adx >= 20) detail += ' · ADX rising';
-    else if(!adxRising && adx >= 20) detail += ' · ADX fading';
-
-    setSl('adx', score, true);
-    if(subEl) subEl.textContent = detail;
-    const noteEl = document.getElementById('nt-adx');
-    if(noteEl && !noteEl.value) noteEl.value = `[Computed from ${n} daily bars] ADX:${adx} +DI:${plusDI.toFixed(1)} -DI:${minusDI.toFixed(1)} · ${detail}`;
-  } catch(err){
-    const s = document.getElementById('sub-adx');
-    if(s) s.textContent = 'ADX — AI estimate';
-    console.warn('ADX computation failed:', err.message);
-  }
-}
-
-// ═══ DEMARK COMBO — COMPUTED FROM OHLC ═══
-async function runDeMarkComboComputed(ticker){
-  const subEl = document.getElementById('sub-demark_combo');
-  if(subEl) subEl.textContent = 'TD Combo — computing…';
-  try{
-    const ohlc = await Promise.race([fetchOHLCForCharts(ticker), new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),15000))]);
-    if(!ohlc || ohlc.daily.length < 25) throw new Error('Insufficient bars');
-    const bars = ohlc.daily;
-    const n = bars.length;
-    const close = bars.map(b=>b.c), high = bars.map(b=>b.h), low = bars.map(b=>b.l);
-    // TD Combo Setup: 9 consecutive closes vs close[2] bars ago (vs Sequential's close[4])
-    const setupDone = [], setupType = [];
-    let buyC = 0, sellC = 0;
-    for(let i=0; i<n; i++){
-      setupDone.push(null); setupType.push(null);
-      if(i < 2) continue;
-      if(close[i] < close[i-2])       { buyC++;  sellC=0; if(buyC  >= 9){ setupDone[i]='buy';  buyC=0;  } }
-      else if(close[i] > close[i-2])  { sellC++; buyC=0;  if(sellC >= 9){ setupDone[i]='sell'; sellC=0; } }
-      else { buyC=0; sellC=0; }
-    }
-    // Find most recent setup and active count
-    let lastSetup=null, lastSetupBar=null;
-    let activeBuy=0, activeSell=0;
-    let bc=0, sc=0;
-    for(let i=2; i<n; i++){
-      if(close[i]<close[i-2]){ bc++; sc=0; if(bc>=9) bc=0; }
-      else if(close[i]>close[i-2]){ sc++; bc=0; if(sc>=9) sc=0; }
-      else { bc=0; sc=0; }
-    }
-    activeBuy=bc; activeSell=sc;
-    for(let i=n-1; i>=2; i--){ if(setupDone[i]){ lastSetup=setupDone[i]; lastSetupBar=i; break; } }
-    const barsSince = lastSetupBar !== null ? n-1-lastSetupBar : null;
-    const STALE = 18;
-    let score, detail;
-    if(lastSetup && barsSince <= STALE){
-      const fresh = Math.max(0, 1-barsSince/STALE);
-      if(lastSetup==='buy'){
-        score = Math.round(78 + fresh*12);
-        detail = `Combo Setup 9 BUY — ${barsSince}b ago`;
-      } else {
-        score = Math.round(22 - fresh*12);
-        detail = `Combo Setup 9 SELL — ${barsSince}b ago`;
-      }
-    } else if(activeBuy >= 5){
-      score = Math.round(50 + activeBuy/9*8);
-      detail = `Active BUY setup: bar ${activeBuy}/9`;
-    } else if(activeSell >= 5){
-      score = Math.round(50 - activeSell/9*8);
-      detail = `Active SELL setup: bar ${activeSell}/9`;
-    } else if(activeBuy > 0){
-      score = 50; detail = `BUY setup counting: ${activeBuy}/9`;
-    } else if(activeSell > 0){
-      score = 50; detail = `SELL setup counting: ${activeSell}/9`;
-    } else {
-      score = 50; detail = 'No active Combo signal · score neutral';
-    }
-    setSl('demark_combo', score, true);
-    if(subEl) subEl.textContent = detail;
-    const noteEl = document.getElementById('nt-demark_combo');
-    if(noteEl && !noteEl.value) noteEl.value = `[Computed from ${n} daily bars] ${detail}`;
-  } catch(err){
-    const s = document.getElementById('sub-demark_combo');
-    if(s) s.textContent = 'TD Combo — AI estimate';
-    console.warn('DeMark Combo computation failed:', err.message);
-  }
-}
-
-// ═══ VOLUME PROFILE — COMPUTED FROM OHLC ═══
-async function runVolProfileComputed(ticker){
-  const subEl = document.getElementById('sub-vol_profile');
-  if(subEl) subEl.textContent = 'POC / VAH / VAL — computing…';
-  try{
-    const ohlc = await Promise.race([fetchOHLCForCharts(ticker), new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),15000))]);
-    if(!ohlc || ohlc.daily.length < 30) throw new Error('Insufficient bars');
-    const bars = ohlc.daily;
-    const n = bars.length;
-    // Use last 252 bars (~1 year) for VP — enough context without going too stale
-    const lookback = Math.min(n, 252);
-    const recent = bars.slice(n - lookback);
-    const mn = Math.min(...recent.map(b=>b.l));
-    const mx = Math.max(...recent.map(b=>b.h));
-    const BUCKETS = 24;
-    const step = (mx - mn) / BUCKETS;
-    const vols = Array(BUCKETS).fill(0);
-    recent.forEach(b => {
-      const idx = Math.min(Math.floor((b.c - mn) / step), BUCKETS-1);
-      vols[idx] += b.v;
-    });
-    // POC = bucket with highest volume
-    const pocIdx = vols.indexOf(Math.max(...vols));
-    const poc = mn + (pocIdx + 0.5) * step;
-    // Value Area: 70% of total volume centered around POC
-    const totalVol = vols.reduce((s,v)=>s+v,0);
-    const target = totalVol * 0.70;
-    let vaVol = vols[pocIdx], vaLow = pocIdx, vaHigh = pocIdx;
-    while(vaVol < target && (vaLow > 0 || vaHigh < BUCKETS-1)){
-      const addLow  = vaLow  > 0          ? vols[vaLow-1]  : 0;
-      const addHigh = vaHigh < BUCKETS-1  ? vols[vaHigh+1] : 0;
-      if(addHigh >= addLow){ vaHigh++; vaVol += addHigh; }
-      else                  { vaLow--;  vaVol += addLow;  }
-    }
-    const vah = mn + (vaHigh + 1) * step;
-    const val = mn + vaLow * step;
-    const price = recent[recent.length-1].c;
-
-    // Volume confirmation: recent 5-bar avg volume vs 20-bar avg
-    const vol5  = recent.slice(-5).reduce((s,b)=>s+b.v,0) / 5;
-    const vol20 = recent.slice(-20).reduce((s,b)=>s+b.v,0) / Math.min(20, recent.length);
-    const volRising = vol5 > vol20 * 1.05;
-    const volFading = vol5 < vol20 * 0.85;
-
-    // Score: price vs POC and value area, with volume confirmation
-    let score, detail;
-    if(price > vah){
-      const abovePct = (price - vah) / vah * 100;
-      if(volFading){
-        // Above VAH but volume declining — breakout suspect, likely to revert
-        score = abovePct > 5 ? 62 : 58;
-        detail = `${abovePct.toFixed(1)}% above VAH ($${vah.toFixed(2)}) · ⚠ vol fading — breakout suspect`;
-      } else if(volRising){
-        // Confirmed breakout with volume
-        score = abovePct > 5 ? 82 : 72;
-        detail = `${abovePct.toFixed(1)}% above VAH ($${vah.toFixed(2)}) · ✓ vol confirms breakout`;
-      } else {
-        score = abovePct > 5 ? 78 : 68;
-        detail = `Price ${abovePct.toFixed(1)}% above VAH ($${vah.toFixed(2)}) · POC $${poc.toFixed(2)}`;
-      }
-    } else if(price >= val && price <= vah){
-      const pctB = (price - val) / (vah - val);
-      score = Math.round(45 + pctB * 20); // 45–65
-      const rel = price >= poc ? 'above' : 'below';
-      detail = `Inside VA · price ${rel} POC ($${poc.toFixed(2)}) · VAH $${vah.toFixed(2)} VAL $${val.toFixed(2)}`;
-    } else {
-      const belowPct = (val - price) / val * 100;
-      if(volFading){
-        // Below VAL with fading volume — selling exhaustion, less bearish
-        score = belowPct > 5 ? 28 : 38;
-        detail = `${belowPct.toFixed(1)}% below VAL ($${val.toFixed(2)}) · vol fading (selling may exhaust)`;
-      } else if(volRising){
-        // Below VAL with rising volume — distribution confirmed
-        score = belowPct > 5 ? 15 : 25;
-        detail = `${belowPct.toFixed(1)}% below VAL ($${val.toFixed(2)}) · ⚠ vol confirms breakdown`;
-      } else {
-        score = belowPct > 5 ? 22 : 32;
-        detail = `Price ${belowPct.toFixed(1)}% below VAL ($${val.toFixed(2)}) · POC $${poc.toFixed(2)}`;
-      }
-    }
-    setSl('vol_profile', score, true);
-    if(subEl) subEl.textContent = detail;
-    const noteEl = document.getElementById('nt-vol_profile');
-    if(noteEl && !noteEl.value) noteEl.value = `[Computed from ${lookback} daily bars] POC:$${poc.toFixed(2)} VAH:$${vah.toFixed(2)} VAL:$${val.toFixed(2)} · ${detail}`;
-  } catch(err){
-    const s = document.getElementById('sub-vol_profile');
-    if(s) s.textContent = 'POC / VAH / VAL';
-    console.warn('Volume Profile computation failed:', err.message);
+    console.warn('runAllComputed failed:', err.message);
+    // Sub-labels revert to defaults on error — AI estimates remain
   }
 }
 
@@ -2389,234 +2401,6 @@ async function runLevelsComputed(ticker){
 
   } catch(err){
     console.warn('Levels computation failed:', err.message);
-  }
-}
-
-// ═══ CANDLESTICK SIGNAL — COMPUTED FROM OHLC ═══
-async function runCandleSignalComputed(ticker){
-  const subEl = document.getElementById('sub-candle_signal');
-  if(subEl) subEl.textContent = 'Scanning for reversal patterns…';
-  try{
-    const ohlc = await Promise.race([fetchOHLCForCharts(ticker), new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),15000))]);
-    if(!ohlc || ohlc.daily.length < 10) throw new Error('Insufficient bars');
-    const bars = ohlc.daily;
-    const n = bars.length;
-    // Scan last 5 bars for reversal patterns (stale patterns have no predictive value)
-    const LOOKBACK = Math.min(5, n - 1);
-    let bestSignal = null; // {type, score, barsAgo, confirmed, detail}
-
-    // Also need SMA200 and recent high for context
-    const sma200Bars = bars.slice(0, n);
-    const sma200 = sma200Bars.length >= 200
-      ? sma200Bars.slice(n-200).reduce((s,b)=>s+b.c,0)/200
-      : sma200Bars.reduce((s,b)=>s+b.c,0)/sma200Bars.length;
-    const avgVol = bars.slice(n-20).reduce((s,b)=>s+b.v,0)/20;
-
-    // Detect uptrend / downtrend context (5-bar slope)
-    const slope5 = n >= 7 ? bars[n-1].c - bars[n-6].c : 0;
-    const priceRange5High = Math.max(...bars.slice(Math.max(0,n-6),n).map(b=>b.h));
-    const priceRange5Low  = Math.min(...bars.slice(Math.max(0,n-6),n).map(b=>b.l));
-
-    for(let i = n - LOOKBACK; i < n; i++){
-      const bar = bars[i];
-      const body = Math.abs(bar.c - bar.o);
-      const upperShadow = bar.h - Math.max(bar.c, bar.o);
-      const lowerShadow = Math.min(bar.c, bar.o) - bar.l;
-      const range = bar.h - bar.l;
-      if(range < 0.0001) continue; // doji/flat — skip
-
-      const barsAgo = n - 1 - i;
-      const isHighVol = bar.v > avgVol * 1.2;
-      // Confirmation: next bar closes beyond body
-      const confirmed = i < n-1
-        ? (bar.c > bar.o ? bars[i+1].c > bar.h : bars[i+1].c < bar.l) // simple next-bar break
-        : null; // can't know yet for today
-
-      // ── TOPPING TAIL (Shooting Star) ──
-      // Long upper wick, small body at bottom, after uptrend or near resistance
-      if(
-        upperShadow >= 2 * Math.max(body, 0.001) &&
-        lowerShadow <= body * 1.5 &&
-        upperShadow >= 0.55 * range
-      ){
-        const nearResist = Math.abs(bar.h - priceRange5High) / priceRange5High < 0.02;
-        const aboveSMA200 = bar.c > sma200;
-        const afterUptrend = slope5 > 0;
-        let strength = 50; // base neutral
-        // Topping → bearish signal → score below 50
-        if(afterUptrend) strength -= 15;
-        if(nearResist)   strength -= 10;
-        if(isHighVol)    strength -= 8;
-        if(aboveSMA200)  strength -= 5;
-        if(confirmed)    strength -= 7;
-        strength = Math.max(10, strength);
-        const sig = {type:'Topping Tail', score:Math.round(strength), barsAgo, confirmed:confirmed===null?'today':confirmed?'yes':'unconfirmed',
-          detail:`upper wick ${(upperShadow/range*100).toFixed(0)}% of range`+(nearResist?' · near resistance':'')+(isHighVol?' · elevated vol':'')+(afterUptrend?' · after uptrend':'')};
-        if(!bestSignal || barsAgo < bestSignal.barsAgo || (barsAgo===bestSignal.barsAgo && Math.abs(sig.score-50) > Math.abs(bestSignal.score-50))) bestSignal=sig;
-      }
-
-      // ── BOTTOMING TAIL (Hammer) ──
-      // Long lower wick, small body at top, after downtrend or near support
-      if(
-        lowerShadow >= 2 * Math.max(body, 0.001) &&
-        upperShadow <= body * 1.5 &&
-        lowerShadow >= 0.55 * range
-      ){
-        const nearSupport = Math.abs(bar.l - priceRange5Low) / priceRange5Low < 0.02;
-        const belowSMA200 = bar.c < sma200;
-        const afterDowntrend = slope5 < 0;
-        let strength = 50;
-        // Bottoming → bullish signal → score above 50
-        if(afterDowntrend) strength += 15;
-        if(nearSupport)    strength += 10;
-        if(isHighVol)      strength += 8;
-        if(belowSMA200)    strength += 5;
-        if(confirmed)      strength += 7;
-        strength = Math.min(90, strength);
-        const sig2 = {type:'Bottoming Tail', score:Math.round(strength), barsAgo, confirmed:confirmed===null?'today':confirmed?'yes':'unconfirmed',
-          detail:`lower wick ${(lowerShadow/range*100).toFixed(0)}% of range`+(nearSupport?' · near support':'')+(isHighVol?' · elevated vol':'')+(afterDowntrend?' · after downtrend':'')};
-        if(!bestSignal || barsAgo < bestSignal.barsAgo || (barsAgo===bestSignal.barsAgo && Math.abs(sig2.score-50) > Math.abs(bestSignal.score-50))) bestSignal=sig2;
-      }
-
-      // ── BULLISH ENGULFING ──
-      if(i > 0){
-        const prev = bars[i-1];
-        if(
-          prev.c < prev.o &&            // prev bar bearish
-          bar.c > bar.o &&              // current bullish
-          bar.o < prev.c &&             // opens below prev close
-          bar.c > prev.o               // closes above prev open
-        ){
-          let strength = 65;
-          if(isHighVol) strength += 8;
-          if(slope5 < 0) strength += 7; // reversal from downtrend
-          if(bar.c > sma200) strength -= 5; // above SMA200 weakens reversal case
-          strength = Math.min(90, Math.round(strength));
-          const sig3 = {type:'Bullish Engulfing', score:strength, barsAgo, confirmed:null,
-            detail:'engulfs prior bearish bar'+(isHighVol?' · high vol':'')};
-          if(!bestSignal || barsAgo < bestSignal.barsAgo || (barsAgo===bestSignal.barsAgo && Math.abs(sig3.score-50) > Math.abs(bestSignal.score-50))) bestSignal=sig3;
-        }
-
-        // ── BEARISH ENGULFING ──
-        if(
-          prev.c > prev.o &&            // prev bar bullish
-          bar.c < bar.o &&              // current bearish
-          bar.o > prev.c &&             // opens above prev close
-          bar.c < prev.o               // closes below prev open
-        ){
-          let strength = 35;
-          if(isHighVol) strength -= 8;
-          if(slope5 > 0) strength -= 7; // reversal from uptrend
-          if(bar.c < sma200) strength += 5;
-          strength = Math.max(10, Math.round(strength));
-          const sig4 = {type:'Bearish Engulfing', score:strength, barsAgo, confirmed:null,
-            detail:'engulfs prior bullish bar'+(isHighVol?' · high vol':'')};
-          if(!bestSignal || barsAgo < bestSignal.barsAgo || (barsAgo===bestSignal.barsAgo && Math.abs(sig4.score-50) > Math.abs(bestSignal.score-50))) bestSignal=sig4;
-        }
-      }
-    }
-
-    if(bestSignal){
-      setSl('candle_signal', bestSignal.score, true);
-      const ago = bestSignal.barsAgo === 0 ? 'today' : `${bestSignal.barsAgo}d ago`;
-      const conf = bestSignal.confirmed && bestSignal.confirmed !== 'today'
-        ? ` · ${bestSignal.confirmed}` : '';
-      if(subEl) subEl.textContent = `${bestSignal.type} ${ago}${conf} — ${bestSignal.detail}`;
-      const noteEl = document.getElementById('nt-candle_signal');
-      if(noteEl && !noteEl.value){
-        noteEl.value = `[Computed] ${bestSignal.type} ${ago} · Score:${bestSignal.score} · ${bestSignal.detail}`;
-      }
-    } else {
-      setSl('candle_signal', 50, true);
-      if(subEl) subEl.textContent = 'No topping/bottoming tail or engulfing pattern detected (last 10 bars)';
-    }
-  } catch(err){
-    const s = document.getElementById('sub-candle_signal');
-    if(s) s.textContent = 'Candlestick scan unavailable';
-    console.warn('CandleSignal computation failed:', err.message);
-  }
-}
-
-// ═══ ICHIMOKU CLOUD — COMPUTED FROM OHLC ═══
-async function runIchimokuComputed(ticker){
-  const subEl = document.getElementById('sub-ichimoku');
-  if(subEl) subEl.textContent = 'Ichimoku — computing…';
-  try{
-    const ohlc = await Promise.race([fetchOHLCForCharts(ticker), new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),15000))]);
-    if(!ohlc || ohlc.daily.length < 80) throw new Error('Insufficient bars (need 80+, got '+(ohlc?.daily?.length||0)+')');
-    const bars = ohlc.daily;
-    const n = bars.length;
-
-    function midHL(arr, period, idx){
-      if(idx < period-1) return null;
-      const slice = arr.slice(idx-period+1, idx+1);
-      return (Math.max(...slice.map(b=>b.h)) + Math.min(...slice.map(b=>b.l))) / 2;
-    }
-
-    const tenkan  = midHL(bars, 9,  n-1);
-    const kijun   = midHL(bars, 26, n-1);
-    // Kumo at current price = spans plotted 26 bars ago
-    const kumoA   = (()=>{ const t=midHL(bars,9,n-27), k=midHL(bars,26,n-27); return t&&k?(t+k)/2:null; })();
-    const kumoB   = midHL(bars, 52, n-27);
-    const chikou  = bars[n-1].c;
-    const priceRef= bars[n-27]?.c ?? null;
-    const price   = bars[n-1].c;
-    const kumoTop    = kumoA !== null && kumoB !== null ? Math.max(kumoA, kumoB) : null;
-    const kumoBottom = kumoA !== null && kumoB !== null ? Math.min(kumoA, kumoB) : null;
-    const cloudBullish = kumoA !== null && kumoB !== null && kumoA > kumoB;
-
-    let signals = [];
-
-    if(kumoTop !== null && kumoBottom !== null){
-      // 1. Price vs Cloud — 35%
-      if(price > kumoTop){
-        const gap = (price - kumoTop) / kumoTop;
-        signals.push({ w:0.35, v: Math.min(1, 0.70 + gap*2), label:'Price above cloud' });
-      } else if(price < kumoBottom){
-        const gap = (kumoBottom - price) / kumoBottom;
-        signals.push({ w:0.35, v: Math.max(0, 0.30 - gap*2), label:'Price below cloud' });
-      } else {
-        const pctThrough = (price - kumoBottom) / (kumoTop - kumoBottom);
-        signals.push({ w:0.35, v: 0.35 + pctThrough*0.30, label:'Price inside cloud' });
-      }
-      // 2. Cloud color — 20%
-      signals.push({ w:0.20, v: cloudBullish ? 0.75 : 0.25, label: cloudBullish ? 'Green cloud' : 'Red cloud' });
-    }
-
-    // 3. Tenkan / Kijun cross — 25%
-    if(tenkan !== null && kijun !== null){
-      const prevTenkan = midHL(bars, 9,  n-2);
-      const prevKijun  = midHL(bars, 26, n-2);
-      const bullCross  = prevTenkan !== null && prevKijun !== null && prevTenkan <= prevKijun && tenkan > kijun;
-      const bearCross  = prevTenkan !== null && prevKijun !== null && prevTenkan >= prevKijun && tenkan < kijun;
-      if(bullCross){
-        signals.push({ w:0.25, v: price > (kumoTop||0) ? 0.90 : 0.72, label:'TK bullish cross' });
-      } else if(bearCross){
-        signals.push({ w:0.25, v: price < (kumoBottom||9999) ? 0.10 : 0.28, label:'TK bearish cross' });
-      } else {
-        signals.push({ w:0.25, v: tenkan > kijun ? 0.65 : 0.35, label: tenkan > kijun ? 'Tenkan > Kijun' : 'Tenkan < Kijun' });
-      }
-    }
-
-    // 4. Chikou confirmation — 20%
-    if(priceRef !== null){
-      signals.push({ w:0.20, v: chikou > priceRef ? 0.70 : 0.30, label: chikou > priceRef ? 'Chikou confirms' : 'Chikou weak' });
-    }
-
-    const totalW = signals.reduce((s,x)=>s+x.w, 0);
-    const score  = totalW > 0 ? Math.max(5, Math.min(95, Math.round(signals.reduce((s,x)=>s+x.v*x.w,0)/totalW*100))) : 50;
-    const detail = signals.sort((a,b)=>b.w-a.w).slice(0,2).map(s=>s.label).join(' · ');
-
-    setSl('ichimoku', score, true);
-    if(subEl) subEl.textContent = detail;
-    const noteEl = document.getElementById('nt-ichimoku');
-    if(noteEl && !noteEl.value){
-      noteEl.value = `[Computed from ${n} bars] Kumo ${kumoBottom?.toFixed(2)}–${kumoTop?.toFixed(2)} · TK ${tenkan?.toFixed(2)}/${kijun?.toFixed(2)} · ${detail}`;
-    }
-  } catch(err){
-    const s = document.getElementById('sub-ichimoku');
-    if(s) s.textContent = 'Kumo position — insufficient data';
-    console.warn('Ichimoku computation failed:', err.message);
   }
 }
 
@@ -3690,19 +3474,8 @@ Return ONLY the JSON object.`;
       }, 3000);
     }
     // After AI populates, compute all OHLC-derivable indicators (overwrites AI estimates)
-    runDeMarkComputed(ticker);
-    runMAComputed(ticker);
-    runRSIComputed(ticker);
-    runSMA200Computed(ticker);
-    runMACDComputed(ticker);
-    runBollingerComputed(ticker);
-    runOBVComputed(ticker);
-    runSuperTrendComputed(ticker);
-    runDeMarkComboComputed(ticker);
-    runVolProfileComputed(ticker);
-    runIchimokuComputed(ticker);
-    runCandleSignalComputed(ticker);
-    runADXComputed(ticker);
+    // Single call to scoring engine — replaces 13 individual run*Computed functions
+    runAllComputed(ticker);
     // Compute key price levels from OHLC (fills empty fields only — won't overwrite AI or manual values)
     runLevelsComputed(ticker);
     // Render orientation chart at top of indicators panel
