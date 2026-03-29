@@ -196,6 +196,26 @@ body:not(.dark-mode) .knife-sig.bear{background:#cc284014;color:#cc2840;border-c
 body:not(.dark-mode) .knife-sig.neu{background:#7c3aed14;color:#7c3aed;border-color:#7c3aed44;}
 body:not(.dark-mode) .knife-context{background:#f5f0ff;border-color:#c4b5fd;color:#5b21b6;}
 body:not(.dark-mode) .knife-context strong{color:#4c1d95;}
+
+/* ── DUAL-SIGNAL COMMENTARY ── */
+.commentary-card{background:linear-gradient(145deg,#111820 0%,#0d1218 100%);border:1px solid #f0b42944;border-radius:12px;padding:14px;display:none;box-shadow:0 1px 4px rgba(240,180,41,.08);}
+.commentary-card.active{display:block;}
+.commentary-card .stitle{color:#f0b429;border-bottom-color:#f0b42930;}
+.commentary-item{padding:8px 10px;margin-bottom:8px;font-family:var(--sans);font-size:13px;color:var(--text2);line-height:1.55;border-radius:4px;}
+.commentary-item:last-child{margin-bottom:0;}
+.commentary-item.tension{border-left:3px solid #f0b429;background:#f0b42908;}
+.commentary-item.reinforcement{border-left:3px solid #22c55e;background:#22c55e08;}
+.commentary-item.capitulation{border-left:3px solid #a855f7;background:#a855f708;}
+.commentary-item.structural{border-left:3px solid #58a6ff;background:#58a6ff08;}
+.commentary-item strong{color:var(--text);font-weight:600;}
+body:not(.dark-mode) .commentary-card{background:linear-gradient(145deg,#fffbf0 0%,#fff8e8 100%);border-color:#f0b42944;box-shadow:0 1px 4px rgba(240,180,41,.08);}
+body:not(.dark-mode) .commentary-item{color:#5a4a20;}
+body:not(.dark-mode) .commentary-item strong{color:#3a2e10;}
+body:not(.dark-mode) .commentary-item.tension{background:#f0b42910;border-left-color:#d4960a;}
+body:not(.dark-mode) .commentary-item.reinforcement{background:#22c55e10;border-left-color:#0a8a4e;}
+body:not(.dark-mode) .commentary-item.capitulation{background:#a855f710;border-left-color:#7c3aed;}
+body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-left-color:#1a6fd4;}
+
 .conflict-item{display:flex;align-items:flex-start;gap:7px;padding:5px 0;border-bottom:1px solid var(--border);}
 .conflict-item:last-child{border-bottom:none;}
 .ci-icon{font-size:13px;flex-shrink:0;margin-top:1px;}
@@ -599,6 +619,12 @@ body:not(.dark-mode) .knife-context strong{color:#4c1d95;}
     <div class="confluence-card" id="confluence-card">
       <div class="stitle" style="color:var(--bull)">🔒 Indicator Confluence Confirmed</div>
       <div id="confluence-list"></div>
+    </div>
+
+    <!-- DUAL-SIGNAL COMMENTARY -->
+    <div class="commentary-card" id="commentary-card">
+      <div class="stitle" style="color:#f0b429">⚠ Signal Commentary</div>
+      <div id="commentary-list"></div>
     </div>
 
     <!-- WEIGHT EDITOR PANEL -->
@@ -2891,7 +2917,7 @@ function recalc(){
   const mean=scores.reduce((s,v)=>s+v,0)/scores.length;
   const variance=scores.reduce((s,v)=>s+(v-mean)**2,0)/scores.length;
   const dispersion=Math.sqrt(variance); // 0=perfect agreement, ~25=typical, ~35=high conflict
-  drawGauge(t,dispersion); updBD(bs,t); updWB(); detectConflicts(); detectFallingKnife();
+  drawGauge(t,dispersion); updBD(bs,t); updWB(); detectConflicts(); detectFallingKnife(); detectDualSignalCommentary();
 }
 function sCol(s){if(s>=70)return'#00d97e';if(s>=60)return'#4dd9a0';if(s>=55)return'#a0cfb8';if(s>=45)return'#f0b429';if(s>=40)return'#ff9a7c';if(s>=30)return'#ff7c8a';return'#ff4560';}
 function verd(s){
@@ -3094,6 +3120,123 @@ function detectFallingKnife(){
   ctx.innerHTML = isKnife
     ? `<strong>⚠ Falling Knife Risk:</strong> Exhaustion signals do NOT guarantee a bottom. Confirm with: (1) volume spike on the capitulation candle, (2) next-day follow-through (close above prior day's high), (3) OBV divergence showing accumulation. Position sizing should be reduced — use 50% of normal size with a tight stop below the swing low.`
     : `<strong>⚠ Blow-Off Top Risk:</strong> Exhaustion signals do NOT guarantee a top. Confirm with: (1) volume spike on the euphoria candle, (2) next-day reversal (close below prior day's low), (3) OBV divergence showing distribution. Consider scaling out rather than shorting — blow-off tops can extend further than expected.`;
+}
+
+// ═══ DUAL-SIGNAL COMMENTARY ═══
+function detectDualSignalCommentary(){
+  const card = document.getElementById('commentary-card');
+  const list = document.getElementById('commentary-list');
+  if(!card || !list) return;
+  list.innerHTML = '';
+
+  const rsi      = vals.rsi_extreme ?? 50;
+  const demark   = vals.demark_seq ?? 50;
+  const demarkC  = vals.demark_combo ?? 50;
+  const candle   = vals.candle_signal ?? 50;
+  const sma200   = vals.sma_200 ?? 50;
+  const superT   = vals.supertrend ?? 50;
+  const ichi     = vals.ichimoku ?? 50;
+  const adx      = vals.adx ?? 50;
+  const obv      = vals.obv ?? 50;
+  const boll     = vals.bollinger ?? 50;
+
+  // Compute weighted score for display
+  const allInds=[...INDS.high,...INDS.med,...INDS.low];
+  const tw2=allInds.reduce((s,i)=>s+((i.iW||1)*(confluenceMultipliers[i.id]||1)),0);
+  const wScore=Math.round(allInds.reduce((s,i)=>s+((vals[i.id]||50)/100)*(((i.iW||1)*(confluenceMultipliers[i.id]||1))/tw2),0)*100);
+
+  // Detect active patterns (same thresholds as worker)
+  const tripleExhBuy  = rsi >= 62 && demark >= 62 && boll >= 62;
+  const tripleExhSell = rsi <= 38 && demark <= 38 && boll <= 38;
+  const tripleTrendBull = sma200 >= 62 && ichi >= 62 && superT >= 62;
+  const tripleTrendBear = sma200 <= 38 && ichi <= 38 && superT <= 38;
+
+  const rsiBullish    = rsi >= 65;
+  const demarkBullish = demark >= 62 || demarkC >= 62;
+  const candleBearish = candle <= 40;
+  const trendBearish  = sma200 <= 40 || superT <= 35;
+  const fallingKnife  = rsiBullish && demarkBullish && candleBearish && trendBearish;
+
+  const rsiBearish    = rsi <= 35;
+  const demarkBearish = demark <= 38 || demarkC <= 38;
+  const candleBullish = candle >= 60;
+  const trendBullish  = sma200 >= 60 || superT >= 65;
+  const blowOffTop    = rsiBearish && demarkBearish && candleBullish && trendBullish;
+
+  // Golden/Death Cross — read from DOM sub-label (already rendered by runAllComputed)
+  const maSub = document.getElementById('sub-sma_cross');
+  const maText = maSub ? maSub.textContent : '';
+  const hasGoldenCross = maText.includes('Golden Cross');
+  const hasDeathCross  = maText.includes('Death Cross');
+
+  const comments = [];
+
+  // 1. Blow-Off Top + Triple Trend BULL
+  if(blowOffTop && tripleTrendBull){
+    comments.push({ cls:'capitulation', text:`<strong>Trend vs. Exhaustion tension</strong> — trend indicators confirm a strong uptrend, but exhaustion signals (RSI overbought + DeMark sell) say the rally is overextended. This is the signature of a potential euphoria top. The trend is real but may be nearing a reversal point. Watch for profit-taking or pullback entry.` });
+  }
+
+  // 2. Falling Knife + Triple Trend BEAR
+  if(fallingKnife && tripleTrendBear){
+    comments.push({ cls:'capitulation', text:`<strong>Capitulation setup</strong> — all three trend indicators confirm a strong downtrend AND exhaustion signals say sellers are spent. This is the highest-conviction reversal watch: panic is maximum but the selling may be exhausted. Dangerous to buy into, but the exact setup where bottoms form.` });
+  }
+
+  // 3. Triple Exhaustion BUY + Triple Trend BEAR
+  if(tripleExhBuy && tripleTrendBear){
+    comments.push({ cls:'tension', text:`<strong>Trend vs. Exhaustion collision</strong> — the most important signal in TA. Three trend indicators (SMA 200, Ichimoku, SuperTrend) say bear market, but three exhaustion indicators (RSI, DeMark, Bollinger) say oversold. The trend is winning (score ${wScore}) but exhaustion is pushing back. Classic "don't catch the knife, but start building a watchlist" setup.` });
+  }
+
+  // 4. Triple Exhaustion SELL + Triple Trend BULL
+  if(tripleExhSell && tripleTrendBull){
+    comments.push({ cls:'tension', text:`<strong>Trend vs. Exhaustion collision</strong> — three trend indicators confirm bullish, but three exhaustion indicators say overbought. The uptrend is intact (score ${wScore}) but stretched. In strong trends this can persist — exhaustion signals are less reliable when trend strength is high. Consider tightening stops rather than reversing.` });
+  }
+
+  // 5. Triple Trend BEAR + Death Cross
+  if(tripleTrendBear && hasDeathCross){
+    comments.push({ cls:'reinforcement', text:`<strong>Trend reinforcement</strong> — all trend-family signals agree: SMA 200/Ichimoku/SuperTrend bearish AND a fresh Death Cross confirms the structural shift. No exhaustion signal is pushing back, which means this is a "respect the trend" situation, not a reversal candidate. High conviction bearish.` });
+  }
+
+  // 6. Triple Trend BULL + Golden Cross
+  if(tripleTrendBull && hasGoldenCross){
+    comments.push({ cls:'reinforcement', text:`<strong>Trend reinforcement</strong> — all trend-family signals agree: SMA 200/Ichimoku/SuperTrend bullish AND a fresh Golden Cross confirms the structural shift. No exhaustion signal is pushing back. High conviction bullish — trend is confirmed across all timeframes.` });
+  }
+
+  // 7. Triple Exhaustion BUY + Death Cross
+  if(tripleExhBuy && hasDeathCross){
+    comments.push({ cls:'structural', text:`<strong>Exhaustion vs. Structure</strong> — exhaustion indicators say oversold but a fresh Death Cross says the trend is structurally shifting bearish. Exhaustion readings in a new downtrend are often early — the selling may continue despite oversold conditions. Wait for trend confirmation before acting on the exhaustion signal.` });
+  }
+
+  // 8. Triple Exhaustion SELL + Golden Cross
+  if(tripleExhSell && hasGoldenCross){
+    comments.push({ cls:'structural', text:`<strong>Exhaustion vs. Structure</strong> — exhaustion indicators say overbought but a fresh Golden Cross says the trend is structurally shifting bullish. Overbought readings in a new uptrend are common — the rally may continue. The structural cross carries more weight than the exhaustion reading here.` });
+  }
+
+  // 9. Falling Knife + Triple Exhaustion BUY
+  if(fallingKnife && tripleExhBuy){
+    comments.push({ cls:'capitulation', text:`<strong>Extreme capitulation</strong> — both the Falling Knife pattern and Triple Exhaustion BUY are firing simultaneously. Exhaustion is confirmed by every available contrarian indicator while a bearish candle confirms active panic selling. Maximum fear, maximum exhaustion. Historically rare — and historically significant when it occurs.` });
+  }
+
+  // 10. Blow-Off Top + Triple Exhaustion SELL
+  if(blowOffTop && tripleExhSell){
+    comments.push({ cls:'capitulation', text:`<strong>Extreme euphoria</strong> — both the Blow-Off Top pattern and Triple Exhaustion SELL are firing. Every contrarian indicator signals overbought while a bullish candle confirms active greed. Maximum euphoria, maximum exhaustion. Historically significant reversal candidate.` });
+  }
+
+  // 11. Triple Trend (either direction) without any exhaustion pushback — clean trend
+  if(tripleTrendBull && !tripleExhSell && !blowOffTop && !hasGoldenCross){
+    comments.push({ cls:'reinforcement', text:`<strong>Clean trend — no exhaustion pushback</strong> — all three trend indicators align bullish and no exhaustion confluence is firing against it. The trend is uncontested by contrarian signals. This is the "stay in the trade" environment — the score (${wScore}) reflects genuine directional conviction.` });
+  }
+  if(tripleTrendBear && !tripleExhBuy && !fallingKnife && !hasDeathCross){
+    comments.push({ cls:'reinforcement', text:`<strong>Clean trend — no exhaustion pushback</strong> — all three trend indicators align bearish and no exhaustion confluence is firing against it. The trend is uncontested by contrarian signals. This is the "stay short or stay out" environment — the score (${wScore}) reflects genuine directional conviction.` });
+  }
+
+  if(comments.length === 0){ card.classList.remove('active'); return; }
+  card.classList.add('active');
+  comments.forEach(c => {
+    const d = document.createElement('div');
+    d.className = 'commentary-item ' + c.cls;
+    d.innerHTML = c.text;
+    list.appendChild(d);
+  });
 }
 
 // ═══ GAUGE ═══
