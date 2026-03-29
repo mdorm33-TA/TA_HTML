@@ -32,7 +32,7 @@ body.dark-mode{
   --bull:#3fb950;--bear:#f85149;--neu:#d29922;
   --high:#58a6ff;--high-dim:#58a6ff18;--med:#bc8cff;--med-dim:#bc8cff18;--low:#8b949e;--low-dim:#8b949e18;
   --accent:#58a6ff;--conflict:#f0883e;
-  --hdr-bg:#f5c4b0;--hdr-brand-bg:#f0b89e;--hdr-text:#3a1e10;
+  --hdr-bg:#f9ddd0;--hdr-brand-bg:#f7d1c0;--hdr-text:#3a1e10;
 }
 body.dark-mode .conflict-card{background:linear-gradient(145deg,#26191580,#26191540);border-color:#f8514930;}
 body.dark-mode .confluence-card{background:linear-gradient(145deg,#0d261780,#0d261740);border-color:#3fb95030;}
@@ -2408,6 +2408,18 @@ let ohlcCache = null;      // {ticker, daily:[], weekly:[]}
 let chartInstances = {};   // id → Chart instance
 let orientCharts = {};     // orientation chart instances
 
+// Dark-mode-aware chart colors
+function chartColors(){
+  const dk = document.body.classList.contains('dark-mode');
+  return {
+    tick:    dk ? '#8b949e' : '#546070',
+    grid:    dk ? '#21262d' : '#e8eaed',
+    gridFaint: dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
+    legend:  dk ? '#b1bac4' : '#546070',
+    legendSm: dk ? '#8b949e' : '#44526a',
+  };
+}
+
 async function renderOrientationChart(ticker){
   const status = document.getElementById('orient-status');
   const lbl    = document.getElementById('orient-ticker-lbl');
@@ -2499,7 +2511,7 @@ async function renderOrientationChart(ticker){
         responsive:true, maintainAspectRatio:false, animation:false,
         interaction:{mode:'index',intersect:false},
         plugins:{
-          legend:{display:true,position:'top',labels:{boxWidth:20,font:{size:10},color:'#546070'}},
+          legend:{display:true,position:'top',labels:{boxWidth:20,font:{size:10},color:chartColors().legend}},
           tooltip:{enabled:true},
           annotation:{annotations:{
             ...(vpVAH!=null?{vah:{type:'line',yMin:vpVAH,yMax:vpVAH,borderColor:'rgba(26,111,212,0.5)',borderWidth:1,borderDash:[4,3],label:{content:'VAH',display:true,position:'end',font:{size:8},color:'rgba(26,111,212,0.8)',backgroundColor:'transparent',padding:2}}}:{}),
@@ -2508,8 +2520,8 @@ async function renderOrientationChart(ticker){
           }}
         },
         scales:{
-          x:{ticks:{maxTicksLimit:12,font:{size:9},color:'#546070',maxRotation:0},grid:{color:'rgba(0,0,0,0.04)'}},
-          y:{ticks:{font:{size:9},color:'#546070'},grid:{color:'#e8eaed'}}
+          x:{ticks:{maxTicksLimit:12,font:{size:9},color:chartColors().tick,maxRotation:0},grid:{color:chartColors().gridFaint}},
+          y:{ticks:{font:{size:9},color:chartColors().tick},grid:{color:chartColors().grid}}
         }
       }
     });
@@ -2530,8 +2542,8 @@ async function renderOrientationChart(ticker){
           }}
         },
         scales:{
-          x:{ticks:{maxTicksLimit:8,font:{size:9},color:'#546070',maxRotation:0},grid:{color:'#e8eaed'}},
-          y:{min:0,max:100,ticks:{stepSize:20,font:{size:9},color:'#546070'},grid:{color:'#e8eaed'}}
+          x:{ticks:{maxTicksLimit:8,font:{size:9},color:chartColors().tick,maxRotation:0},grid:{color:chartColors().grid}},
+          y:{min:0,max:100,ticks:{stepSize:20,font:{size:9},color:chartColors().tick},grid:{color:chartColors().grid}}
         }
       }
     });
@@ -2667,11 +2679,12 @@ async function renderChart(id){
     const closes_w = w.map(b=>b.c);
 
     // Common Chart.js defaults
+    const _cc = chartColors();
     const baseOpts = {
       responsive:true, maintainAspectRatio:false,
       animation:{duration:300},
-      plugins:{legend:{display:true,position:'top',labels:{font:{family:'IBM Plex Mono',size:9},color:'#44526a',boxWidth:12,padding:8}},tooltip:{mode:'index',intersect:false,titleFont:{family:'IBM Plex Mono',size:10},bodyFont:{family:'IBM Plex Mono',size:10}}},
-      scales:{x:{ticks:{font:{family:'IBM Plex Mono',size:8},color:'#8a96aa',maxTicksLimit:8,maxRotation:0},grid:{color:'#e8ebf0'}},y:{ticks:{font:{family:'IBM Plex Mono',size:8},color:'#8a96aa'},grid:{color:'#e8ebf0'},position:'right'}}
+      plugins:{legend:{display:true,position:'top',labels:{font:{family:'IBM Plex Mono',size:9},color:_cc.legendSm,boxWidth:12,padding:8}},tooltip:{mode:'index',intersect:false,titleFont:{family:'IBM Plex Mono',size:10},bodyFont:{family:'IBM Plex Mono',size:10}}},
+      scales:{x:{ticks:{font:{family:'IBM Plex Mono',size:8},color:_cc.tick,maxTicksLimit:8,maxRotation:0},grid:{color:_cc.grid}},y:{ticks:{font:{family:'IBM Plex Mono',size:8},color:_cc.tick},grid:{color:_cc.grid},position:'right'}}
     };
 
     cc.innerHTML = ''; // clear loading
@@ -2694,7 +2707,7 @@ async function renderChart(id){
       cfg = { type:'bar', data:{ labels:lbls, datasets:[{label:'Volume at Price',data:vols,backgroundColor:colors,borderWidth:0}]},
         options:{...baseOpts, indexAxis:'y',
           plugins:{...baseOpts.plugins,legend:{display:false}},
-          scales:{x:{...baseOpts.scales.x,ticks:{...baseOpts.scales.x.ticks,callback:v=>(v/1e6).toFixed(0)+'M'}},y:{...baseOpts.scales.y,ticks:{font:{family:'IBM Plex Mono',size:8},color:'#8a96aa'}}}}};
+          scales:{x:{...baseOpts.scales.x,ticks:{...baseOpts.scales.x.ticks,callback:v=>(v/1e6).toFixed(0)+'M'}},y:{...baseOpts.scales.y,ticks:{font:{family:'IBM Plex Mono',size:8},color:_cc.tick}}}}};
 
     } else if(id === 'sma_200' || id === 'sma_cross'){
       const sma50  = sma(closes_d,50);
