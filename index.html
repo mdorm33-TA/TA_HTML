@@ -3529,8 +3529,8 @@ async function fetchRegimeData(){
   // Fetch all macro instruments in parallel
   const [spyData, tnxData, irxData, gldData] = await Promise.all([
     fetchYahoo('SPY', '1y', '1d'),
-    fetchYahoo('%5ETNX', '3mo', '1d'),   // 10-Year Treasury Yield (×10 on Yahoo)
-    fetchYahoo('%5EIRX', '3mo', '1d'),   // 13-Week T-Bill Yield (×10 on Yahoo)
+    fetchYahoo('^TNX', '3mo', '1d'),   // 10-Year Treasury Yield (×10 on Yahoo)
+    fetchYahoo('^IRX', '3mo', '1d'),   // 13-Week T-Bill Yield (×10 on Yahoo)
     fetchYahoo('GLD', '1y', '1d'),
   ]);
 
