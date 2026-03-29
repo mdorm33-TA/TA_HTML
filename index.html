@@ -720,16 +720,10 @@ body:not(.dark-mode) .regime-pill.caution{background:#b8860b14;color:#b8860b;bor
           <div class="regime-val" id="reg-spy">—</div>
         </div>
 
-        <!-- 10-Year Treasury -->
+        <!-- TLT (20+ Year Treasury Bond ETF) — inverse proxy for rates -->
         <div class="regime-row">
-          <div class="regime-lbl">10-Year Treasury Yield</div>
-          <div class="regime-val" id="reg-tnx">—</div>
-        </div>
-
-        <!-- Yield Curve (10Y - 3M) -->
-        <div class="regime-row">
-          <div class="regime-lbl">Yield Curve (10Y − 3M)</div>
-          <div class="regime-val" id="reg-curve">—</div>
+          <div class="regime-lbl">Bonds / Rates (TLT)</div>
+          <div class="regime-val" id="reg-tlt">—</div>
         </div>
 
         <!-- Gold -->
@@ -3498,17 +3492,20 @@ async function fetchRegimeData(){
 
   // Reuse the same CORS proxy cascade as the main OHLC fetch
   async function fetchYahoo(ticker, range='1y', interval='1d'){
-    const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=${interval}&range=${range}`;
+    const encoded = encodeURIComponent(ticker);
+    const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encoded}?interval=${interval}&range=${range}`;
+    const yahoo2Url = `https://query2.finance.yahoo.com/v8/finance/chart/${encoded}?interval=${interval}&range=${range}`;
     const proxies = [
       yahooUrl,
-      `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=${interval}&range=${range}`,
+      yahoo2Url,
       `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`,
       `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`,
+      `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(yahooUrl)}`,
     ];
     for(const url of proxies){
       try{
         const ctrl = new AbortController();
-        const tid = setTimeout(()=>ctrl.abort(), 5000);
+        const tid = setTimeout(()=>ctrl.abort(), 8000);
         const res = await fetch(url, {signal:ctrl.signal});
         clearTimeout(tid);
         if(!res.ok) continue;
@@ -3520,17 +3517,16 @@ async function fetchRegimeData(){
         if(!q || !ts) continue;
         const closes = [];
         for(let i=0;i<ts.length;i++) if(q.close[i]!=null) closes.push(q.close[i]);
+        if(closes.length === 0) continue;
         return { closes, price: closes[closes.length-1], meta: r.meta };
-      }catch(e){ continue; }
+      }catch(e){ console.warn('[Regime] fetch failed for', ticker, url.substring(0,60), e.message); continue; }
     }
     return null;
   }
 
-  // Fetch all macro instruments in parallel
-  const [spyData, tnxData, irxData, gldData] = await Promise.all([
+  const [spyData, tltData, gldData] = await Promise.all([
     fetchYahoo('SPY', '1y', '1d'),
-    fetchYahoo('^TNX', '3mo', '1d'),   // 10-Year Treasury Yield (×10 on Yahoo)
-    fetchYahoo('^IRX', '3mo', '1d'),   // 13-Week T-Bill Yield (×10 on Yahoo)
+    fetchYahoo('TLT', '1y', '1d'),    // 20+ Year Treasury Bond ETF — inverse proxy for rates
     fetchYahoo('GLD', '1y', '1d'),
   ]);
 
@@ -3563,47 +3559,41 @@ async function fetchRegimeData(){
     spyEl.textContent = spyData ? 'Insufficient data' : 'Fetch failed';
   }
 
-  // ── 10-Year Treasury ──
-  const tnxEl = document.getElementById('reg-tnx');
-  let yield10Y = null;
-  if(tnxData && tnxData.closes.length > 0){
-    yield10Y = tnxData.price / 10; // Yahoo reports ×10
-    const prev = tnxData.closes.length > 20 ? tnxData.closes[tnxData.closes.length - 21] / 10 : null;
-    const trend = prev ? (yield10Y > prev + 0.1 ? 'RISING' : yield10Y < prev - 0.1 ? 'FALLING' : 'STABLE') : '—';
-    const pillCls = yield10Y > 4.5 ? 'caution' : yield10Y > 3.5 ? 'neu' : 'bull';
-    const trendPill = trend === 'RISING' ? 'bear' : trend === 'FALLING' ? 'bull' : 'neu';
-    tnxEl.innerHTML = `${yield10Y.toFixed(2)}% <span class="regime-pill ${pillCls}">${yield10Y > 4.5 ? 'HIGH' : yield10Y > 3.5 ? 'MODERATE' : 'LOW'}</span> <span class="regime-pill ${trendPill}">${trend}</span>`;
+  // ── TLT (Bonds / Rates) ──
+  // TLT moves inversely to yields: TLT falling = yields rising, TLT rising = yields falling
+  const tltEl = document.getElementById('reg-tlt');
+  if(tltData && tltData.closes.length >= 200){
+    const closes = tltData.closes;
+    const price = closes[closes.length-1];
+    const sma200 = closes.slice(-200).reduce((s,v)=>s+v,0)/200;
+    const sma50 = closes.length >= 50 ? closes.slice(-50).reduce((s,v)=>s+v,0)/50 : null;
+    const pctFromSma = ((price - sma200)/sma200*100);
+    const above = price > sma200;
 
-    if(yield10Y > 4.5){
-      summary.push(`The 10-year Treasury yield is elevated at ${yield10Y.toFixed(2)}% — higher yields compete with stocks for capital, increase borrowing costs, and pressure equity valuations. Growth stocks and rate-sensitive sectors (REITs, utilities) face the most headwind.`);
-    } else if(yield10Y > 3.5){
-      summary.push(`The 10-year yield at ${yield10Y.toFixed(2)}% is in a moderate range — not yet a major headwind for equities, but worth monitoring. Rising yields from here would start to pressure valuations.`);
-    } else {
-      summary.push(`The 10-year yield at ${yield10Y.toFixed(2)}% is low — this is supportive for equity valuations. Lower rates reduce the discount rate on future earnings, which benefits growth stocks.`);
+    // 20-day trend direction
+    const prev20 = closes.length > 20 ? closes[closes.length - 21] : null;
+    const pct20 = prev20 ? ((price - prev20)/prev20*100) : 0;
+    const trend = pct20 > 2 ? 'RISING' : pct20 < -2 ? 'FALLING' : 'FLAT';
+    // TLT falling = rates rising (bearish for equities); TLT rising = rates falling (bullish)
+    const rateDir = trend === 'FALLING' ? 'RATES ↑' : trend === 'RISING' ? 'RATES ↓' : 'RATES STABLE';
+    const ratePillCls = trend === 'FALLING' ? 'caution' : trend === 'RISING' ? 'bull' : 'neu';
+
+    const trendPillCls = above ? 'bull' : 'bear';
+    const trendPillTxt = above ? 'ABOVE SMA200' : 'BELOW SMA200';
+
+    tltEl.innerHTML = `$${price.toFixed(2)} <span class="regime-pill ${trendPillCls}">${trendPillTxt}</span> <span class="regime-pill ${ratePillCls}">${rateDir}</span><br><span style="font-size:12px;color:var(--text3);">SMA200: $${sma200.toFixed(2)} (${pctFromSma>0?'+':''}${pctFromSma.toFixed(1)}%) · 20d: ${pct20>0?'+':''}${pct20.toFixed(1)}%</span>`;
+
+    if(!above && trend === 'FALLING'){
+      summary.push(`TLT (long-term bonds) is below its 200-day average and still falling — this means interest rates are elevated and rising. Higher rates compete with stocks for capital, increase borrowing costs, and pressure equity valuations. Growth stocks and rate-sensitive sectors (REITs, utilities) face the most headwind. This is the toughest macro backdrop for equities.`);
+    } else if(!above && trend !== 'FALLING'){
+      summary.push(`TLT is below its 200-day average but stabilizing — interest rates are elevated but may be peaking. If TLT starts trending up (rates falling), that would be an early positive signal for equities. Watch for a move above SMA200 as confirmation.`);
+    } else if(above && trend === 'RISING'){
+      summary.push(`TLT is above its 200-day average and rising — interest rates are falling. This is bullish for equities: lower rates reduce borrowing costs, boost present value of future earnings, and push capital from bonds into stocks. Growth stocks benefit most.`);
+    } else if(above){
+      summary.push(`TLT is above its 200-day average — interest rates are in a favorable range for equities. The rate environment is not a headwind. This supports equity valuations broadly.`);
     }
   } else {
-    tnxEl.textContent = 'Fetch failed';
-  }
-
-  // ── Yield Curve (10Y - 3M) ──
-  const curveEl = document.getElementById('reg-curve');
-  if(yield10Y !== null && irxData && irxData.closes.length > 0){
-    const yield3M = irxData.price / 10;
-    const spread = yield10Y - yield3M;
-    const inverted = spread < 0;
-    const pillCls = inverted ? 'bear' : spread < 0.5 ? 'caution' : 'bull';
-    const pillTxt = inverted ? 'INVERTED' : spread < 0.5 ? 'FLAT' : 'NORMAL';
-    curveEl.innerHTML = `${spread > 0 ? '+' : ''}${spread.toFixed(2)}% <span class="regime-pill ${pillCls}">${pillTxt}</span><br><span style="font-size:12px;color:var(--text3);">10Y: ${yield10Y.toFixed(2)}% · 3M: ${yield3M.toFixed(2)}%</span>`;
-
-    if(inverted){
-      summary.push('The yield curve is inverted (short-term rates higher than long-term) — this has historically preceded recessions, though with variable lead times. An inverted curve signals that the bond market expects economic slowing. This is a cautionary backdrop for equity risk-taking.');
-    } else if(spread < 0.5){
-      summary.push('The yield curve is flat — the bond market is signaling uncertainty about economic direction. Neither a strong positive nor negative signal, but a flat curve in the context of other bearish signals adds caution.');
-    } else {
-      summary.push('The yield curve is normal (long rates above short rates) — this signals a healthy credit environment where banks can lend profitably. A normal curve supports economic expansion and is a positive backdrop for equities.');
-    }
-  } else {
-    curveEl.textContent = yield10Y !== null ? 'T-Bill fetch failed' : '—';
+    tltEl.textContent = tltData ? 'Insufficient data' : 'Fetch failed';
   }
 
   // ── Gold ──
