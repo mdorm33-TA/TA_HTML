@@ -259,6 +259,26 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
 
 
 
+/* ── MACRO REGIME PANEL ── */
+.regime-card{background:linear-gradient(145deg,var(--surface) 0%,var(--surface2) 100%);border:1px solid var(--border);border-radius:12px;padding:14px;box-shadow:var(--card-shadow);}
+.regime-row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);}
+.regime-row:last-child{border-bottom:none;}
+.regime-lbl{font-family:var(--mono);font-size:11px;color:var(--text3);font-weight:500;}
+.regime-val{font-family:var(--mono);font-size:12px;font-weight:600;text-align:right;}
+.regime-pill{display:inline-block;font-family:var(--mono);font-size:10px;font-weight:700;padding:2px 7px;border-radius:3px;margin-left:6px;}
+.regime-pill.bull{background:#22c55e18;color:#4ade80;border:1px solid #22c55e44;}
+.regime-pill.bear{background:#ef444418;color:#f87171;border:1px solid #ef444444;}
+.regime-pill.neu{background:#f0b42918;color:#f0b429;border:1px solid #f0b42944;}
+.regime-pill.caution{background:#f59e0b18;color:#f59e0b;border:1px solid #f59e0b44;}
+body:not(.dark-mode) .regime-pill.bull{background:#0a8a4e14;color:#0a8a4e;border-color:#0a8a4e44;}
+body:not(.dark-mode) .regime-pill.bear{background:#cc284014;color:#cc2840;border-color:#cc284044;}
+body:not(.dark-mode) .regime-pill.neu{background:#8a750a14;color:#8a750a;border-color:#8a750a44;}
+body:not(.dark-mode) .regime-pill.caution{background:#b8860b14;color:#b8860b;border-color:#b8860b44;}
+.regime-summary{font-family:var(--sans);font-size:12px;color:var(--text2);line-height:1.5;padding:8px 0 0;border-top:1px solid var(--border);margin-top:4px;}
+.regime-btn{font-family:var(--mono);font-size:10px;padding:3px 8px;border-radius:3px;border:1px solid var(--border2);background:var(--surface3);color:var(--text2);cursor:pointer;transition:all .15s;}
+.regime-btn:hover{border-color:var(--accent);color:var(--accent);}
+.regime-btn.spinning{color:var(--neu);border-color:var(--neu);}
+
 /* ── FEAR & GREED ── */
 .fg-card{background:linear-gradient(145deg,var(--surface) 0%,var(--surface2) 100%);border:1px solid var(--border);border-radius:12px;padding:14px;box-shadow:var(--card-shadow);}
 .fg-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;}
@@ -688,21 +708,53 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
 
 
 
-      <div class="fg-card">
-        <div class="stitle" id="fg-card-title">US Stock Market Fear &amp; Greed</div>
-        <div class="fg-top">
-          <div class="fg-src">Source: <span id="fg-src-lbl">CNN (Equity)</span></div>
-          <button class="fg-fetch" id="fg-fetch-btn" onclick="fetchFG()">↻ Fetch Live</button>
+      <div class="regime-card" id="regime-card">
+        <div class="stitle" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>🌐 Macro Regime</span>
+          <button class="regime-btn" id="regime-fetch-btn" onclick="fetchRegimeData()">↻ Fetch Live</button>
         </div>
-        <div class="fg-meter">
-          <div class="fg-arc"><canvas id="fgCanvas" width="90" height="50"></canvas></div>
-          <div><div class="fg-num" id="fg-num">—</div><div class="fg-lbl">Sentiment: <span id="fg-sent">not loaded</span></div></div>
+
+        <!-- SPY vs SMA200 -->
+        <div class="regime-row">
+          <div class="regime-lbl">S&amp;P 500 (SPY) vs SMA 200</div>
+          <div class="regime-val" id="reg-spy">—</div>
         </div>
-        <div class="fg-man">
-          <label>Manual:</label>
-          <input class="fg-min" id="fg-manual" type="number" min="0" max="100" placeholder="0–100">
-          <button class="fg-apply" onclick="applyFGManual()">Apply</button>
+
+        <!-- 10-Year Treasury -->
+        <div class="regime-row">
+          <div class="regime-lbl">10-Year Treasury Yield</div>
+          <div class="regime-val" id="reg-tnx">—</div>
         </div>
+
+        <!-- Yield Curve (10Y - 3M) -->
+        <div class="regime-row">
+          <div class="regime-lbl">Yield Curve (10Y − 3M)</div>
+          <div class="regime-val" id="reg-curve">—</div>
+        </div>
+
+        <!-- Gold -->
+        <div class="regime-row">
+          <div class="regime-lbl">Gold (GLD) Trend</div>
+          <div class="regime-val" id="reg-gold">—</div>
+        </div>
+
+        <!-- Fear & Greed — absorbed from old standalone card -->
+        <div class="regime-row">
+          <div class="regime-lbl">Fear &amp; Greed Index</div>
+          <div class="regime-val" style="display:flex;align-items:center;gap:6px;">
+            <canvas id="fgCanvas" width="54" height="30" style="flex-shrink:0;"></canvas>
+            <span id="fg-num" style="font-size:16px;">—</span>
+            <span id="fg-sent" style="font-size:10px;color:var(--text3);">not loaded</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;padding:4px 0 0;">
+          <span style="font-family:var(--mono);font-size:9px;color:var(--text3);">Source: <span id="fg-src-lbl">CNN (Equity)</span></span>
+          <input class="fg-min" id="fg-manual" type="number" min="0" max="100" placeholder="0–100" style="width:50px;">
+          <button class="regime-btn" onclick="applyFGManual()" style="font-size:9px;padding:2px 5px;">Apply</button>
+        </div>
+
+        <!-- Regime Summary -->
+        <div class="regime-summary" id="reg-summary">Click "Fetch Live" to load macro regime data. This panel provides context only — it does not affect the TA score.</div>
       </div>
 
       <div class="lvl-card">
@@ -3343,6 +3395,7 @@ function onACChange(){
 }
 function updFGWDisp(){
   const w=FG_IW[getAC()],el=document.getElementById('fg-wdisp');
+  if(!el) return;
   const lbl=w>=1.3?'HIGH':w>=1.0?'MED-HIGH':w>=.8?'MEDIUM':'LOW';
   el.textContent=`${lbl} (${w}× base)`;
   el.style.color=w>=1.3?'#00d97e':w>=1.0?'#4dd9a0':w>=.8?'#f0b429':'#8a9ab0';
@@ -3389,8 +3442,8 @@ function setFGDisplay(fg){
   drawFGA(fg);
 }
 async function fetchFG(){
-  const ac=getAC(),src=FG_SRC[ac],btn=document.getElementById('fg-fetch-btn');
-  btn.textContent='↻ Fetching…';btn.classList.add('spinning');btn.disabled=true;
+  const ac=getAC(),src=FG_SRC[ac],btn=document.getElementById('fg-fetch-btn')||document.getElementById('regime-fetch-btn');
+  if(btn){btn.textContent='↻ F&G…';btn.classList.add('spinning');btn.disabled=true;}
 
   async function tryUrl(url, getter){
     const res=await fetch(url,{headers:{'Accept':'application/json'}});
@@ -3423,8 +3476,8 @@ async function fetchFG(){
                        url.includes('corsproxy')      ? 'CNN via proxy' :
                        url.includes('allorigins')     ? 'CNN via proxy' : 'Live';
       document.getElementById('fg-src-lbl').textContent = srcLabel;
-      btn.textContent='✓ Loaded';
-      setTimeout(()=>{btn.textContent='↻ Fetch Live';btn.classList.remove('spinning');btn.disabled=false;},1500);
+      if(btn){btn.textContent='✓ Loaded';
+      setTimeout(()=>{btn.textContent='↻ Fetch Live';btn.classList.remove('spinning');btn.disabled=false;},1500);}
       return;
     }catch(e){
       console.warn('F&G attempt failed:',url,e.message);
@@ -3432,11 +3485,161 @@ async function fetchFG(){
   }
 
   // All attempts failed
-  btn.textContent='⚠ Failed — use manual';btn.classList.remove('spinning');btn.disabled=false;
+  if(btn){btn.textContent='⚠ F&G failed';btn.classList.remove('spinning');btn.disabled=false;}
   document.getElementById('fg-sent').textContent='fetch error — enter manually';
   document.getElementById('fg-sent').style.color='var(--bear)';
 }
 function applyFGManual(){const v=parseInt(document.getElementById('fg-manual').value);if(isNaN(v)||v<0||v>100){alert('Enter 0–100.');return;}setFGDisplay(v);}
+
+// ═══ MACRO REGIME FETCH ═══
+async function fetchRegimeData(){
+  const btn = document.getElementById('regime-fetch-btn');
+  btn.textContent='↻ Fetching…'; btn.classList.add('spinning'); btn.disabled=true;
+
+  // Reuse the same CORS proxy cascade as the main OHLC fetch
+  async function fetchYahoo(ticker, range='1y', interval='1d'){
+    const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=${interval}&range=${range}`;
+    const proxies = [
+      yahooUrl,
+      `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=${interval}&range=${range}`,
+      `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`,
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`,
+    ];
+    for(const url of proxies){
+      try{
+        const ctrl = new AbortController();
+        const tid = setTimeout(()=>ctrl.abort(), 5000);
+        const res = await fetch(url, {signal:ctrl.signal});
+        clearTimeout(tid);
+        if(!res.ok) continue;
+        const data = await res.json();
+        const r = data?.chart?.result?.[0];
+        if(!r) continue;
+        const q = r.indicators?.quote?.[0];
+        const ts = r.timestamps || r.timestamp;
+        if(!q || !ts) continue;
+        const closes = [];
+        for(let i=0;i<ts.length;i++) if(q.close[i]!=null) closes.push(q.close[i]);
+        return { closes, price: closes[closes.length-1], meta: r.meta };
+      }catch(e){ continue; }
+    }
+    return null;
+  }
+
+  // Fetch all macro instruments in parallel
+  const [spyData, tnxData, irxData, gldData] = await Promise.all([
+    fetchYahoo('SPY', '1y', '1d'),
+    fetchYahoo('%5ETNX', '3mo', '1d'),   // 10-Year Treasury Yield (×10 on Yahoo)
+    fetchYahoo('%5EIRX', '3mo', '1d'),   // 13-Week T-Bill Yield (×10 on Yahoo)
+    fetchYahoo('GLD', '1y', '1d'),
+  ]);
+
+  // Also fetch Fear & Greed in the same action
+  fetchFG();
+
+  const summary = [];
+
+  // ── SPY vs SMA 200 ──
+  const spyEl = document.getElementById('reg-spy');
+  if(spyData && spyData.closes.length >= 200){
+    const closes = spyData.closes;
+    const price = closes[closes.length-1];
+    const sma200 = closes.slice(-200).reduce((s,v)=>s+v,0)/200;
+    const pctFromSma = ((price - sma200)/sma200*100);
+    const above = price > sma200;
+    const pillCls = above ? (pctFromSma > 5 ? 'bull' : 'bull') : (pctFromSma < -5 ? 'bear' : 'bear');
+    const pillTxt = above ? 'ABOVE' : 'BELOW';
+    spyEl.innerHTML = `$${price.toFixed(2)} <span class="regime-pill ${pillCls}">${pillTxt} SMA200</span><br><span style="font-size:10px;color:var(--text3);">SMA200: $${sma200.toFixed(2)} (${pctFromSma>0?'+':''}${pctFromSma.toFixed(1)}%)</span>`;
+    if(above){
+      summary.push(pctFromSma > 8
+        ? 'The S&P 500 is well above its 200-day average — the broad market is in a confirmed uptrend. This is a "risk-on" environment where individual stock breakouts are more likely to follow through.'
+        : 'The S&P 500 is above its 200-day average — the broad market trend supports bullish setups. Individual stock analysis benefits from this tailwind.');
+    } else {
+      summary.push(pctFromSma < -8
+        ? 'The S&P 500 is well below its 200-day average — the broad market is in a confirmed downtrend. This is a "risk-off" environment where even strong individual stocks face selling pressure. Be defensive.'
+        : 'The S&P 500 is below its 200-day average — the broad market trend is bearish. Individual bullish setups face a headwind and require higher conviction to act on.');
+    }
+  } else {
+    spyEl.textContent = spyData ? 'Insufficient data' : 'Fetch failed';
+  }
+
+  // ── 10-Year Treasury ──
+  const tnxEl = document.getElementById('reg-tnx');
+  let yield10Y = null;
+  if(tnxData && tnxData.closes.length > 0){
+    yield10Y = tnxData.price / 10; // Yahoo reports ×10
+    const prev = tnxData.closes.length > 20 ? tnxData.closes[tnxData.closes.length - 21] / 10 : null;
+    const trend = prev ? (yield10Y > prev + 0.1 ? 'RISING' : yield10Y < prev - 0.1 ? 'FALLING' : 'STABLE') : '—';
+    const pillCls = yield10Y > 4.5 ? 'caution' : yield10Y > 3.5 ? 'neu' : 'bull';
+    const trendPill = trend === 'RISING' ? 'bear' : trend === 'FALLING' ? 'bull' : 'neu';
+    tnxEl.innerHTML = `${yield10Y.toFixed(2)}% <span class="regime-pill ${pillCls}">${yield10Y > 4.5 ? 'HIGH' : yield10Y > 3.5 ? 'MODERATE' : 'LOW'}</span> <span class="regime-pill ${trendPill}">${trend}</span>`;
+
+    if(yield10Y > 4.5){
+      summary.push(`The 10-year Treasury yield is elevated at ${yield10Y.toFixed(2)}% — higher yields compete with stocks for capital, increase borrowing costs, and pressure equity valuations. Growth stocks and rate-sensitive sectors (REITs, utilities) face the most headwind.`);
+    } else if(yield10Y > 3.5){
+      summary.push(`The 10-year yield at ${yield10Y.toFixed(2)}% is in a moderate range — not yet a major headwind for equities, but worth monitoring. Rising yields from here would start to pressure valuations.`);
+    } else {
+      summary.push(`The 10-year yield at ${yield10Y.toFixed(2)}% is low — this is supportive for equity valuations. Lower rates reduce the discount rate on future earnings, which benefits growth stocks.`);
+    }
+  } else {
+    tnxEl.textContent = 'Fetch failed';
+  }
+
+  // ── Yield Curve (10Y - 3M) ──
+  const curveEl = document.getElementById('reg-curve');
+  if(yield10Y !== null && irxData && irxData.closes.length > 0){
+    const yield3M = irxData.price / 10;
+    const spread = yield10Y - yield3M;
+    const inverted = spread < 0;
+    const pillCls = inverted ? 'bear' : spread < 0.5 ? 'caution' : 'bull';
+    const pillTxt = inverted ? 'INVERTED' : spread < 0.5 ? 'FLAT' : 'NORMAL';
+    curveEl.innerHTML = `${spread > 0 ? '+' : ''}${spread.toFixed(2)}% <span class="regime-pill ${pillCls}">${pillTxt}</span><br><span style="font-size:10px;color:var(--text3);">10Y: ${yield10Y.toFixed(2)}% · 3M: ${yield3M.toFixed(2)}%</span>`;
+
+    if(inverted){
+      summary.push('The yield curve is inverted (short-term rates higher than long-term) — this has historically preceded recessions, though with variable lead times. An inverted curve signals that the bond market expects economic slowing. This is a cautionary backdrop for equity risk-taking.');
+    } else if(spread < 0.5){
+      summary.push('The yield curve is flat — the bond market is signaling uncertainty about economic direction. Neither a strong positive nor negative signal, but a flat curve in the context of other bearish signals adds caution.');
+    } else {
+      summary.push('The yield curve is normal (long rates above short rates) — this signals a healthy credit environment where banks can lend profitably. A normal curve supports economic expansion and is a positive backdrop for equities.');
+    }
+  } else {
+    curveEl.textContent = yield10Y !== null ? 'T-Bill fetch failed' : '—';
+  }
+
+  // ── Gold ──
+  const goldEl = document.getElementById('reg-gold');
+  if(gldData && gldData.closes.length >= 200){
+    const closes = gldData.closes;
+    const price = closes[closes.length-1];
+    const sma200 = closes.slice(-200).reduce((s,v)=>s+v,0)/200;
+    const sma50 = closes.slice(-50).reduce((s,v)=>s+v,0)/50;
+    const pctFromSma = ((price - sma200)/sma200*100);
+    const above = price > sma200;
+    const strong = above && pctFromSma > 10;
+    const pillCls = strong ? 'caution' : above ? 'neu' : 'bull';
+    const pillTxt = strong ? 'STRONG ↑' : above ? 'ABOVE SMA200' : 'BELOW SMA200';
+    goldEl.innerHTML = `$${price.toFixed(2)} <span class="regime-pill ${pillCls}">${pillTxt}</span><br><span style="font-size:10px;color:var(--text3);">SMA200: $${sma200.toFixed(2)} (${pctFromSma>0?'+':''}${pctFromSma.toFixed(1)}%)</span>`;
+
+    if(strong){
+      summary.push(`Gold is in a strong uptrend (+${pctFromSma.toFixed(0)}% above its 200-day average) — this typically signals elevated demand for safe-haven assets, meaning institutional money is hedging risk. A strong gold trend alongside a weak equity trend reinforces a defensive posture.`);
+    } else if(above){
+      summary.push('Gold is above its 200-day average — modest safe-haven demand. Not alarming on its own, but if combined with equity weakness and rising yields, it paints a more cautious picture.');
+    } else {
+      summary.push('Gold is below its 200-day average — safe-haven demand is low. This typically aligns with a "risk-on" environment where capital flows toward equities rather than defensive assets.');
+    }
+  } else {
+    goldEl.textContent = gldData ? 'Insufficient data' : 'Fetch failed';
+  }
+
+  // ── Build overall regime summary ──
+  const summaryEl = document.getElementById('reg-summary');
+  if(summary.length > 0){
+    summaryEl.innerHTML = summary.join('<br style="margin-bottom:6px;">') + '<br style="margin-bottom:6px;"><em style="color:var(--text3);font-size:11px;">Context only — does not affect TA score. Use to calibrate your conviction on individual ticker signals.</em>';
+  }
+
+  btn.textContent='✓ Loaded';
+  setTimeout(()=>{btn.textContent='↻ Fetch Live';btn.classList.remove('spinning');btn.disabled=false;},1500);
+}
 
 // ═══ PRICE AUTO-FETCH ═══
 async function fetchPrice(){
