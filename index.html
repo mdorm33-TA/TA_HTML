@@ -28,7 +28,7 @@ body.dark-mode{
   --card-shadow:0 1px 4px rgba(0,0,0,.3),0 0 0 1px rgba(255,255,255,.06);
   --card-shadow-hover:0 4px 16px rgba(0,0,0,.4),0 0 0 1px rgba(255,255,255,.08);
   --border:#30363d;--border2:#484f58;
-  --text:#e6edf3;--text2:#d8dee6;--text3:#b8c0cc;
+  --text:#e6edf3;--text2:#e0e6ed;--text3:#cdd4de;
   --bull:#3fb950;--bear:#f85149;--neu:#d29922;
   --high:#58a6ff;--high-dim:#58a6ff18;--med:#bc8cff;--med-dim:#bc8cff18;--low:#8b949e;--low-dim:#8b949e18;
   --accent:#58a6ff;--conflict:#f0883e;
@@ -2412,11 +2412,11 @@ let orientCharts = {};     // orientation chart instances
 function chartColors(){
   const dk = document.body.classList.contains('dark-mode');
   return {
-    tick:    dk ? '#8b949e' : '#546070',
-    grid:    dk ? '#21262d' : '#e8eaed',
-    gridFaint: dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
-    legend:  dk ? '#b1bac4' : '#546070',
-    legendSm: dk ? '#8b949e' : '#44526a',
+    tick:    dk ? '#c0c8d2' : '#546070',
+    grid:    dk ? '#2d333b' : '#e8eaed',
+    gridFaint: dk ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
+    legend:  dk ? '#cdd4de' : '#546070',
+    legendSm: dk ? '#b8c4d0' : '#44526a',
   };
 }
 
