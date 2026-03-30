@@ -3916,29 +3916,26 @@ async function runAnalysis(){
 
   // Also try to fetch price in parallel
   fetchPrice();
-  // Auto-fetch Fear & Greed
-  fetchFG();
 
-  // ── Run computed indicators in parallel with AI — non-blocking ──
-  // Uses setTimeout(0) to yield to the browser between OHLC fetch and heavy computation
-  const computedPromise = (async () => {
-    try {
-      st.textContent = `Fetching OHLC data for ${ticker}…`;
-      await runAllComputed(ticker);
-      runLevelsComputed(ticker);
-      renderOrientationChart(ticker);
-      // Update status bar with computed score
-      const _s = Math.round(bScore('high')*customBW.high + bScore('med')*customBW.med + bScore('low')*customBW.low);
-      const _v = verd(_s), _c = sCol(_s);
-      const nameStr = window._lastSymbolName ? ` · ${window._lastSymbolName}` : '';
-      st.innerHTML = `<span class="sticker">${ticker}</span>${nameStr} — <span style="color:${_c};font-weight:600">${_v.l} (${_s})</span> · $${document.getElementById('price-val')?.textContent||'—'} · ${nowStamp()}`;
-      st.style.animation = '';
-      dot.className = 'sdot ok';
-    } catch(compErr) {
-      console.warn('Computed indicators failed:', compErr.message);
-      so.textContent = 'OHLC computation error: ' + compErr.message;
-    }
-  })();
+  // ── Run computed indicators FIRST — before AI call ──
+  try {
+    st.textContent = `Fetching OHLC data for ${ticker}…`;
+    await runAllComputed(ticker);
+    // Yield to browser after heavy computation
+    await new Promise(r => setTimeout(r, 50));
+    runLevelsComputed(ticker);
+    renderOrientationChart(ticker);
+    // Update status bar with computed score
+    const _s = Math.round(bScore('high')*customBW.high + bScore('med')*customBW.med + bScore('low')*customBW.low);
+    const _v = verd(_s), _c = sCol(_s);
+    const nameStr = window._lastSymbolName ? ` · ${window._lastSymbolName}` : '';
+    st.innerHTML = `<span class="sticker">${ticker}</span>${nameStr} — <span style="color:${_c};font-weight:600">${_v.l} (${_s})</span> · $${document.getElementById('price-val')?.textContent||'—'} · ${nowStamp()}`;
+    st.style.animation = '';
+    dot.className = 'sdot ok';
+  } catch(compErr) {
+    console.warn('Computed indicators failed:', compErr.message);
+    so.textContent = 'OHLC computation error: ' + compErr.message;
+  }
 
   // Fetch fundamentals in parallel (separate API call)
   fundData = null;
@@ -4037,8 +4034,6 @@ Return ONLY the JSON object.`;
     dot.className='sdot error';st.className='stext';st.style.color='';st.style.animation='';st.textContent='AI error: '+err.message;
     so.textContent='Computed indicators loaded — AI data unavailable.';console.error('TA·WEIGHT AI:',err);
   }finally{
-    // Ensure computed indicators finish even if AI errors
-    try { await computedPromise; } catch(e) {}
     btn.disabled=false;btn.classList.remove('loading');if(document.getElementById('stext').style.animation)document.getElementById('stext').style.animation='';
   }
 }
