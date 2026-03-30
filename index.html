@@ -3499,13 +3499,12 @@ Return ONLY the JSON object.`;
       }, 3000);
     }
     // After AI populates, compute all OHLC-derivable indicators (overwrites AI estimates)
-    // Sequential: first call fetches OHLC and caches it; subsequent calls hit cache instantly
     // Single call to scoring engine — replaces 13 individual run*Computed functions
-    await runAllComputed(ticker);
+    runAllComputed(ticker);
     // Compute key price levels from OHLC (fills empty fields only — won't overwrite AI or manual values)
-    await runLevelsComputed(ticker);
+    runLevelsComputed(ticker);
     // Render orientation chart at top of indicators panel
-    await renderOrientationChart(ticker);
+    renderOrientationChart(ticker);
   }catch(err){
     dot.className='sdot error';st.className='stext';st.style.color='';st.style.animation='';st.textContent='Error: '+err.message;
     so.textContent='Check browser console for details.';console.error('TA·WEIGHT:',err);
