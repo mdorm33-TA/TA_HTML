@@ -2689,8 +2689,8 @@ async function fetchOHLCForCharts(ticker){
     return out;
   };
   const [daily, weekly] = await Promise.all([
-    fetchBars('1d','2y'),
-    fetchBars('1wk','2y')
+    fetchBars('1d','1y'),
+    fetchBars('1wk','1y')
   ]);
   ohlcCache = { ticker, daily, weekly };
   return ohlcCache;
