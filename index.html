@@ -3815,8 +3815,8 @@ Return ONLY the JSON object.`;
   }finally{
     // Always run computed indicators — whether AI succeeded or failed
     try {
-      runAllComputed(ticker);
-      runLevelsComputed(ticker);
+      await runAllComputed(ticker);
+      await runLevelsComputed(ticker);
       renderOrientationChart(ticker);
     } catch(compErr) { console.error('Computed indicators failed:', compErr); }
     btn.disabled=false;btn.classList.remove('loading');if(document.getElementById('stext').style.animation)document.getElementById('stext').style.animation='';
