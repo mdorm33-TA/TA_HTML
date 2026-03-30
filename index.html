@@ -3519,9 +3519,14 @@ async function fetchRegimeData(){
   try {
     const ctrl = new AbortController();
     const tid = setTimeout(()=>ctrl.abort(), 10000);
-    const res = await fetch(`${WORKER_QUOTE_URL}?symbols=SPY,^VIX,^TNX,TLT,GLD&range=1y&interval=1d`, {signal:ctrl.signal});
+    const res = await fetch(`${WORKER_QUOTE_URL}?symbols=${encodeURIComponent('SPY,^VIX,^TNX,TLT,GLD')}&range=1y&interval=1d`, {signal:ctrl.signal});
     clearTimeout(tid);
-    if(res.ok) workerData = await res.json();
+    if(res.ok){
+      workerData = await res.json();
+      console.log('[Regime] Worker proxy returned:', Object.keys(workerData), Object.entries(workerData).map(([k,v])=>`${k}:${v.ok?'ok('+v.bars+' bars)':'FAIL:'+v.error}`).join(', '));
+    } else {
+      console.warn('[Regime] Worker proxy HTTP', res.status);
+    }
   } catch(e) { console.warn('[Regime] Worker proxy failed:', e.message); }
 
   // ── Fallback: direct Yahoo with CORS proxies for ETFs ──
@@ -3574,6 +3579,14 @@ async function fetchRegimeData(){
 
   // Also fetch Fear & Greed
   fetchFG();
+
+  console.log('[Regime] Data resolved:', {
+    spy: spyData ? `ok, ${spyData.closes?.length||0} bars` : 'null',
+    vix: vixData ? `ok=${vixData.ok}, price=${vixData.price}` : 'null',
+    tnx: tnxData ? `ok=${tnxData.ok}, price=${tnxData.price}` : 'null',
+    tlt: tltData ? `ok, ${tltData.closes?.length||0} bars` : 'null',
+    gld: gldData ? `ok, ${gldData.closes?.length||0} bars` : 'null',
+  });
 
   const summary = [];
 
