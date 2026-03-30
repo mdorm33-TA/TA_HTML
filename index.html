@@ -744,6 +744,12 @@ body:not(.dark-mode) .regime-pill.caution{background:#b8860b14;color:#b8860b;bor
           <div class="regime-val" id="reg-gold">—</div>
         </div>
 
+        <!-- Oil -->
+        <div class="regime-row">
+          <div class="regime-lbl">Oil (USO) Trend</div>
+          <div class="regime-val" id="reg-oil">—</div>
+        </div>
+
         <!-- Fear & Greed -->
         <div class="regime-row">
           <div class="regime-lbl">Fear &amp; Greed Index</div>
@@ -3519,7 +3525,7 @@ async function fetchRegimeData(){
   try {
     const ctrl = new AbortController();
     const tid = setTimeout(()=>ctrl.abort(), 10000);
-    const res = await fetch(`${WORKER_QUOTE_URL}?symbols=${encodeURIComponent('SPY,^VIX,^TNX,TLT,GLD')}&range=1y&interval=1d`, {signal:ctrl.signal});
+    const res = await fetch(`${WORKER_QUOTE_URL}?symbols=${encodeURIComponent('SPY,^VIX,^TNX,TLT,GLD,USO')}&range=1y&interval=1d`, {signal:ctrl.signal});
     clearTimeout(tid);
     if(res.ok){
       workerData = await res.json();
@@ -3569,12 +3575,13 @@ async function fetchRegimeData(){
   }
 
   // Get all data (worker already fetched in bulk; fill gaps with direct)
-  const [spyData, vixData, tnxData, tltData, gldData] = await Promise.all([
+  const [spyData, vixData, tnxData, tltData, gldData, usoData] = await Promise.all([
     getOrFetch('SPY'),
     Promise.resolve(getSymData('^VIX')),      // ^VIX only via worker
     Promise.resolve(getSymData('^TNX')),       // ^TNX only via worker
     getOrFetch('TLT'),
     getOrFetch('GLD'),
+    getOrFetch('USO'),
   ]);
 
   // Also fetch Fear & Greed
@@ -3586,6 +3593,7 @@ async function fetchRegimeData(){
     tnx: tnxData ? `ok=${tnxData.ok}, price=${tnxData.price}` : 'null',
     tlt: tltData ? `ok, ${tltData.closes?.length||0} bars` : 'null',
     gld: gldData ? `ok, ${gldData.closes?.length||0} bars` : 'null',
+    uso: usoData ? `ok, ${usoData.closes?.length||0} bars` : 'null',
   });
 
   const summary = [];
@@ -3711,6 +3719,29 @@ async function fetchRegimeData(){
       summary.push('Gold is below SMA 200 — safe-haven demand is low, consistent with a risk-on environment.');
     }
   } else { goldEl.textContent = gldData ? 'Insufficient data' : 'Fetch failed'; }
+
+  // ── Oil (USO) ──
+  const oilEl = document.getElementById('reg-oil');
+  if(usoData && usoData.closes && usoData.closes.length >= 200){
+    const closes = usoData.closes;
+    const price = closes[closes.length-1];
+    const sma200 = closes.slice(-200).reduce((s,v)=>s+v,0)/200;
+    const pctFromSma = ((price - sma200)/sma200*100);
+    const above = price > sma200;
+    const prev20 = closes.length > 20 ? closes[closes.length - 21] : null;
+    const pct20 = prev20 ? ((price - prev20)/prev20*100) : 0;
+    const trend = pct20 > 3 ? 'RISING' : pct20 < -3 ? 'FALLING' : 'FLAT';
+    const trendPillCls = above ? 'bull' : 'bear';
+    const dirPillCls = trend === 'FALLING' ? 'bear' : trend === 'RISING' ? 'caution' : 'neu';
+    oilEl.innerHTML = `$${price.toFixed(2)} <span class="regime-pill ${trendPillCls}">${above?'ABOVE':'BELOW'} SMA200</span> <span class="regime-pill ${dirPillCls}">${trend}</span><br><span style="font-size:12px;color:var(--text3);">SMA200: $${sma200.toFixed(2)} (${pctFromSma>0?'+':''}${pctFromSma.toFixed(1)}%) · 20d: ${pct20>0?'+':''}${pct20.toFixed(1)}%</span>`;
+    if(!above && trend === 'FALLING'){
+      summary.push('Oil (USO) is below SMA 200 and falling — this signals weakening demand expectations and potential economic slowdown. Falling oil can relieve inflation pressure but also reflects reduced economic activity.');
+    } else if(above && trend === 'RISING'){
+      summary.push('Oil is above SMA 200 and rising — this signals strong demand or supply constraints. Rising oil can fuel inflation concerns and pressure the Fed toward tighter policy, which is a headwind for rate-sensitive equities.');
+    } else if(!above){
+      summary.push('Oil is below SMA 200 — energy demand is soft, consistent with a slowing economic backdrop.');
+    }
+  } else { oilEl.textContent = usoData ? 'Insufficient data' : 'Fetch failed'; }
 
   // ── Summary ──
   const summaryEl = document.getElementById('reg-summary');
@@ -3882,15 +3913,26 @@ async function runAnalysis(){
   // Auto-fetch Fear & Greed
   fetchFG();
 
-  // ── Run computed indicators FIRST — these only need OHLC data, not AI ──
-  // This ensures all 13 indicators populate even if the AI call fails or is slow.
-  try {
-    await runAllComputed(ticker);
-    runLevelsComputed(ticker);
-    renderOrientationChart(ticker);
-  } catch(compErr) {
-    console.warn('Computed indicators failed:', compErr.message);
-  }
+  // ── Run computed indicators in parallel with AI — non-blocking ──
+  // Uses setTimeout(0) to yield to the browser between OHLC fetch and heavy computation
+  const computedPromise = (async () => {
+    try {
+      st.textContent = `Fetching OHLC data for ${ticker}…`;
+      await runAllComputed(ticker);
+      runLevelsComputed(ticker);
+      renderOrientationChart(ticker);
+      // Update status bar with computed score
+      const _s = Math.round(bScore('high')*customBW.high + bScore('med')*customBW.med + bScore('low')*customBW.low);
+      const _v = verd(_s), _c = sCol(_s);
+      const nameStr = window._lastSymbolName ? ` · ${window._lastSymbolName}` : '';
+      st.innerHTML = `<span class="sticker">${ticker}</span>${nameStr} — <span style="color:${_c};font-weight:600">${_v.l} (${_s})</span> · $${document.getElementById('price-val')?.textContent||'—'} · ${nowStamp()}`;
+      st.style.animation = '';
+      dot.className = 'sdot ok';
+    } catch(compErr) {
+      console.warn('Computed indicators failed:', compErr.message);
+      so.textContent = 'OHLC computation error: ' + compErr.message;
+    }
+  })();
 
   // Fetch fundamentals in parallel (separate API call)
   fundData = null;
@@ -3989,6 +4031,8 @@ Return ONLY the JSON object.`;
     dot.className='sdot error';st.className='stext';st.style.color='';st.style.animation='';st.textContent='AI error: '+err.message;
     so.textContent='Computed indicators loaded — AI data unavailable.';console.error('TA·WEIGHT AI:',err);
   }finally{
+    // Ensure computed indicators finish even if AI errors
+    try { await computedPromise; } catch(e) {}
     btn.disabled=false;btn.classList.remove('loading');if(document.getElementById('stext').style.animation)document.getElementById('stext').style.animation='';
   }
 }
