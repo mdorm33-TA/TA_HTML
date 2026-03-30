@@ -714,22 +714,10 @@ body:not(.dark-mode) .regime-pill.caution{background:#b8860b14;color:#b8860b;bor
           <button class="regime-btn" id="regime-fetch-btn" onclick="fetchRegimeData()">↻ Fetch Live</button>
         </div>
 
-        <!-- VIX — volatility regime -->
-        <div class="regime-row">
-          <div class="regime-lbl">VIX (Volatility)</div>
-          <div class="regime-val" id="reg-vix">—</div>
-        </div>
-
         <!-- SPY vs SMA200 -->
         <div class="regime-row">
           <div class="regime-lbl">S&amp;P 500 (SPY) vs SMA 200</div>
           <div class="regime-val" id="reg-spy">—</div>
-        </div>
-
-        <!-- 10-Year Treasury Yield -->
-        <div class="regime-row">
-          <div class="regime-lbl">10-Year Treasury Yield</div>
-          <div class="regime-val" id="reg-tnx">—</div>
         </div>
 
         <!-- TLT (20+ Year Treasury Bond ETF) -->
@@ -765,17 +753,8 @@ body:not(.dark-mode) .regime-pill.caution{background:#b8860b14;color:#b8860b;bor
           <button class="regime-btn" onclick="applyFGManual()">Apply</button>
         </div>
 
-        <!-- VIX Auto-Adjust Toggle -->
-        <div style="display:flex;align-items:center;gap:8px;padding:8px 0 4px;border-top:1px solid var(--border);margin-top:6px;">
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-family:var(--mono);font-size:12px;color:var(--text2);">
-            <input type="checkbox" id="vix-auto-toggle" onchange="onVixAutoToggle()">
-            VIX Regime Auto-Adjust Weights
-          </label>
-          <span id="vix-regime-badge" style="font-family:var(--mono);font-size:11px;padding:2px 7px;border-radius:3px;background:var(--surface3);color:var(--text3);display:none;">—</span>
-        </div>
-
         <!-- Regime Summary -->
-        <div class="regime-summary" id="reg-summary">Click "Fetch Live" to load macro regime data. This panel provides context only — it does not affect the TA score unless VIX auto-adjust is enabled.</div>
+        <div class="regime-summary" id="reg-summary">Click "Fetch Live" to load macro regime data. This panel provides context only — it does not affect the TA score.</div>
       </div>
 
       <div class="lvl-card">
@@ -2669,18 +2648,15 @@ async function renderOrientationChart(ticker){
 
 async function fetchOHLCForCharts(ticker){
   if(ohlcCache && ohlcCache.ticker === ticker) return ohlcCache;
-  const OHLC_PROXY = 'https://ta-alerts.mdorm33.workers.dev/ohlc';
   const fetchBars = async (interval, range) => {
-    // Try worker proxy first (most reliable — server-side, no CORS)
-    const workerUrl = `${OHLC_PROXY}?symbol=${encodeURIComponent(ticker)}&interval=${interval}&range=${range}`;
     const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=${interval}&range=${range}`;
     const yahoo2Url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=${interval}&range=${range}`;
     const proxies = [
-      workerUrl,
       yahooUrl,
       yahoo2Url,
       `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`,
       `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`,
+      `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(yahooUrl)}`,
     ];
     let res = null;
     for(const url of proxies){
@@ -2696,7 +2672,6 @@ async function fetchOHLCForCharts(ticker){
     const data = await res.json();
     const r = data?.chart?.result?.[0];
     if(!r) throw new Error('No chart data');
-    // Capture company name if not already set
     const meta0 = r.meta;
     if(meta0 && (meta0.longName || meta0.shortName) && !window._lastSymbolName) {
       window._lastSymbolName = meta0.longName || meta0.shortName || '';
@@ -3519,30 +3494,12 @@ async function fetchFG(){
 function applyFGManual(){const v=parseInt(document.getElementById('fg-manual').value);if(isNaN(v)||v<0||v>100){alert('Enter 0–100.');return;}setFGDisplay(v);}
 
 // ═══ MACRO REGIME FETCH ═══
-const WORKER_QUOTE_URL = 'https://ta-alerts.mdorm33.workers.dev/quote';
-let lastVixValue = null; // stored for auto-adjust
-
+// ═══ MACRO REGIME FETCH — ETF-only (no ^ symbols) ═══
 async function fetchRegimeData(){
   const btn = document.getElementById('regime-fetch-btn');
   btn.textContent='↻ Fetching…'; btn.classList.add('spinning'); btn.disabled=true;
 
-  // ── Primary: Worker proxy (handles ^VIX, ^TNX reliably) ──
-  let workerData = null;
-  try {
-    const ctrl = new AbortController();
-    const tid = setTimeout(()=>ctrl.abort(), 10000);
-    const res = await fetch(`${WORKER_QUOTE_URL}?symbols=${encodeURIComponent('SPY,^VIX,^TNX,TLT,GLD,USO')}&range=1y&interval=1d`, {signal:ctrl.signal});
-    clearTimeout(tid);
-    if(res.ok){
-      workerData = await res.json();
-      console.log('[Regime] Worker proxy returned:', Object.keys(workerData), Object.entries(workerData).map(([k,v])=>`${k}:${v.ok?'ok('+v.bars+' bars)':'FAIL:'+v.error}`).join(', '));
-    } else {
-      console.warn('[Regime] Worker proxy HTTP', res.status);
-    }
-  } catch(e) { console.warn('[Regime] Worker proxy failed:', e.message); }
-
-  // ── Fallback: direct Yahoo with CORS proxies for ETFs ──
-  async function fetchYahooDirect(ticker, range='1y'){
+  async function fetchYahoo(ticker, range='1y'){
     const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=${range}`;
     const proxies = [yahooUrl,
       `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=${range}`,
@@ -3561,248 +3518,90 @@ async function fetchRegimeData(){
         if(!q||!ts) continue;
         const closes = []; for(let i=0;i<ts.length;i++) if(q.close[i]!=null) closes.push(q.close[i]);
         if(closes.length===0) continue;
-        return { ok:true, price:closes[closes.length-1], closes, bars:closes.length };
+        return { closes, price:closes[closes.length-1] };
       } catch(e){ continue; }
     }
     return null;
   }
 
-  // Helper: get data for a symbol — prefer worker, fallback to direct
-  function getSymData(sym){
-    if(workerData && workerData[sym] && workerData[sym].ok) return workerData[sym];
-    return null;
-  }
-
-  // For ETFs, also try direct fetch as fallback
-  async function getOrFetch(sym, range='1y'){
-    const wd = getSymData(sym);
-    if(wd) return wd;
-    return await fetchYahooDirect(sym, range);
-  }
-
-  // Get all data (worker already fetched in bulk; fill gaps with direct)
-  const [spyData, vixData, tnxData, tltData, gldData, usoData] = await Promise.all([
-    getOrFetch('SPY'),
-    Promise.resolve(getSymData('^VIX')),      // ^VIX only via worker
-    Promise.resolve(getSymData('^TNX')),       // ^TNX only via worker
-    getOrFetch('TLT'),
-    getOrFetch('GLD'),
-    getOrFetch('USO'),
+  const [spyData, tltData, gldData, usoData] = await Promise.all([
+    fetchYahoo('SPY'), fetchYahoo('TLT'), fetchYahoo('GLD'), fetchYahoo('USO'),
   ]);
 
-  // Also fetch Fear & Greed
   fetchFG();
-
-  console.log('[Regime] Data resolved:', {
-    spy: spyData ? `ok, ${spyData.closes?.length||0} bars` : 'null',
-    vix: vixData ? `ok=${vixData.ok}, price=${vixData.price}` : 'null',
-    tnx: tnxData ? `ok=${tnxData.ok}, price=${tnxData.price}` : 'null',
-    tlt: tltData ? `ok, ${tltData.closes?.length||0} bars` : 'null',
-    gld: gldData ? `ok, ${gldData.closes?.length||0} bars` : 'null',
-    uso: usoData ? `ok, ${usoData.closes?.length||0} bars` : 'null',
-  });
-
   const summary = [];
-
-  // ── VIX ──
-  const vixEl = document.getElementById('reg-vix');
-  if(vixData && vixData.ok && vixData.closes.length > 0){
-    const vix = vixData.price;
-    lastVixValue = vix;
-    const prev5 = vixData.closes.length > 5 ? vixData.closes[vixData.closes.length - 6] : null;
-    const chg5 = prev5 ? (vix - prev5).toFixed(1) : null;
-    const chg5Str = chg5 ? ` · 5d: ${chg5>0?'+':''}${chg5}` : '';
-
-    let regime, regCls;
-    if(vix < 15)      { regime = 'LOW VOL'; regCls = 'bull'; }
-    else if(vix < 25) { regime = 'NORMAL'; regCls = 'neu'; }
-    else if(vix < 30) { regime = 'ELEVATED'; regCls = 'caution'; }
-    else              { regime = 'HIGH VOL'; regCls = 'bear'; }
-
-    vixEl.innerHTML = `${vix.toFixed(1)} <span class="regime-pill ${regCls}">${regime}</span><br><span style="font-size:12px;color:var(--text3);">Regime: ${vix<15?'Trend-following favored':vix<25?'Balanced':vix<30?'Caution — mean-reversion gaining edge':'Fear regime — contrarian signals strengthened'}${chg5Str}</span>`;
-
-    // Update the regime badge
-    const badge = document.getElementById('vix-regime-badge');
-    if(badge){ badge.textContent = regime; badge.style.display = 'inline-block';
-      badge.style.background = regCls==='bull'?'#22c55e18':regCls==='bear'?'#ef444418':regCls==='caution'?'#f59e0b18':'#f0b42918';
-      badge.style.color = regCls==='bull'?'#4ade80':regCls==='bear'?'#f87171':regCls==='caution'?'#f59e0b':'#f0b429';
-      badge.style.border = '1px solid '+(regCls==='bull'?'#22c55e44':regCls==='bear'?'#ef444444':regCls==='caution'?'#f59e0b44':'#f0b42944');
-    }
-
-    if(vix >= 30){
-      summary.push(`VIX at ${vix.toFixed(1)} signals a high-volatility fear regime — markets are pricing in significant uncertainty. Trend-following signals (SMA 200, SuperTrend, Ichimoku) are less reliable in this environment. Contrarian/exhaustion signals (RSI, DeMark, Bollinger) carry more weight — oversold readings in high VIX have historically marked significant buying opportunities.`);
-    } else if(vix >= 25){
-      summary.push(`VIX at ${vix.toFixed(1)} is elevated — volatility is above normal. Trend signals still work but with less conviction. Exhaustion signals are gaining importance. This is a transitional regime where caution is warranted.`);
-    } else if(vix < 15){
-      summary.push(`VIX at ${vix.toFixed(1)} signals extreme complacency — low volatility favors trend-following strategies. SMA 200, SuperTrend, and MACD are at their most reliable. But beware: extended low-VIX periods often precede sharp corrections.`);
-    } else {
-      summary.push(`VIX at ${vix.toFixed(1)} is in the normal range — both trend and contrarian signals operate as calibrated. No regime adjustment needed.`);
-    }
-
-    // Apply auto-adjust if enabled
-    if(document.getElementById('vix-auto-toggle')?.checked) applyVixRegimeAdjust(vix);
-  } else {
-    vixEl.innerHTML = '<span style="color:var(--text3);">Worker proxy required — deploy updated worker.js</span>';
-  }
 
   // ── SPY vs SMA 200 ──
   const spyEl = document.getElementById('reg-spy');
-  if(spyData && spyData.closes && spyData.closes.length >= 200){
-    const closes = spyData.closes;
-    const price = closes[closes.length-1];
+  if(spyData && spyData.closes.length >= 200){
+    const closes = spyData.closes, price = closes[closes.length-1];
     const sma200 = closes.slice(-200).reduce((s,v)=>s+v,0)/200;
-    const pctFromSma = ((price - sma200)/sma200*100);
+    const pct = ((price - sma200)/sma200*100);
     const above = price > sma200;
-    const pillCls = above ? 'bull' : 'bear';
-    const pillTxt = above ? 'ABOVE' : 'BELOW';
-    spyEl.innerHTML = `$${price.toFixed(2)} <span class="regime-pill ${pillCls}">${pillTxt} SMA200</span><br><span style="font-size:12px;color:var(--text3);">SMA200: $${sma200.toFixed(2)} (${pctFromSma>0?'+':''}${pctFromSma.toFixed(1)}%)</span>`;
-    if(above){
-      summary.push(pctFromSma > 8
-        ? 'The S&P 500 is well above its 200-day average — the broad market is in a confirmed uptrend. This is a "risk-on" environment where individual stock breakouts are more likely to follow through.'
-        : 'The S&P 500 is above its 200-day average — the broad market trend supports bullish setups.');
-    } else {
-      summary.push(pctFromSma < -8
-        ? 'The S&P 500 is well below its 200-day average — the broad market is in a confirmed downtrend. This is a "risk-off" environment. Be defensive.'
-        : 'The S&P 500 is below its 200-day average — the broad market trend is bearish. Individual bullish setups face a headwind.');
-    }
+    spyEl.innerHTML = `$${price.toFixed(2)} <span class="regime-pill ${above?'bull':'bear'}">${above?'ABOVE':'BELOW'} SMA200</span><br><span style="font-size:12px;color:var(--text3);">SMA200: $${sma200.toFixed(2)} (${pct>0?'+':''}${pct.toFixed(1)}%)</span>`;
+    summary.push(above
+      ? (pct > 8 ? 'The S&P 500 is well above its 200-day average — confirmed uptrend, risk-on environment.' : 'The S&P 500 is above its 200-day average — broad market supports bullish setups.')
+      : (pct < -8 ? 'The S&P 500 is well below its 200-day average — confirmed downtrend, risk-off. Be defensive.' : 'The S&P 500 is below its 200-day average — bearish headwind for individual stocks.'));
   } else { spyEl.textContent = spyData ? 'Insufficient data' : 'Fetch failed'; }
 
-  // ── 10-Year Treasury Yield ──
-  const tnxEl = document.getElementById('reg-tnx');
-  if(tnxData && tnxData.ok && tnxData.closes.length > 0){
-    const yield10Y = tnxData.price / 10; // Yahoo ^TNX reports ×10
-    const prev20 = tnxData.closes.length > 20 ? tnxData.closes[tnxData.closes.length - 21] / 10 : null;
-    const trend = prev20 ? (yield10Y > prev20 + 0.1 ? 'RISING' : yield10Y < prev20 - 0.1 ? 'FALLING' : 'STABLE') : '—';
-    const pillCls = yield10Y > 4.5 ? 'caution' : yield10Y > 3.5 ? 'neu' : 'bull';
-    const trendPill = trend === 'RISING' ? 'bear' : trend === 'FALLING' ? 'bull' : 'neu';
-    tnxEl.innerHTML = `${yield10Y.toFixed(2)}% <span class="regime-pill ${pillCls}">${yield10Y > 4.5 ? 'HIGH' : yield10Y > 3.5 ? 'MODERATE' : 'LOW'}</span> <span class="regime-pill ${trendPill}">${trend}</span>`;
-    if(yield10Y > 4.5){
-      summary.push(`The 10-year yield at ${yield10Y.toFixed(2)}% is elevated — higher rates compete with equities for capital and pressure valuations, especially for growth stocks and rate-sensitive sectors.`);
-    } else if(yield10Y < 3.5){
-      summary.push(`The 10-year yield at ${yield10Y.toFixed(2)}% is low — supportive for equity valuations.`);
-    }
-  } else {
-    tnxEl.innerHTML = '<span style="color:var(--text3);">Worker proxy required — deploy updated worker.js</span>';
-  }
-
-  // ── TLT (Bonds) ──
+  // ── TLT (Bonds/Rates) ──
   const tltEl = document.getElementById('reg-tlt');
-  if(tltData && tltData.closes && tltData.closes.length >= 200){
-    const closes = tltData.closes;
-    const price = closes[closes.length-1];
+  if(tltData && tltData.closes.length >= 200){
+    const closes = tltData.closes, price = closes[closes.length-1];
     const sma200 = closes.slice(-200).reduce((s,v)=>s+v,0)/200;
-    const pctFromSma = ((price - sma200)/sma200*100);
+    const pct = ((price - sma200)/sma200*100);
     const above = price > sma200;
     const prev20 = closes.length > 20 ? closes[closes.length - 21] : null;
     const pct20 = prev20 ? ((price - prev20)/prev20*100) : 0;
     const trend = pct20 > 2 ? 'RISING' : pct20 < -2 ? 'FALLING' : 'FLAT';
     const rateDir = trend === 'FALLING' ? 'RATES ↑' : trend === 'RISING' ? 'RATES ↓' : 'STABLE';
-    const ratePillCls = trend === 'FALLING' ? 'caution' : trend === 'RISING' ? 'bull' : 'neu';
-    const trendPillCls = above ? 'bull' : 'bear';
-    tltEl.innerHTML = `$${price.toFixed(2)} <span class="regime-pill ${trendPillCls}">${above?'ABOVE':'BELOW'} SMA200</span> <span class="regime-pill ${ratePillCls}">${rateDir}</span><br><span style="font-size:12px;color:var(--text3);">SMA200: $${sma200.toFixed(2)} (${pctFromSma>0?'+':''}${pctFromSma.toFixed(1)}%) · 20d: ${pct20>0?'+':''}${pct20.toFixed(1)}%</span>`;
-    if(!above && trend === 'FALLING'){
-      summary.push('TLT (long bonds) is below SMA 200 and falling — rates are rising. This is the toughest macro backdrop for equities.');
-    } else if(above && trend === 'RISING'){
-      summary.push('TLT is above SMA 200 and rising — rates are falling, which is bullish for equities.');
-    }
+    const rateCls = trend === 'FALLING' ? 'caution' : trend === 'RISING' ? 'bull' : 'neu';
+    tltEl.innerHTML = `$${price.toFixed(2)} <span class="regime-pill ${above?'bull':'bear'}">${above?'ABOVE':'BELOW'} SMA200</span> <span class="regime-pill ${rateCls}">${rateDir}</span><br><span style="font-size:12px;color:var(--text3);">SMA200: $${sma200.toFixed(2)} (${pct>0?'+':''}${pct.toFixed(1)}%) · 20d: ${pct20>0?'+':''}${pct20.toFixed(1)}%</span>`;
+    if(!above && trend === 'FALLING') summary.push('TLT (long bonds) below SMA 200 and falling — rates rising. Toughest backdrop for equities.');
+    else if(above && trend === 'RISING') summary.push('TLT above SMA 200 and rising — rates falling, bullish for equities.');
+    else if(!above) summary.push('TLT below SMA 200 but stabilizing — rates may be peaking.');
+    else summary.push('TLT above SMA 200 — rate environment favorable for equities.');
   } else { tltEl.textContent = tltData ? 'Insufficient data' : 'Fetch failed'; }
 
   // ── Gold ──
   const goldEl = document.getElementById('reg-gold');
-  if(gldData && gldData.closes && gldData.closes.length >= 200){
-    const closes = gldData.closes;
-    const price = closes[closes.length-1];
+  if(gldData && gldData.closes.length >= 200){
+    const closes = gldData.closes, price = closes[closes.length-1];
     const sma200 = closes.slice(-200).reduce((s,v)=>s+v,0)/200;
-    const pctFromSma = ((price - sma200)/sma200*100);
+    const pct = ((price - sma200)/sma200*100);
     const above = price > sma200;
-    const strong = above && pctFromSma > 10;
+    const strong = above && pct > 10;
     const pillCls = strong ? 'caution' : above ? 'neu' : 'bull';
-    const pillTxt = strong ? 'STRONG ↑' : above ? 'ABOVE SMA200' : 'BELOW SMA200';
-    goldEl.innerHTML = `$${price.toFixed(2)} <span class="regime-pill ${pillCls}">${pillTxt}</span><br><span style="font-size:12px;color:var(--text3);">SMA200: $${sma200.toFixed(2)} (${pctFromSma>0?'+':''}${pctFromSma.toFixed(1)}%)</span>`;
-    if(strong){
-      summary.push(`Gold is in a strong uptrend (+${pctFromSma.toFixed(0)}% above SMA 200) — elevated safe-haven demand signals institutional risk hedging.`);
-    } else if(!above){
-      summary.push('Gold is below SMA 200 — safe-haven demand is low, consistent with a risk-on environment.');
-    }
+    goldEl.innerHTML = `$${price.toFixed(2)} <span class="regime-pill ${pillCls}">${strong?'STRONG ↑':above?'ABOVE SMA200':'BELOW SMA200'}</span><br><span style="font-size:12px;color:var(--text3);">SMA200: $${sma200.toFixed(2)} (${pct>0?'+':''}${pct.toFixed(1)}%)</span>`;
+    if(strong) summary.push(`Gold in strong uptrend (+${pct.toFixed(0)}% above SMA 200) — elevated safe-haven demand.`);
+    else if(!above) summary.push('Gold below SMA 200 — safe-haven demand low, risk-on environment.');
   } else { goldEl.textContent = gldData ? 'Insufficient data' : 'Fetch failed'; }
 
-  // ── Oil (USO) ──
+  // ── Oil ──
   const oilEl = document.getElementById('reg-oil');
-  if(usoData && usoData.closes && usoData.closes.length >= 200){
-    const closes = usoData.closes;
-    const price = closes[closes.length-1];
+  if(usoData && usoData.closes.length >= 200){
+    const closes = usoData.closes, price = closes[closes.length-1];
     const sma200 = closes.slice(-200).reduce((s,v)=>s+v,0)/200;
-    const pctFromSma = ((price - sma200)/sma200*100);
+    const pct = ((price - sma200)/sma200*100);
     const above = price > sma200;
     const prev20 = closes.length > 20 ? closes[closes.length - 21] : null;
     const pct20 = prev20 ? ((price - prev20)/prev20*100) : 0;
     const trend = pct20 > 3 ? 'RISING' : pct20 < -3 ? 'FALLING' : 'FLAT';
-    const trendPillCls = above ? 'bull' : 'bear';
-    const dirPillCls = trend === 'FALLING' ? 'bear' : trend === 'RISING' ? 'caution' : 'neu';
-    oilEl.innerHTML = `$${price.toFixed(2)} <span class="regime-pill ${trendPillCls}">${above?'ABOVE':'BELOW'} SMA200</span> <span class="regime-pill ${dirPillCls}">${trend}</span><br><span style="font-size:12px;color:var(--text3);">SMA200: $${sma200.toFixed(2)} (${pctFromSma>0?'+':''}${pctFromSma.toFixed(1)}%) · 20d: ${pct20>0?'+':''}${pct20.toFixed(1)}%</span>`;
-    if(!above && trend === 'FALLING'){
-      summary.push('Oil (USO) is below SMA 200 and falling — this signals weakening demand expectations and potential economic slowdown. Falling oil can relieve inflation pressure but also reflects reduced economic activity.');
-    } else if(above && trend === 'RISING'){
-      summary.push('Oil is above SMA 200 and rising — this signals strong demand or supply constraints. Rising oil can fuel inflation concerns and pressure the Fed toward tighter policy, which is a headwind for rate-sensitive equities.');
-    } else if(!above){
-      summary.push('Oil is below SMA 200 — energy demand is soft, consistent with a slowing economic backdrop.');
-    }
+    const dirCls = trend === 'FALLING' ? 'bear' : trend === 'RISING' ? 'caution' : 'neu';
+    oilEl.innerHTML = `$${price.toFixed(2)} <span class="regime-pill ${above?'bull':'bear'}">${above?'ABOVE':'BELOW'} SMA200</span> <span class="regime-pill ${dirCls}">${trend}</span><br><span style="font-size:12px;color:var(--text3);">SMA200: $${sma200.toFixed(2)} (${pct>0?'+':''}${pct.toFixed(1)}%) · 20d: ${pct20>0?'+':''}${pct20.toFixed(1)}%</span>`;
+    if(!above && trend === 'FALLING') summary.push('Oil below SMA 200 and falling — weak demand, potential economic slowdown.');
+    else if(above && trend === 'RISING') summary.push('Oil above SMA 200 and rising — inflation pressure, Fed headwind for equities.');
   } else { oilEl.textContent = usoData ? 'Insufficient data' : 'Fetch failed'; }
 
   // ── Summary ──
   const summaryEl = document.getElementById('reg-summary');
   if(summary.length > 0){
-    const autoNote = document.getElementById('vix-auto-toggle')?.checked
-      ? '<br style="margin-bottom:6px;"><em style="color:var(--accent);font-size:13px;">⚡ VIX regime auto-adjust is ON — indicator weights have been modified.</em>'
-      : '';
-    summaryEl.innerHTML = summary.join('<br style="margin-bottom:6px;">') + autoNote + '<br style="margin-bottom:6px;"><em style="color:var(--text3);font-size:13px;">Context only — does not affect TA score unless VIX auto-adjust is enabled.</em>';
+    summaryEl.innerHTML = summary.join('<br style="margin-bottom:6px;">') + '<br style="margin-bottom:6px;"><em style="color:var(--text3);font-size:13px;">Context only — does not affect TA score.</em>';
   }
 
   btn.textContent='✓ Loaded';
   setTimeout(()=>{btn.textContent='↻ Fetch Live';btn.classList.remove('spinning');btn.disabled=false;},1500);
 }
-
-// ── VIX REGIME AUTO-ADJUST ──
-// Trend-following: sma_200, sma_cross, supertrend, ichimoku, macd_weekly, obv
-// Contrarian:      rsi_extreme, bollinger, demark_seq, demark_combo
-const VIX_TREND_IDS = ['sma_200','sma_cross','supertrend','ichimoku','macd_weekly','obv'];
-const VIX_CONTRA_IDS = ['rsi_extreme','bollinger','demark_seq','demark_combo'];
-
-function applyVixRegimeAdjust(vix){
-  if(!vix) return;
-  const allInds = [...INDS.high, ...INDS.med, ...INDS.low];
-  let trendAdj = 0, contraAdj = 0;
-
-  if(vix < 15)       { trendAdj = +0.20; contraAdj = -0.15; }  // complacency: favor trend
-  else if(vix < 25)  { trendAdj = 0;     contraAdj = 0; }      // normal: no change
-  else if(vix < 30)  { trendAdj = -0.10; contraAdj = +0.10; }  // elevated: mild contrarian tilt
-  else               { trendAdj = -0.20; contraAdj = +0.25; }  // high fear: strong contrarian tilt
-
-  allInds.forEach(ind => {
-    if(VIX_TREND_IDS.includes(ind.id))  ind.iW = Math.max(0.1, (BASELINE_IW[ind.id] || ind.iW) + trendAdj);
-    if(VIX_CONTRA_IDS.includes(ind.id)) ind.iW = Math.max(0.1, (BASELINE_IW[ind.id] || ind.iW) + contraAdj);
-  });
-
-  recalc();
-}
-
-function removeVixRegimeAdjust(){
-  const allInds = [...INDS.high, ...INDS.med, ...INDS.low];
-  allInds.forEach(ind => {
-    if(BASELINE_IW[ind.id]) ind.iW = BASELINE_IW[ind.id];
-  });
-  recalc();
-}
-
-function onVixAutoToggle(){
-  const on = document.getElementById('vix-auto-toggle')?.checked;
-  if(on && lastVixValue !== null){
-    applyVixRegimeAdjust(lastVixValue);
-  } else {
-    removeVixRegimeAdjust();
-  }
-}
-
 
 // ═══ PRICE AUTO-FETCH ═══
 async function fetchPrice(){
@@ -3917,26 +3716,6 @@ async function runAnalysis(){
   // Also try to fetch price in parallel
   fetchPrice();
 
-  // ── Run computed indicators FIRST — before AI call ──
-  try {
-    st.textContent = `Fetching OHLC data for ${ticker}…`;
-    await runAllComputed(ticker);
-    // Yield to browser after heavy computation
-    await new Promise(r => setTimeout(r, 50));
-    runLevelsComputed(ticker);
-    renderOrientationChart(ticker);
-    // Update status bar with computed score
-    const _s = Math.round(bScore('high')*customBW.high + bScore('med')*customBW.med + bScore('low')*customBW.low);
-    const _v = verd(_s), _c = sCol(_s);
-    const nameStr = window._lastSymbolName ? ` · ${window._lastSymbolName}` : '';
-    st.innerHTML = `<span class="sticker">${ticker}</span>${nameStr} — <span style="color:${_c};font-weight:600">${_v.l} (${_s})</span> · $${document.getElementById('price-val')?.textContent||'—'} · ${nowStamp()}`;
-    st.style.animation = '';
-    dot.className = 'sdot ok';
-  } catch(compErr) {
-    console.warn('Computed indicators failed:', compErr.message);
-    so.textContent = 'OHLC computation error: ' + compErr.message;
-  }
-
   // Fetch fundamentals in parallel (separate API call)
   fundData = null;
   const fundBadge = document.getElementById('fund-badge');
@@ -4032,8 +3811,14 @@ Return ONLY the JSON object.`;
     }
   }catch(err){
     dot.className='sdot error';st.className='stext';st.style.color='';st.style.animation='';st.textContent='AI error: '+err.message;
-    so.textContent='Computed indicators loaded — AI data unavailable.';console.error('TA·WEIGHT AI:',err);
+    so.textContent='Check browser console for details.';console.error('TA·WEIGHT AI:',err);
   }finally{
+    // Always run computed indicators — whether AI succeeded or failed
+    try {
+      runAllComputed(ticker);
+      runLevelsComputed(ticker);
+      renderOrientationChart(ticker);
+    } catch(compErr) { console.error('Computed indicators failed:', compErr); }
     btn.disabled=false;btn.classList.remove('loading');if(document.getElementById('stext').style.animation)document.getElementById('stext').style.animation='';
   }
 }
