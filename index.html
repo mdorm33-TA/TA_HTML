@@ -2148,7 +2148,10 @@ async function runAllComputed(ticker){
     const price = closes[n - 1];
 
     // ── Single call to scoring engine — source of truth ──
+    // Yield to browser before heavy computation to prevent "Page Unresponsive"
+    await new Promise(r => setTimeout(r, 0));
     const result = scoreSymbol(daily, weekly);
+    await new Promise(r => setTimeout(r, 0));
     const S = result.scores;
     const I = result.indicators;
 
@@ -2666,15 +2669,18 @@ async function renderOrientationChart(ticker){
 
 async function fetchOHLCForCharts(ticker){
   if(ohlcCache && ohlcCache.ticker === ticker) return ohlcCache;
+  const OHLC_PROXY = 'https://ta-alerts.mdorm33.workers.dev/ohlc';
   const fetchBars = async (interval, range) => {
+    // Try worker proxy first (most reliable — server-side, no CORS)
+    const workerUrl = `${OHLC_PROXY}?symbol=${encodeURIComponent(ticker)}&interval=${interval}&range=${range}`;
     const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=${interval}&range=${range}`;
     const yahoo2Url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=${interval}&range=${range}`;
     const proxies = [
+      workerUrl,
       yahooUrl,
       yahoo2Url,
       `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`,
       `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`,
-      `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(yahooUrl)}`,
     ];
     let res = null;
     for(const url of proxies){
