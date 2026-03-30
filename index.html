@@ -3818,7 +3818,11 @@ Return ONLY the JSON object.`;
       await runAllComputed(ticker);
       await runLevelsComputed(ticker);
       renderOrientationChart(ticker);
-    } catch(compErr) { console.error('Computed indicators failed:', compErr); }
+    } catch(compErr) {
+      console.error('Computed indicators failed:', compErr);
+      so.textContent = 'OHLC ERROR: ' + compErr.message;
+      so.style.color = 'red';
+    }
     btn.disabled=false;btn.classList.remove('loading');if(document.getElementById('stext').style.animation)document.getElementById('stext').style.animation='';
   }
 }
