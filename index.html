@@ -2651,12 +2651,13 @@ async function fetchOHLCForCharts(ticker){
   const fetchBars = async (interval, range) => {
     const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=${interval}&range=${range}`;
     const yahoo2Url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=${interval}&range=${range}`;
+    const workerUrl = `https://ta-alerts.mdorm33.workers.dev/ohlc?symbol=${encodeURIComponent(ticker)}&interval=${interval}&range=${range}`;
     const proxies = [
+      workerUrl,
       yahooUrl,
       yahoo2Url,
       `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`,
       `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`,
-      `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(yahooUrl)}`,
     ];
     let res = null;
     for(const url of proxies){
