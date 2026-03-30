@@ -708,24 +708,7 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
         <div class="lvl-row"><div class="lvl-lbl"><div class="lvl-dot" style="background:var(--accent)"></div>Target</div><input class="lvl-in" id="target" placeholder="—"></div>
       </div>
 
-      <div class="fg-card">
-        <div class="stitle" id="fg-card-title">US Stock Market Fear &amp; Greed</div>
-        <div class="fg-top">
-          <div class="fg-src">Source: <span id="fg-src-lbl">CNN (Equity)</span></div>
-          <button class="fg-fetch" id="fg-fetch-btn" onclick="fetchFG()">↻ Fetch Live</button>
-        </div>
-        <div class="fg-meter">
-          <div class="fg-arc"><canvas id="fgCanvas" width="90" height="50"></canvas></div>
-          <div><div class="fg-num" id="fg-num">—</div><div class="fg-lbl">Sentiment: <span id="fg-sent">not loaded</span></div></div>
-        </div>
-        <div class="fg-man">
-          <label>Manual:</label>
-          <input class="fg-min" id="fg-manual" type="number" min="0" max="100" placeholder="0–100">
-          <button class="fg-apply" onclick="applyFGManual()">Apply</button>
-        </div>
-      </div>
-
-      <!-- MACRO REGIME PANEL -->
+      <!-- MACRO REGIME PANEL (includes F&G) -->
       <div class="fg-card" id="regime-card">
         <div class="stitle" style="display:flex;justify-content:space-between;align-items:center;">
           <span>🌐 Macro Regime</span>
@@ -737,6 +720,20 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
           <div class="regime-row"><span class="regime-lbl">Bonds / Rates (TLT)</span><span class="regime-val" id="reg-tlt">—</span></div>
           <div class="regime-row"><span class="regime-lbl">Gold (GLD)</span><span class="regime-val" id="reg-gold">—</span></div>
           <div class="regime-row"><span class="regime-lbl">Oil (USO)</span><span class="regime-val" id="reg-uso">—</span></div>
+          <div class="regime-row">
+            <span class="regime-lbl" id="fg-card-title">Fear &amp; Greed</span>
+            <span class="regime-val" style="display:flex;align-items:center;gap:6px;">
+              <canvas id="fgCanvas" width="54" height="30" style="flex-shrink:0;"></canvas>
+              <span id="fg-num" style="font-family:var(--mono);font-size:16px;font-weight:600;">—</span>
+              <span id="fg-sent" style="font-size:10px;color:var(--text3);">not loaded</span>
+            </span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;padding:0;">
+            <span style="font-family:var(--mono);font-size:9px;color:var(--text3);">Source: <span id="fg-src-lbl">CNN (Equity)</span></span>
+            <button class="fg-fetch" id="fg-fetch-btn" onclick="fetchFG()" style="font-size:9px;padding:2px 6px;">↻ Fetch</button>
+            <input class="fg-min" id="fg-manual" type="number" min="0" max="100" placeholder="0–100" style="width:44px;">
+            <button class="fg-apply" onclick="applyFGManual()" style="font-size:9px;padding:2px 5px;">Apply</button>
+          </div>
         </div>
         <div id="reg-summary" style="margin-top:8px;padding:8px;border-radius:6px;background:var(--surface3);font-size:12px;color:var(--text2);line-height:1.5;">
           Click "Fetch Live" or run Analyze to load macro data.
@@ -3391,25 +3388,22 @@ function drawFGA(score){
   const cv=document.getElementById('fgCanvas');if(!cv)return;
   const ctx=cv.getContext('2d');
   const W=cv.width, H=cv.height;
+  const small = W < 70;
   ctx.clearRect(0,0,W,H);
-  const cx=W/2, cy=H-4, r=H-8;
-  // Track (grey background arc)
+  const cx=W/2, cy=H-(small?2:4), r=H-(small?4:8);
   ctx.beginPath();ctx.arc(cx,cy,r,Math.PI,0,false);
-  ctx.lineWidth=7;ctx.strokeStyle='#d0d6e0';ctx.lineCap='butt';ctx.stroke();
+  ctx.lineWidth=small?4:7;ctx.strokeStyle='#d0d6e0';ctx.lineCap='butt';ctx.stroke();
   if(score===null||score===undefined)return;
-  // Filled arc — from left (π) sweeping right proportional to score
   const sweep=(score/100)*Math.PI;
   const fillColor=fgArcColor(score);
   ctx.beginPath();ctx.arc(cx,cy,r,Math.PI,Math.PI+sweep,false);
-  ctx.lineWidth=8;ctx.strokeStyle=fillColor;ctx.lineCap='round';ctx.stroke();
-  // Needle — thin line from center to arc edge
+  ctx.lineWidth=small?5:8;ctx.strokeStyle=fillColor;ctx.lineCap='round';ctx.stroke();
   const angle=Math.PI+sweep;
   ctx.beginPath();
   ctx.moveTo(cx,cy);
-  ctx.lineTo(cx+Math.cos(angle)*(r-3), cy+Math.sin(angle)*(r-3));
-  ctx.lineWidth=2;ctx.strokeStyle='#222';ctx.lineCap='round';ctx.stroke();
-  // Center dot
-  ctx.beginPath();ctx.arc(cx,cy,3,0,2*Math.PI);ctx.fillStyle='#222';ctx.fill();
+  ctx.lineTo(cx+Math.cos(angle)*(r-2), cy+Math.sin(angle)*(r-2));
+  ctx.lineWidth=small?1.5:2;ctx.strokeStyle='#222';ctx.lineCap='round';ctx.stroke();
+  ctx.beginPath();ctx.arc(cx,cy,small?2:3,0,2*Math.PI);ctx.fillStyle='#222';ctx.fill();
 }
 function setFGDisplay(fg){
   fgVal=fg;const info=fgLbl(fg);
