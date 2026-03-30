@@ -261,6 +261,15 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
 
 /* ── FEAR & GREED ── */
 .fg-card{background:linear-gradient(145deg,var(--surface) 0%,var(--surface2) 100%);border:1px solid var(--border);border-radius:12px;padding:14px;box-shadow:var(--card-shadow);}
+.regime-row{display:flex;justify-content:space-between;align-items:flex-start;padding:4px 0;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:12px;}
+.regime-row:last-child{border-bottom:none;}
+.regime-lbl{color:var(--text2);flex-shrink:0;}
+.regime-val{color:var(--text);text-align:right;line-height:1.4;}
+.regime-pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;margin-left:4px;}
+.regime-pill.bull{background:rgba(0,200,83,.15);color:#00c853;}
+.regime-pill.bear{background:rgba(255,69,96,.15);color:#ff4560;}
+.regime-pill.neu{background:rgba(255,193,7,.12);color:#ffc107;}
+.regime-pill.caution{background:rgba(255,152,0,.15);color:#ff9800;}
 .fg-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;}
 .fg-src{font-family:var(--mono);font-size:10px;color:var(--text3);}
 .fg-src span{color:var(--accent);}
@@ -702,6 +711,22 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
           <label>Manual:</label>
           <input class="fg-min" id="fg-manual" type="number" min="0" max="100" placeholder="0–100">
           <button class="fg-apply" onclick="applyFGManual()">Apply</button>
+        </div>
+      </div>
+
+      <!-- MACRO REGIME PANEL -->
+      <div class="fg-card" id="regime-card">
+        <div class="stitle" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>🌐 Macro Regime</span>
+          <button class="fg-fetch" id="regime-fetch-btn" onclick="fetchRegimeData()">↻ Fetch Live</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
+          <div class="regime-row"><span class="regime-lbl">S&amp;P 500 (SPY)</span><span class="regime-val" id="reg-spy">—</span></div>
+          <div class="regime-row"><span class="regime-lbl">Bonds / Rates (TLT)</span><span class="regime-val" id="reg-tlt">—</span></div>
+          <div class="regime-row"><span class="regime-lbl">Gold (GLD)</span><span class="regime-val" id="reg-gold">—</span></div>
+        </div>
+        <div id="reg-summary" style="margin-top:8px;padding:8px;border-radius:6px;background:var(--surface3);font-size:12px;color:var(--text2);line-height:1.5;">
+          Click "Fetch Live" or run Analyze to load macro data.
         </div>
       </div>
 
@@ -3440,6 +3465,107 @@ async function fetchFG(){
 }
 function applyFGManual(){const v=parseInt(document.getElementById('fg-manual').value);if(isNaN(v)||v<0||v>100){alert('Enter 0–100.');return;}setFGDisplay(v);}
 
+// ═══ MACRO REGIME FETCH ═══
+async function fetchRegimeData(){
+  const btn = document.getElementById('regime-fetch-btn');
+  if(btn){ btn.textContent='↻ Fetching…'; btn.disabled=true; }
+
+  const WORKER_BASE = 'https://ta-alerts.mdorm33.workers.dev';
+  async function fetchETF(ticker){
+    const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1y`;
+    const proxies = [
+      `${WORKER_BASE}/ohlc?ticker=${encodeURIComponent(ticker)}&interval=1d&range=1y`,
+      yahooUrl,
+      `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1y`,
+      `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`,
+    ];
+    for(const url of proxies){
+      try{
+        const ctrl = new AbortController();
+        const tid = setTimeout(()=>ctrl.abort(), 5000);
+        const res = await fetch(url, {signal:ctrl.signal});
+        clearTimeout(tid);
+        if(!res.ok) continue;
+        const data = await res.json();
+        const r = data?.chart?.result?.[0];
+        if(r){
+          const q = r.indicators?.quote?.[0];
+          const ts = r.timestamps || r.timestamp || [];
+          const closes = [];
+          for(let i=0;i<ts.length;i++) if(q.close[i]!=null) closes.push(q.close[i]);
+          return { closes, price: closes[closes.length-1] };
+        }
+        // Worker pre-processed format
+        if(data?.bars?.length){
+          const closes = data.bars.map(b=>b.c);
+          return { closes, price: closes[closes.length-1] };
+        }
+      }catch(e){ continue; }
+    }
+    return null;
+  }
+
+  const [spyData, tltData, gldData] = await Promise.all([
+    fetchETF('SPY'), fetchETF('TLT'), fetchETF('GLD')
+  ]);
+
+  const summary = [];
+
+  // ── SPY vs SMA 200 ──
+  const spyEl = document.getElementById('reg-spy');
+  if(spyData && spyData.closes.length >= 200){
+    const c = spyData.closes, price = c[c.length-1];
+    const sma200 = c.slice(-200).reduce((s,v)=>s+v,0)/200;
+    const pct = ((price-sma200)/sma200*100);
+    const above = price > sma200;
+    const pill = above ? 'bull' : 'bear';
+    const lbl = above ? 'ABOVE' : 'BELOW';
+    spyEl.innerHTML = `$${price.toFixed(2)} <span class="regime-pill ${pill}">${lbl} SMA200</span><br><span style="font-size:11px;color:var(--text3)">SMA200: $${sma200.toFixed(2)} (${pct>0?'+':''}${pct.toFixed(1)}%)</span>`;
+    if(above) summary.push('SPY is above its 200-day average — the broad market trend is bullish.');
+    else summary.push('SPY is below its 200-day average — the broad market is in a downtrend. Risk-off environment.');
+  } else { spyEl.textContent = spyData ? 'Insufficient data' : 'Fetch failed'; }
+
+  // ── TLT (Bonds / Rates) ──
+  const tltEl = document.getElementById('reg-tlt');
+  if(tltData && tltData.closes.length >= 50){
+    const c = tltData.closes, price = c[c.length-1];
+    const sma50 = c.slice(-50).reduce((s,v)=>s+v,0)/50;
+    const prev20 = c.length > 20 ? c[c.length-21] : null;
+    const pct20 = prev20 ? ((price-prev20)/prev20*100) : 0;
+    const trend = pct20 > 2 ? 'RISING' : pct20 < -2 ? 'FALLING' : 'FLAT';
+    const rateDir = trend==='FALLING' ? 'RATES ↑' : trend==='RISING' ? 'RATES ↓' : 'RATES STABLE';
+    const ratePill = trend==='FALLING' ? 'caution' : trend==='RISING' ? 'bull' : 'neu';
+    const trendPill = price > sma50 ? 'bull' : 'bear';
+    const trendLbl = price > sma50 ? 'ABOVE SMA50' : 'BELOW SMA50';
+    tltEl.innerHTML = `$${price.toFixed(2)} <span class="regime-pill ${trendPill}">${trendLbl}</span> <span class="regime-pill ${ratePill}">${rateDir}</span><br><span style="font-size:11px;color:var(--text3)">20d: ${pct20>0?'+':''}${pct20.toFixed(1)}%</span>`;
+    if(trend==='FALLING') summary.push('TLT falling — interest rates are rising. Headwind for rate-sensitive equities.');
+    else if(trend==='RISING') summary.push('TLT rising — rates are falling. Tailwind for equities, especially growth.');
+    else summary.push('TLT flat — rate environment is stable.');
+  } else { tltEl.textContent = tltData ? 'Insufficient data' : 'Fetch failed'; }
+
+  // ── GLD (Gold) ──
+  const gldEl = document.getElementById('reg-gold');
+  if(gldData && gldData.closes.length >= 50){
+    const c = gldData.closes, price = c[c.length-1];
+    const sma50 = c.slice(-50).reduce((s,v)=>s+v,0)/50;
+    const prev20 = c.length > 20 ? c[c.length-21] : null;
+    const pct20 = prev20 ? ((price-prev20)/prev20*100) : 0;
+    const trend = pct20 > 3 ? 'RISING' : pct20 < -3 ? 'FALLING' : 'FLAT';
+    const pill = trend==='RISING' ? 'caution' : trend==='FALLING' ? 'bull' : 'neu';
+    const label = trend==='RISING' ? 'RISK-OFF BID' : trend==='FALLING' ? 'RISK-ON' : 'STABLE';
+    gldEl.innerHTML = `$${price.toFixed(2)} <span class="regime-pill ${pill}">${label}</span><br><span style="font-size:11px;color:var(--text3)">20d: ${pct20>0?'+':''}${pct20.toFixed(1)}%</span>`;
+    if(trend==='RISING') summary.push('Gold is rising — investors are seeking safety. Suggests uncertainty or inflation fears.');
+    else if(trend==='FALLING') summary.push('Gold is falling — risk appetite is healthy.');
+  } else { gldEl.textContent = gldData ? 'Insufficient data' : 'Fetch failed'; }
+
+  // ── Summary ──
+  const sumEl = document.getElementById('reg-summary');
+  if(summary.length) sumEl.innerHTML = summary.join('<br>');
+  else sumEl.textContent = 'Unable to determine macro regime — data unavailable.';
+
+  if(btn){ btn.textContent='↻ Fetch Live'; btn.disabled=false; }
+}
+
 // ═══ PRICE AUTO-FETCH ═══
 async function fetchPrice(){
   const ticker=document.getElementById('ticker-input').value.trim().toUpperCase();
@@ -3554,6 +3680,8 @@ async function runAnalysis(){
   fetchPrice();
   // Auto-fetch Fear & Greed
   fetchFG();
+  // Auto-fetch Macro Regime data
+  fetchRegimeData();
 
   // Fetch fundamentals in parallel (separate API call)
   fundData = null;
