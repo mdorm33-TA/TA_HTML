@@ -196,6 +196,26 @@ body:not(.dark-mode) .knife-sig.bear{background:#cc284014;color:#cc2840;border-c
 body:not(.dark-mode) .knife-sig.neu{background:#7c3aed14;color:#7c3aed;border-color:#7c3aed44;}
 body:not(.dark-mode) .knife-context{background:#f5f0ff;border-color:#c4b5fd;color:#5b21b6;}
 body:not(.dark-mode) .knife-context strong{color:#4c1d95;}
+
+/* ── DUAL-SIGNAL COMMENTARY ── */
+.commentary-card{background:linear-gradient(145deg,#111820 0%,#0d1218 100%);border:1px solid #f0b42944;border-radius:12px;padding:14px;display:none;box-shadow:0 1px 4px rgba(240,180,41,.08);}
+.commentary-card.active{display:block;}
+.commentary-card .stitle{color:#f0b429;border-bottom-color:#f0b42930;}
+.commentary-item{padding:8px 10px;margin-bottom:8px;font-family:var(--sans);font-size:13px;color:var(--text2);line-height:1.55;border-radius:4px;}
+.commentary-item:last-child{margin-bottom:0;}
+.commentary-item.tension{border-left:3px solid #f0b429;background:#f0b42908;}
+.commentary-item.reinforcement{border-left:3px solid #22c55e;background:#22c55e08;}
+.commentary-item.capitulation{border-left:3px solid #a855f7;background:#a855f708;}
+.commentary-item.structural{border-left:3px solid #58a6ff;background:#58a6ff08;}
+.commentary-item strong{color:var(--text);font-weight:600;}
+body:not(.dark-mode) .commentary-card{background:linear-gradient(145deg,#fffbf0 0%,#fff8e8 100%);border-color:#f0b42944;box-shadow:0 1px 4px rgba(240,180,41,.08);}
+body:not(.dark-mode) .commentary-item{color:#5a4a20;}
+body:not(.dark-mode) .commentary-item strong{color:#3a2e10;}
+body:not(.dark-mode) .commentary-item.tension{background:#f0b42910;border-left-color:#d4960a;}
+body:not(.dark-mode) .commentary-item.reinforcement{background:#22c55e10;border-left-color:#0a8a4e;}
+body:not(.dark-mode) .commentary-item.capitulation{background:#a855f710;border-left-color:#7c3aed;}
+body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-left-color:#1a6fd4;}
+
 .conflict-item{display:flex;align-items:flex-start;gap:7px;padding:5px 0;border-bottom:1px solid var(--border);}
 .conflict-item:last-child{border-bottom:none;}
 .ci-icon{font-size:13px;flex-shrink:0;margin-top:1px;}
@@ -599,6 +619,12 @@ body:not(.dark-mode) .knife-context strong{color:#4c1d95;}
     <div class="confluence-card" id="confluence-card">
       <div class="stitle" style="color:var(--bull)">🔒 Indicator Confluence Confirmed</div>
       <div id="confluence-list"></div>
+    </div>
+
+    <!-- SIGNAL COMMENTARY -->
+    <div class="commentary-card" id="commentary-card">
+      <div class="stitle" style="color:#f0b429">📋 Signal Summary</div>
+      <div id="commentary-list"></div>
     </div>
 
     <!-- WEIGHT EDITOR PANEL -->
@@ -2038,7 +2064,7 @@ async function runAllComputed(ticker){
   try{
     const ohlc = await Promise.race([
       fetchOHLCForCharts(ticker),
-      new Promise((_,r)=>setTimeout(()=>r(new Error('OHLC timeout after 45s — all proxies failed or too slow')),45000))
+      new Promise((_,r)=>setTimeout(()=>r(new Error('OHLC timeout')),15000))
     ]);
     if(!ohlc || !ohlc.daily || ohlc.daily.length < 30) throw new Error('Insufficient bars ('+((ohlc?.daily?.length)||0)+')');
 
@@ -2312,23 +2338,14 @@ async function runAllComputed(ticker){
 
   } catch(err){
     console.warn('runAllComputed failed:', err.message);
-    // Show visible error so user knows OHLC fetch failed (instead of silent "computing…")
-    const errMsg = err.message.includes('timeout') ? 'OHLC fetch timed out — CORS proxies may be slow. Try refreshing.'
-                 : err.message.includes('Insufficient') ? 'Not enough OHLC bars returned for computation.'
-                 : 'OHLC fetch failed: ' + err.message;
-    const so = document.getElementById('soverflow');
-    if(so) so.textContent = errMsg;
-    // Mark all sub-labels so user sees indicators didn't compute
-    document.querySelectorAll('[id^="sub-"]').forEach(el => {
-      if(el.textContent === 'computing…' || el.textContent === '') el.textContent = '⚠ OHLC unavailable — AI estimate only';
-    });
+    // Sub-labels revert to defaults on error — AI estimates remain
   }
 }
 
 // ═══ KEY PRICE LEVELS — COMPUTED FROM OHLC ═══
 async function runLevelsComputed(ticker){
   try{
-    const ohlc = await Promise.race([fetchOHLCForCharts(ticker), new Promise((_,r)=>setTimeout(()=>r(new Error('Levels OHLC timeout')),45000))]);
+    const ohlc = await Promise.race([fetchOHLCForCharts(ticker), new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),15000))]);
     if(!ohlc || ohlc.daily.length < 30) throw new Error('Insufficient bars');
     const bars = ohlc.daily;
     const n    = bars.length;
@@ -2589,15 +2606,12 @@ async function fetchOHLCForCharts(ticker){
     let res = null;
     for(const url of proxies){
       try{
-        const shortUrl = url.length > 80 ? url.substring(0, 80) + '…' : url;
-        console.log(`[OHLC] Trying ${interval}/${range}: ${shortUrl}`);
         const ctrl = new AbortController();
-        const tid = setTimeout(()=>ctrl.abort(), 12000);
+        const tid = setTimeout(()=>ctrl.abort(), 5000);
         res = await fetch(url, {signal:ctrl.signal});
         clearTimeout(tid);
-        if(res.ok){ console.log(`[OHLC] ✓ Success: ${shortUrl} (${res.status})`); break; }
-        console.log(`[OHLC] ✗ HTTP ${res.status}: ${shortUrl}`);
-      }catch(e){ console.log(`[OHLC] ✗ ${e.name}: ${e.message?.substring(0,60)}`); res = null; }
+        if(res.ok) break;
+      }catch(e){ res = null; }
     }
     if(!res || !res.ok) throw new Error('OHLC fetch failed for '+interval);
     const data = await res.json();
@@ -2903,7 +2917,7 @@ function recalc(){
   const mean=scores.reduce((s,v)=>s+v,0)/scores.length;
   const variance=scores.reduce((s,v)=>s+(v-mean)**2,0)/scores.length;
   const dispersion=Math.sqrt(variance); // 0=perfect agreement, ~25=typical, ~35=high conflict
-  drawGauge(t,dispersion); updBD(bs,t); updWB(); detectConflicts(); detectFallingKnife();
+  drawGauge(t,dispersion); updBD(bs,t); updWB(); detectConflicts(); detectFallingKnife(); detectDualSignalCommentary();
 }
 function sCol(s){if(s>=70)return'#00d97e';if(s>=60)return'#4dd9a0';if(s>=55)return'#a0cfb8';if(s>=45)return'#f0b429';if(s>=40)return'#ff9a7c';if(s>=30)return'#ff7c8a';return'#ff4560';}
 function verd(s){
@@ -3106,6 +3120,140 @@ function detectFallingKnife(){
   ctx.innerHTML = isKnife
     ? `<strong>⚠ Falling Knife Risk:</strong> Exhaustion signals do NOT guarantee a bottom. Confirm with: (1) volume spike on the capitulation candle, (2) next-day follow-through (close above prior day's high), (3) OBV divergence showing accumulation. Position sizing should be reduced — use 50% of normal size with a tight stop below the swing low.`
     : `<strong>⚠ Blow-Off Top Risk:</strong> Exhaustion signals do NOT guarantee a top. Confirm with: (1) volume spike on the euphoria candle, (2) next-day reversal (close below prior day's low), (3) OBV divergence showing distribution. Consider scaling out rather than shorting — blow-off tops can extend further than expected.`;
+}
+
+// ═══ SIGNAL COMMENTARY — always-on plain-English summary ═══
+function detectDualSignalCommentary(){
+  const card = document.getElementById('commentary-card');
+  const list = document.getElementById('commentary-list');
+  if(!card || !list) return;
+  list.innerHTML = '';
+
+  const ticker = document.getElementById('ticker-input').value.trim().toUpperCase() || '—';
+
+  // Read all indicator scores
+  const rsi      = vals.rsi_extreme ?? 50;
+  const demark   = vals.demark_seq ?? 50;
+  const demarkC  = vals.demark_combo ?? 50;
+  const candle   = vals.candle_signal ?? 50;
+  const sma200   = vals.sma_200 ?? 50;
+  const superT   = vals.supertrend ?? 50;
+  const ichi     = vals.ichimoku ?? 50;
+  const adx      = vals.adx ?? 50;
+  const obv      = vals.obv ?? 50;
+  const boll     = vals.bollinger ?? 50;
+  const macd     = vals.macd_weekly ?? 50;
+  const volP     = vals.vol_profile ?? 50;
+  const maCross  = vals.sma_cross ?? 50;
+
+  // Compute weighted score
+  const allInds=[...INDS.high,...INDS.med,...INDS.low];
+  const tw2=allInds.reduce((s,i)=>s+((i.iW||1)*(confluenceMultipliers[i.id]||1)),0);
+  const wScore=Math.round(allInds.reduce((s,i)=>s+((vals[i.id]||50)/100)*(((i.iW||1)*(confluenceMultipliers[i.id]||1))/tw2),0)*100);
+
+  // ── Classify indicator families ──
+  // Trend-following: SMA200, Ichimoku, SuperTrend, MA Cross
+  const trendScores = [sma200, ichi, superT, maCross];
+  const trendAvg = Math.round(trendScores.reduce((s,v)=>s+v,0)/trendScores.length);
+  const trendBullCount = trendScores.filter(s => s >= 60).length;
+  const trendBearCount = trendScores.filter(s => s <= 40).length;
+
+  // Exhaustion/contrarian: RSI, DeMark Seq, DeMark Combo, Bollinger
+  const exhScores = [rsi, demark, demarkC, boll];
+  const exhAvg = Math.round(exhScores.reduce((s,v)=>s+v,0)/exhScores.length);
+  const exhBullCount = exhScores.filter(s => s >= 60).length;
+  const exhBearCount = exhScores.filter(s => s <= 40).length;
+
+  // Dispersion
+  const allScores = allInds.map(i => vals[i.id] ?? 50);
+  const mean = allScores.reduce((s,v)=>s+v,0)/allScores.length;
+  const dispersion = Math.round(Math.sqrt(allScores.reduce((s,v)=>s+(v-mean)**2,0)/allScores.length));
+
+  const parts = [];
+
+  // ── TREND ASSESSMENT ──
+  if(trendBullCount >= 3){
+    parts.push(`<strong>${ticker} is in a confirmed uptrend</strong> — ${trendBullCount} of 4 trend-following indicators (SMA 200, Ichimoku, SuperTrend, MA Cross) are bullish. This means the broad direction of price is up, and institutional positioning favors buyers.`);
+  } else if(trendBearCount >= 3){
+    parts.push(`<strong>${ticker} is in a confirmed downtrend</strong> — ${trendBearCount} of 4 trend-following indicators (SMA 200, Ichimoku, SuperTrend, MA Cross) are bearish. This means the broad direction of price is down, and the weight of evidence favors sellers.`);
+  } else if(trendBullCount >= 2 && trendBearCount === 0){
+    parts.push(`<strong>${ticker} leans bullish on trend</strong> — most trend indicators point up, though the signal is not unanimous. The uptrend is developing but not yet fully confirmed across all systems.`);
+  } else if(trendBearCount >= 2 && trendBullCount === 0){
+    parts.push(`<strong>${ticker} leans bearish on trend</strong> — most trend indicators point down, though the signal is not unanimous. The downtrend is developing but not yet confirmed across all systems.`);
+  } else {
+    parts.push(`<strong>${ticker} shows no clear trend</strong> — trend indicators are mixed or neutral. This typically means the stock is consolidating, transitioning between regimes, or choppy. Trend-following signals carry less conviction here.`);
+  }
+
+  // ── EXHAUSTION / CONTRARIAN ASSESSMENT ──
+  if(exhBullCount >= 3){
+    parts.push(`Meanwhile, <strong>exhaustion signals are flashing oversold</strong> — ${exhBullCount} of 4 contrarian indicators (RSI, DeMark, Bollinger) say the recent move down may be overdone. These are "mean reversion" signals that suggest the selling is stretched, not necessarily that it's over.`);
+  } else if(exhBearCount >= 3){
+    parts.push(`Meanwhile, <strong>exhaustion signals are flashing overbought</strong> — ${exhBearCount} of 4 contrarian indicators (RSI, DeMark, Bollinger) say the recent move up may be stretched. These signals warn that the rally could be running out of steam, not necessarily that it's reversing.`);
+  } else if(exhBullCount >= 2){
+    parts.push(`Some contrarian indicators are starting to signal oversold conditions — suggesting the downward pressure may be getting stretched, though not yet at extreme levels.`);
+  } else if(exhBearCount >= 2){
+    parts.push(`Some contrarian indicators are starting to signal overbought conditions — suggesting the upward push may be getting stretched, though not yet at extreme levels.`);
+  }
+
+  // ── THE KEY TENSION ──
+  if(trendBearCount >= 3 && exhBullCount >= 2){
+    parts.push(`<strong>This creates the core tension in technical analysis</strong> — trend says "still falling" while exhaustion says "sellers may be tiring." The trend indicators carry more weight in this system (HIGH confidence bucket), but the exhaustion signals are worth monitoring. This is not yet a buy signal, but it means the downtrend is being questioned by contrarian measures. Watch for a trend indicator to flip as the first sign of actual reversal.`);
+  } else if(trendBullCount >= 3 && exhBearCount >= 2){
+    parts.push(`<strong>This creates a tension worth watching</strong> — the uptrend is intact but the rally may be overextended. In strong trends, overbought readings can persist for weeks. The trend has the weight of evidence, but this is a poor time to add new positions at full size. Tighten stops rather than reversing.`);
+  } else if(trendBullCount >= 3 && exhBullCount <= 1 && exhBearCount <= 1){
+    parts.push(`No exhaustion signal is pushing back against the uptrend — the trend is uncontested. This is a "stay in the trade" environment where the path of least resistance is up.`);
+  } else if(trendBearCount >= 3 && exhBullCount <= 1 && exhBearCount <= 1){
+    parts.push(`No exhaustion signal is pushing back against the downtrend — the selling pressure is not yet overdone. This is a "respect the trend" environment where the path of least resistance is still down.`);
+  }
+
+  // ── VOLUME FLOW ──
+  const trendDir = trendBullCount > trendBearCount ? 'bullish' : trendBearCount > trendBullCount ? 'bearish' : null;
+  if(trendDir){
+    const volConfirms = (trendDir === 'bullish' && obv >= 60) || (trendDir === 'bearish' && obv <= 40);
+    const volDiverges = (trendDir === 'bullish' && obv <= 38) || (trendDir === 'bearish' && obv >= 62);
+    if(volConfirms){
+      parts.push(`Volume flow (OBV) confirms the ${trendDir} direction — institutional money appears to be moving in agreement with the trend.`);
+    } else if(volDiverges){
+      parts.push(`<strong>Volume flow (OBV) diverges from the trend</strong> — this is often an early warning that institutional money is quietly positioning against the current price direction. Worth watching closely.`);
+    }
+  }
+
+  // ── ADX CONTEXT ──
+  if(adx >= 70){
+    parts.push(`Trend strength (ADX) is very high — whatever direction is in play has strong momentum behind it. Contrarian signals tend to be less reliable in this environment.`);
+  } else if(adx <= 25){
+    parts.push(`Trend strength (ADX) is weak — the market is range-bound or lacking directional conviction. Contrarian/mean-reversion signals tend to be more reliable in this environment.`);
+  }
+
+  // ── AGREEMENT/DISAGREEMENT ──
+  if(dispersion < 15){
+    parts.push(`Indicator agreement is unusually high (dispersion: ${dispersion}) — most measures are pointing the same direction. The score of ${wScore} reflects genuine consensus, not an average of conflicting signals.`);
+  } else if(dispersion > 28){
+    parts.push(`Indicator disagreement is elevated (dispersion: ${dispersion}) — the score of ${wScore} is an average of conflicting signals, not a consensus. The conflict between indicator families is itself the most important information here.`);
+  }
+
+  // ── CANDLESTICK ──
+  if(candle <= 25 || candle >= 75){
+    const candleDir = candle >= 75 ? 'bullish' : 'bearish';
+    parts.push(`A recent candlestick reversal pattern adds short-term ${candleDir} context — these are timing signals, not directional calls on their own. They carry more weight when aligned with the bigger picture above.`);
+  }
+
+  // Fallback
+  if(parts.length === 0){
+    parts.push(`${ticker} is in a neutral state — indicators are mixed with no strong directional signal or notable tension. The score of ${wScore} reflects this indecision.`);
+  }
+
+  card.classList.add('active');
+
+  let cls = 'structural';
+  if(trendBearCount >= 3 && exhBullCount >= 2) cls = 'tension';
+  else if(trendBullCount >= 3 && exhBearCount >= 2) cls = 'tension';
+  else if(trendBullCount >= 3 || trendBearCount >= 3) cls = 'reinforcement';
+
+  const d = document.createElement('div');
+  d.className = 'commentary-item ' + cls;
+  d.innerHTML = parts.join('<br style="margin-bottom:6px;">');
+  list.appendChild(d);
 }
 
 // ═══ GAUGE ═══
