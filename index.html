@@ -722,8 +722,10 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
         </div>
         <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
           <div class="regime-row"><span class="regime-lbl">S&amp;P 500 (SPY)</span><span class="regime-val" id="reg-spy">—</span></div>
+          <div class="regime-row"><span class="regime-lbl">Volatility (VIX)</span><span class="regime-val" id="reg-vix">—</span></div>
           <div class="regime-row"><span class="regime-lbl">Bonds / Rates (TLT)</span><span class="regime-val" id="reg-tlt">—</span></div>
           <div class="regime-row"><span class="regime-lbl">Gold (GLD)</span><span class="regime-val" id="reg-gold">—</span></div>
+          <div class="regime-row"><span class="regime-lbl">Oil (USO)</span><span class="regime-val" id="reg-uso">—</span></div>
         </div>
         <div id="reg-summary" style="margin-top:8px;padding:8px;border-radius:6px;background:var(--surface3);font-size:12px;color:var(--text2);line-height:1.5;">
           Click "Fetch Live" or run Analyze to load macro data.
@@ -3505,8 +3507,8 @@ async function fetchRegimeData(){
     return null;
   }
 
-  const [spyData, tltData, gldData] = await Promise.all([
-    fetchETF('SPY'), fetchETF('TLT'), fetchETF('GLD')
+  const [spyData, vixData, tltData, gldData, usoData] = await Promise.all([
+    fetchETF('SPY'), fetchETF('%5EVIX'), fetchETF('TLT'), fetchETF('GLD'), fetchETF('USO')
   ]);
 
   const summary = [];
@@ -3521,9 +3523,20 @@ async function fetchRegimeData(){
     const pill = above ? 'bull' : 'bear';
     const lbl = above ? 'ABOVE' : 'BELOW';
     spyEl.innerHTML = `$${price.toFixed(2)} <span class="regime-pill ${pill}">${lbl} SMA200</span><br><span style="font-size:11px;color:var(--text3)">SMA200: $${sma200.toFixed(2)} (${pct>0?'+':''}${pct.toFixed(1)}%)</span>`;
-    if(above) summary.push('SPY is above its 200-day average — the broad market trend is bullish.');
-    else summary.push('SPY is below its 200-day average — the broad market is in a downtrend. Risk-off environment.');
+    if(above) summary.push('SPY above SMA200 — broad market trend is bullish.');
+    else summary.push('SPY below SMA200 — broad market in downtrend.');
   } else { spyEl.textContent = spyData ? 'Insufficient data' : 'Fetch failed'; }
+
+  // ── VIX (Volatility) ──
+  const vixEl = document.getElementById('reg-vix');
+  if(vixData && vixData.closes.length >= 5){
+    const c = vixData.closes, price = c[c.length-1];
+    const pill = price >= 30 ? 'bear' : price >= 20 ? 'caution' : 'bull';
+    const lbl = price >= 30 ? 'HIGH FEAR' : price >= 20 ? 'ELEVATED' : 'LOW / CALM';
+    vixEl.innerHTML = `${price.toFixed(2)} <span class="regime-pill ${pill}">${lbl}</span>`;
+    if(price >= 30) summary.push('VIX above 30 — high fear / volatility. Markets are stressed.');
+    else if(price >= 20) summary.push('VIX elevated (20–30) — caution warranted.');
+  } else { vixEl.textContent = vixData ? 'Insufficient data' : 'Fetch failed'; }
 
   // ── TLT (Bonds / Rates) ──
   const tltEl = document.getElementById('reg-tlt');
@@ -3557,6 +3570,19 @@ async function fetchRegimeData(){
     if(trend==='RISING') summary.push('Gold is rising — investors are seeking safety. Suggests uncertainty or inflation fears.');
     else if(trend==='FALLING') summary.push('Gold is falling — risk appetite is healthy.');
   } else { gldEl.textContent = gldData ? 'Insufficient data' : 'Fetch failed'; }
+
+  // ── USO (Oil) ──
+  const usoEl = document.getElementById('reg-uso');
+  if(usoData && usoData.closes.length >= 50){
+    const c = usoData.closes, price = c[c.length-1];
+    const prev20 = c.length > 20 ? c[c.length-21] : null;
+    const pct20 = prev20 ? ((price-prev20)/prev20*100) : 0;
+    const trend = pct20 > 3 ? 'RISING' : pct20 < -3 ? 'FALLING' : 'STABLE';
+    const pill = trend==='RISING' ? 'caution' : trend==='FALLING' ? 'bull' : 'neu';
+    usoEl.innerHTML = `$${price.toFixed(2)} <span class="regime-pill ${pill}">${trend}</span><br><span style="font-size:11px;color:var(--text3)">20d: ${pct20>0?'+':''}${pct20.toFixed(1)}%</span>`;
+    if(trend==='RISING') summary.push('Oil rising — inflationary pressure, headwind for consumers/transport.');
+    else if(trend==='FALLING') summary.push('Oil falling — easing inflation, tailwind for margins.');
+  } else { usoEl.textContent = usoData ? 'Insufficient data' : 'Fetch failed'; }
 
   // ── Summary ──
   const sumEl = document.getElementById('reg-summary');
