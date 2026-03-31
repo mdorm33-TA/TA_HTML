@@ -754,6 +754,12 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
           <div class="regime-row"><span class="regime-lbl">10-Yr Treasury Yield</span><span class="regime-val" id="reg-tlt">—</span></div>
           <div class="regime-row"><span class="regime-lbl">Gold (XAU/USD)</span><span class="regime-val" id="reg-gold">—</span></div>
           <div class="regime-row"><span class="regime-lbl">Oil WTI (CL)</span><span class="regime-val" id="reg-uso">—</span></div>
+          <div class="regime-row" style="border-top:1px solid var(--border);padding-top:6px;margin-top:2px;">
+            <span class="regime-lbl" style="display:flex;align-items:center;gap:4px;">Lev. Vol Sentiment
+              <span class="tip-wrap"><button class="tip-icon" style="width:16px;height:16px;font-size:10px;border:1px solid var(--border2);border-radius:50%;background:var(--surface3);color:var(--text3);cursor:pointer;padding:0;line-height:16px;">?</button><div class="tip-box"><div class="tp-name">Leveraged ETF Volume Sentiment</div><div class="tp-desc">Measures retail/short-term conviction by comparing daily volume in bullish 3× leveraged ETFs vs bearish 3× leveraged ETFs.<br><br><strong>Primary pair:</strong> TQQQ (3× Nasdaq bull) vs SQQQ (3× Nasdaq bear) — the most liquid leveraged ETFs, often 100M+ shares/day combined.<br><br><strong>Secondary pair:</strong> UPRO (3× S&P bull) vs SPXU (3× S&P bear) — broader market confirmation.<br><br><strong>Reading:</strong> High bull/bear ratio → bullish conviction/greed. Low ratio → fear/hedging. The 20-day average smooths noise. Spikes above 2× the 20d avg in either direction signal sentiment extremes.</div></div></span>
+            </span>
+            <span class="regime-val" id="reg-levsent">—</span>
+          </div>
           <div class="regime-row">
             <span class="regime-lbl" id="fg-card-title">Fear &amp; Greed</span>
             <span class="regime-val" style="display:flex;align-items:center;gap:6px;">
@@ -3527,22 +3533,22 @@ async function fetchRegimeData(){
         if(r){
           const q = r.indicators?.quote?.[0];
           const ts = r.timestamps || r.timestamp || [];
-          const closes = [];
-          for(let i=0;i<ts.length;i++) if(q.close[i]!=null) closes.push(q.close[i]);
-          return { closes, price: closes[closes.length-1] };
+          const closes = [], volumes = [];
+          for(let i=0;i<ts.length;i++) if(q.close[i]!=null){ closes.push(q.close[i]); volumes.push(q.volume?.[i]||0); }
+          return { closes, volumes, price: closes[closes.length-1] };
         }
-        // Worker pre-processed format
         if(data?.bars?.length){
-          const closes = data.bars.map(b=>b.c);
-          return { closes, price: closes[closes.length-1] };
+          const closes = data.bars.map(b=>b.c), volumes = data.bars.map(b=>b.v||0);
+          return { closes, volumes, price: closes[closes.length-1] };
         }
       }catch(e){ continue; }
     }
     return null;
   }
 
-  const [spyData, vixData, tnxData, goldData, oilData] = await Promise.all([
-    fetchETF('SPY'), fetchETF('^VIX'), fetchETF('^TNX'), fetchETF('GC=F'), fetchETF('CL=F')
+  const [spyData, vixData, tnxData, goldData, oilData, tqqqData, sqqqData, uproData, spxuData] = await Promise.all([
+    fetchETF('SPY'), fetchETF('^VIX'), fetchETF('^TNX'), fetchETF('GC=F'), fetchETF('CL=F'),
+    fetchETF('TQQQ'), fetchETF('SQQQ'), fetchETF('UPRO'), fetchETF('SPXU')
   ]);
 
   const summary = [];
@@ -3613,6 +3619,58 @@ async function fetchRegimeData(){
     if(trend==='RISING') summary.push('Oil rising — inflationary pressure, headwind for consumers/transport.');
     else if(trend==='FALLING') summary.push('Oil falling — easing inflation, tailwind for margins.');
   } else { usoEl.textContent = oilData ? 'Insufficient data' : 'Fetch failed'; }
+
+  // ── Leveraged ETF Volume Sentiment ──
+  const levEl = document.getElementById('reg-levsent');
+  try {
+    const minBars = 25; // need 20-day MA + 5 buffer
+    if(tqqqData?.volumes?.length >= minBars && sqqqData?.volumes?.length >= minBars){
+      const tqV = tqqqData.volumes, sqV = sqqqData.volumes;
+      const n = Math.min(tqV.length, sqV.length);
+      // Daily TQQQ/SQQQ volume ratio (last N aligned bars)
+      const ratios = [];
+      for(let i = n - minBars; i < n; i++){
+        const bull = tqV[tqV.length - n + i] || 1;
+        const bear = sqV[sqV.length - n + i] || 1;
+        ratios.push(bull / bear);
+      }
+      const todayRatio = ratios[ratios.length - 1];
+      const avg20 = ratios.slice(-20).reduce((s,v) => s + v, 0) / 20;
+      // Relative reading: today vs 20d avg
+      const relStrength = todayRatio / avg20;
+
+      // Optional: broad confirmation from UPRO/SPXU
+      let broadRatio = null, broadLabel = '';
+      if(uproData?.volumes?.length >= 5 && spxuData?.volumes?.length >= 5){
+        const uV = uproData.volumes, sV = spxuData.volumes;
+        const lastBull = uV.slice(-5).reduce((s,v)=>s+v,0);
+        const lastBear = sV.slice(-5).reduce((s,v)=>s+v,0);
+        broadRatio = lastBull / (lastBear || 1);
+        broadLabel = broadRatio > 1.5 ? ' · S&P confirms bull' : broadRatio < 0.7 ? ' · S&P confirms bear' : '';
+      }
+
+      // Classify
+      let pill, lbl, sentSummary;
+      if(relStrength >= 1.8){
+        pill = 'bull'; lbl = 'GREED SPIKE';
+        sentSummary = `Leveraged volume sentiment: extreme bullish conviction (TQQQ/SQQQ ratio ${todayRatio.toFixed(2)} vs 20d avg ${avg20.toFixed(2)}).` + (broadLabel ? ' ' + broadLabel.trim().replace('·','—') : '') + ' Contrarian caution — may signal overconfidence.';
+      } else if(relStrength >= 1.2){
+        pill = 'bull'; lbl = 'BULLISH';
+        sentSummary = `Leveraged volume sentiment: bullish — retail is buying the dip (TQQQ/SQQQ ${todayRatio.toFixed(2)} vs avg ${avg20.toFixed(2)}).` + (broadLabel ? ' ' + broadLabel.trim().replace('·','—') : '');
+      } else if(relStrength <= 0.55){
+        pill = 'bear'; lbl = 'FEAR SPIKE';
+        sentSummary = `Leveraged volume sentiment: extreme fear/hedging (TQQQ/SQQQ ratio ${todayRatio.toFixed(2)} vs 20d avg ${avg20.toFixed(2)}).` + (broadLabel ? ' ' + broadLabel.trim().replace('·','—') : '') + ' Contrarian opportunity — may signal capitulation.';
+      } else if(relStrength <= 0.8){
+        pill = 'bear'; lbl = 'BEARISH';
+        sentSummary = `Leveraged volume sentiment: bearish — hedging activity elevated (TQQQ/SQQQ ${todayRatio.toFixed(2)} vs avg ${avg20.toFixed(2)}).` + (broadLabel ? ' ' + broadLabel.trim().replace('·','—') : '');
+      } else {
+        pill = 'neu'; lbl = 'NEUTRAL';
+        sentSummary = null;
+      }
+      levEl.innerHTML = `${todayRatio.toFixed(2)} <span class="regime-pill ${pill}">${lbl}</span>${broadLabel}<br><span style="font-size:11px;color:var(--text3)">20d avg: ${avg20.toFixed(2)} · rel: ${relStrength.toFixed(2)}×</span>`;
+      if(sentSummary) summary.push(sentSummary);
+    } else { levEl.textContent = tqqqData || sqqqData ? 'Insufficient data' : 'Fetch failed'; }
+  } catch(levErr) { levEl.textContent = 'Error'; console.error('Lev sentiment:', levErr); }
 
   // ── Summary ──
   const sumEl = document.getElementById('reg-summary');
