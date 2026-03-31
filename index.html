@@ -51,8 +51,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:18
 .hdr{border-bottom:1px solid var(--border);background:var(--hdr-bg);padding:0;box-shadow:0 2px 8px rgba(0,0,0,.06);}
 .hdr-brand{display:flex;align-items:center;gap:14px;padding:10px 18px 8px;border-bottom:1px solid var(--border);background:var(--hdr-brand-bg);}
 .hdr-controls{display:flex;align-items:center;gap:8px;padding:5px 18px;flex-wrap:wrap;background:var(--surface2);border-top:1px solid var(--border);}
-.logo{font-family:var(--mono);font-size:30px;font-weight:700;color:var(--hdr-text);letter-spacing:.04em;white-space:nowrap;}
-.hdr-logo-img{height:220px;width:auto;border-radius:6px;object-fit:contain;flex-shrink:0;}
+.logo{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--hdr-text);letter-spacing:.04em;white-space:nowrap;}
+.hdr-logo-img{height:300px;width:auto;border-radius:6px;object-fit:contain;flex-shrink:0;}
 .logo-sub{font-size:9px;color:var(--hdr-text);font-family:var(--mono);margin-top:2px;opacity:0.7;}.logo-subtitle{font-size:22px;font-weight:700;font-style:italic;color:var(--hdr-text);font-family:var(--mono);margin-top:8px;letter-spacing:.03em;text-align:center;width:100%;line-height:1.3;opacity:0.85;}
 .search-bar{display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;flex:1;min-width:0;}
 .search-bar input{background:none;border:none;color:var(--text);font-family:var(--mono);font-size:15px;font-weight:600;outline:none;width:75px;text-transform:uppercase;letter-spacing:.08em;}
@@ -460,7 +460,7 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
   .nrow{padding-left:0;padding-top:4px;}
   .hdr-controls{gap:6px;padding:6px 10px;flex-wrap:wrap;}
   .search-bar{max-width:100%;flex:1;}
-  .hdr-logo-img{height:60px;}
+  .hdr-logo-img{height:100px;}
   .logo-subtitle{font-size:14px;letter-spacing:.01em;}
   .logo{font-size:16px;text-align:center;width:100%;white-space:normal;}
   .logo-sub{display:none;}
@@ -2380,7 +2380,15 @@ async function runAllComputed(ticker){
 
   } catch(err){
     console.warn('runAllComputed failed:', err.message);
-    // Sub-labels revert to defaults on error — AI estimates remain
+    // Show failure in the stream output so user knows computed scores didn't load
+    const so = document.getElementById('sstream');
+    if(so) so.textContent = 'OHLC computed failed: ' + err.message;
+    // Mark sub-labels that are still showing "computing…"
+    ['rsi_extreme','sma_200','sma_cross','macd_weekly','bollinger','obv','vol_profile','ichimoku','demark_seq','candle_signal'].forEach(id => {
+      const sub = document.getElementById('sub-'+id);
+      if(sub && sub.textContent.includes('computing')) sub.textContent = '⚠ OHLC fetch failed — using AI estimate';
+    });
+    throw err; // re-throw so callers know it failed
   }
 }
 
@@ -3889,7 +3897,16 @@ Return ONLY the JSON object.`;
     // Single call to scoring engine — replaces 13 individual run*Computed functions
     // NOTE: These are now also called in the finally block as a safety net,
     // but calling here first means they run immediately on AI success.
-    await runAllComputed(ticker);
+    try {
+      await runAllComputed(ticker);
+      // Refresh status bar with computed score (overwrites the AI-era "NEUTRAL 50" placeholder)
+      const _sC = Math.round(bScore('high')*customBW.high + bScore('med')*customBW.med);
+      const _vC = verd(_sC).l, _cC = sCol(_sC);
+      const _cnC = window._lastSymbolName ? ` · ${window._lastSymbolName}` : '';
+      st.innerHTML=`<span class="sticker">${parsed.ticker}</span>${_cnC} — <span style="color:${_cC};font-weight:600">${_vC} (${_sC})</span> · $${cleanPrice} · ${nowStamp()}`;
+    } catch(ohlcErr) {
+      console.warn('Happy-path OHLC failed, will retry in finally:', ohlcErr.message);
+    }
     // Compute key price levels from OHLC (fills empty fields only — won't overwrite AI or manual values)
     runLevelsComputed(ticker);
     // Render orientation chart at top of indicators panel
@@ -3907,13 +3924,16 @@ Return ONLY the JSON object.`;
       await runAllComputed(ticker);
       runLevelsComputed(ticker);
       renderOrientationChart(ticker);
-      // If AI failed but computed succeeded, update status bar
+      // Always refresh status bar with final computed score
+      const _s3 = Math.round(bScore('high')*customBW.high + bScore('med')*customBW.med);
+      const _v3 = verd(_s3).l, _c3 = sCol(_s3);
+      const _cn3 = window._lastSymbolName ? ` · ${window._lastSymbolName}` : '';
       if(dot.className.includes('error')){
-        const _s3 = Math.round(bScore('high')*customBW.high + bScore('med')*customBW.med);
-        const _v3 = verd(_s3).l, _c3 = sCol(_s3);
-        const _cn3 = window._lastSymbolName ? ` · ${window._lastSymbolName}` : '';
         st.innerHTML=`<span class="sticker">${ticker}</span>${_cn3} — <span style="color:${_c3};font-weight:600">${_v3} (${_s3})</span> · OHLC only · ${nowStamp()}`;
         so.textContent='AI call failed — all 10 scored indicators computed from live OHLC data.';
+        dot.className='sdot active'; // upgrade from error since computed worked
+      } else {
+        st.innerHTML=`<span class="sticker">${ticker}</span>${_cn3} — <span style="color:${_c3};font-weight:600">${_v3} (${_s3})</span> · $${document.getElementById('price-val').textContent.replace('$','')} · ${nowStamp()}`;
       }
     } catch(compErr) {
       console.error('TA·WEIGHT computed error:', compErr);
