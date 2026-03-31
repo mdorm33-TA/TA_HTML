@@ -3820,15 +3820,39 @@ Return ONLY the JSON object.`;
     }
     // After AI populates, compute all OHLC-derivable indicators (overwrites AI estimates)
     // Single call to scoring engine — replaces 13 individual run*Computed functions
-    runAllComputed(ticker);
+    // NOTE: These are now also called in the finally block as a safety net,
+    // but calling here first means they run immediately on AI success.
+    await runAllComputed(ticker);
     // Compute key price levels from OHLC (fills empty fields only — won't overwrite AI or manual values)
     runLevelsComputed(ticker);
     // Render orientation chart at top of indicators panel
     renderOrientationChart(ticker);
   }catch(err){
-    dot.className='sdot error';st.className='stext';st.style.color='';st.style.animation='';st.textContent='Error: '+err.message;
-    so.textContent='Check browser console for details.';console.error('TA·WEIGHT:',err);
-  }finally{btn.disabled=false;btn.classList.remove('loading');if(document.getElementById('stext').style.animation)document.getElementById('stext').style.animation='';}
+    // AI failure is non-fatal — computed indicators will still load in finally block
+    dot.className='sdot error';st.className='stext';st.style.color='';st.style.animation='';
+    st.textContent='AI unavailable — computing from OHLC data…';
+    so.textContent=err.message;console.error('TA·WEIGHT AI error:',err);
+  }finally{
+    btn.disabled=false;btn.classList.remove('loading');if(document.getElementById('stext').style.animation)document.getElementById('stext').style.animation='';
+    // Always compute OHLC-derived indicators, even if AI call failed.
+    // runAllComputed checks ohlcCache internally — if it already ran above, this is a fast no-op.
+    try {
+      await runAllComputed(ticker);
+      runLevelsComputed(ticker);
+      renderOrientationChart(ticker);
+      // If AI failed but computed succeeded, update status bar
+      if(dot.className.includes('error')){
+        const _s3 = Math.round(bScore('high')*customBW.high + bScore('med')*customBW.med);
+        const _v3 = verd(_s3).l, _c3 = sCol(_s3);
+        const _cn3 = window._lastSymbolName ? ` · ${window._lastSymbolName}` : '';
+        st.innerHTML=`<span class="sticker">${ticker}</span>${_cn3} — <span style="color:${_c3};font-weight:600">${_v3} (${_s3})</span> · OHLC only · ${nowStamp()}`;
+        so.textContent='AI call failed — all 10 scored indicators computed from live OHLC data.';
+      }
+    } catch(compErr) {
+      console.error('TA·WEIGHT computed error:', compErr);
+      if(dot.className.includes('error')) so.textContent += ' | Computed also failed: ' + compErr.message;
+    }
+  }
 }
 
 // ═══ PERMALINK / URL ENCODING ═══
