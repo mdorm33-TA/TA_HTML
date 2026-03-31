@@ -2887,6 +2887,7 @@ function buildRow(ind,bkt){
   tipWrap.appendChild(tipBtn); tipWrap.appendChild(tipBox);
   nm.appendChild(tipWrap);
   // JS-driven tooltip — CSS :hover breaks with position:fixed children
+  tipBtn._tipBound = true;
   tipBtn.addEventListener('mouseenter', e=>{
     const rect=tipBtn.getBoundingClientRect();
     const vw=window.innerWidth, vh=window.innerHeight;
@@ -4291,6 +4292,26 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(!e.target.classList.contains('tip-icon')){
       document.querySelectorAll('.tip-box.visible').forEach(b=>b.classList.remove('visible'));
     }
+  });
+  // Initialize mouseenter/touch for ALL static tip-wrap tooltip buttons (ADX, Lev Sentiment, etc.)
+  document.querySelectorAll('.tip-wrap').forEach(wrap => {
+    const btn = wrap.querySelector('.tip-icon');
+    const box = wrap.querySelector('.tip-box');
+    if(!btn || !box || btn._tipBound) return; // skip if already bound by dynamic builder
+    btn._tipBound = true;
+    const positionTip = () => {
+      const rect = btn.getBoundingClientRect();
+      const vw = window.innerWidth, vh = window.innerHeight, tipW = 270;
+      let left = rect.left + rect.width + 6;
+      if(left + tipW > vw - 12) left = Math.max(12, vw - tipW - 12);
+      box.style.left = left + 'px';
+      box.style.top = Math.max(4, Math.min(rect.top - 10, vh - 300)) + 'px';
+      box.style.maxWidth = Math.min(tipW, vw - 24) + 'px';
+      box.classList.add('visible');
+    };
+    btn.addEventListener('mouseenter', positionTip);
+    btn.addEventListener('mouseleave', () => box.classList.remove('visible'));
+    btn.addEventListener('touchstart', e => { e.preventDefault(); positionTip(); });
   });
   // Auto-open and load tide panel
   (function(){
