@@ -588,8 +588,8 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
     <div class="bucket">
       <div class="bucket-hdr">
         <div class="bpill high">High Confidence</div>
-        <span class="bdesc">Volume Profile · SMA 200 · MA Cross · RSI Extreme · ADX</span>
-        <div class="bw">Weight: <span>50%</span></div>
+        <span class="bdesc">Volume Profile · SMA 200 · MA Cross · RSI Extreme · OBV (all computed)</span>
+        <div class="bw">Weight: <span>60%</span></div>
       </div>
       <div id="bucket-high"></div>
     </div>
@@ -597,19 +597,18 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
     <div class="bucket">
       <div class="bucket-hdr">
         <div class="bpill med">Medium Confidence</div>
-        <span class="bdesc">MACD Wkly · Ichimoku · Bollinger · OBV · SuperTrend · DeMark Seq (all computed)</span>
-        <div class="bw">Weight: <span>30%</span></div>
+        <span class="bdesc">MACD Wkly · Ichimoku · Bollinger · DeMark Seq · Candlestick (all computed)</span>
+        <div class="bw">Weight: <span>40%</span></div>
       </div>
       <div id="bucket-med"></div>
     </div>
 
-    <div class="bucket">
-      <div class="bucket-hdr">
-        <div class="bpill low">Low Confidence</div>
-        <span class="bdesc">DeMark Combo (computed) · Candlestick Signal (computed)</span>
-        <div class="bw">Weight: <span>20%</span></div>
-      </div>
-      <div id="bucket-low"></div>
+    <!-- ADX REGIME OVERLAY -->
+    <div class="adx-overlay-card" id="adx-overlay-card" style="background:linear-gradient(145deg,var(--surface) 0%,var(--surface2) 100%);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:10px;font-family:var(--mono);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span style="font-size:11px;font-weight:700;color:var(--neu);">⚡ ADX Regime Overlay</span>
+      <span id="adx-overlay-badge" style="font-size:11px;color:var(--text2);flex:1;">Awaiting OHLC data…</span>
+      <button class="tip-icon" onclick="this.nextElementSibling.classList.toggle('show')" style="width:22px;height:22px;font-size:13px;border:1.5px solid var(--border2);border-radius:50%;background:var(--surface3);color:var(--text3);cursor:pointer;">?</button>
+      <div class="tip-pop" style="display:none;position:absolute;right:0;top:28px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:10px;font-size:11px;color:var(--text2);max-width:320px;z-index:100;box-shadow:var(--card-shadow);" onclick="this.classList.remove('show')">ADX is not a scored indicator — it acts as a <strong>regime overlay</strong> that multiplies the weights of trend-following indicators (SMA 200, Ichimoku, MA Cross, MACD Weekly). When ADX &gt; 25 (trending market), trend signals are amplified. When ADX &lt; 20 (choppy market), trend signals are dampened. This implements the insight that trend-following indicators are unreliable in trendless conditions.</div>
     </div>
 
     <!-- FALLING KNIFE ALERT -->
@@ -1418,7 +1417,7 @@ function aggregateWeekly(dailyBars) {
 }
 
 // ─── COMPOSITE: scoreSymbol ──────────────────────────────────
-// Full scorer: all 13 indicators + composite weighted score.
+// Full scorer: 10 scored indicators + ADX overlay data.
 // The HTML tool calls this once with daily + weekly bars.
 function scoreSymbol(dailyBars, weeklyBars) {
   const n = dailyBars.length;
@@ -1427,21 +1426,21 @@ function scoreSymbol(dailyBars, weeklyBars) {
   const macdCloses = weeklyBars ? weeklyBars.map(b => b.c) : closes;
   const rsi = computeRSI(closes), sma200 = computeSMA200(closes), sma50 = computeSMA(closes, 50);
   const boll = computeBollinger(closes), macd = computeMACD(macdCloses);
-  const obv = computeOBV(dailyBars), superT = computeSuperTrend(dailyBars);
+  const obv = computeOBV(dailyBars);
   const ichimoku = computeIchimoku(dailyBars), demark = computeDeMark(dailyBars);
-  const demarkC = computeDeMarkCombo(dailyBars), candle = computeCandleSignal(dailyBars);
+  const candle = computeCandleSignal(dailyBars);
   const adx = computeADX(dailyBars), volProf = computeVolumeProfile(dailyBars);
   const cross = detectGoldenDeathCross(closes);
   const scores = {
     vol_profile: scoreVolumeProfile(volProf), rsi_extreme: scoreRSI(rsi),
     sma_200: scoreSMA200(price, sma200, closes), bollinger: scoreBollinger(boll, price, sma200),
     macd_weekly: scoreMACD(macd), obv: scoreOBV(obv, dailyBars),
-    supertrend: scoreSuperTrend(superT, price), ichimoku: scoreIchimoku(ichimoku, price),
-    demark_seq: scoreDeMark(demark), demark_combo: scoreDeMarkCombo(demarkC),
-    candle_signal: scoreCandleSignal(candle), adx: scoreADX(adx),
+    ichimoku: scoreIchimoku(ichimoku, price),
+    demark_seq: scoreDeMark(demark),
+    candle_signal: scoreCandleSignal(candle),
     sma_cross: scoreSMACross(closes, sma50, sma200, cross),
   };
-  return { price, scores, indicators: { rsi, sma200, sma50, boll, macd, obv, superT, ichimoku, demark, demarkC, candle, adx, volProf, cross } };
+  return { price, scores, adx, indicators: { rsi, sma200, sma50, boll, macd, obv, ichimoku, demark, candle, adx, volProf, cross } };
 }
 // ═══ END SCORING ENGINE ═══════════════════════════════════════
 
@@ -1467,11 +1466,9 @@ const TIPS = {
   obv:          {name:'OBV Trend',         desc:'On-Balance Volume tracks cumulative volume flow. Rising OBV with rising price confirms accumulation (bullish). Divergence — OBV falling while price rises — warns of distribution. Computed from real OHLC+volume data.'},
   fear_greed:   {name:'Fear & Greed',      desc:'A composite sentiment index (CNN for equities, Alternative.me for crypto). Acts as a CONTRARIAN indicator — Extreme Fear (<20) is typically a buy signal; Extreme Greed (>80) is a sell signal. Weight scales by asset class: highest for crypto (sentiment IS the driver), lowest for bonds.'},
   elliott:      {name:'Elliott Wave ⚠ AI Estimate', desc:'Price moves in 5-wave impulse patterns and 3-wave corrections. Highly subjective — two analysts will often count the same chart differently. Cannot be reliably computed algorithmically. Scored by AI estimate only.'},
-  adx:          {name:'ADX + DI Lines',    desc:'ADX measures TREND STRENGTH, not direction. Below 20 = no trend (choppy). Above 25 = trending. Above 40 = strong trend. The +DI and -DI lines show direction. When +DI > -DI and ADX > 25, that is a strong bullish trend.'},
+  adx:          {name:'ADX Regime Overlay',    desc:'ADX measures TREND STRENGTH, not direction. Not scored — acts as an overlay multiplying trend-follower weights. Below 20 = choppy (0.85× dampen). 20-25 = transitional (1.0×). Above 25 = trending (boost). Above 40 = strong trend (1.20× boost). +DI vs -DI shows direction.'},
   channels:     {name:'Parallel Channels', desc:'Ascending channels have a lower support rail and upper resistance rail. Price at the lower rail = potential buy; at upper rail = potential sell. Subjective to draw but widely respected.'},
-  supertrend:   {name:'SuperTrend', desc:'An ATR-based trend-following indicator that flips green (bullish) when price closes above the band and red (bearish) when price closes below. Adapts dynamically to volatility. Computed from real OHLC data using ATR(10) with 3.0 multiplier.'},
-  anch_vwap:    {name:'Anchored VWAP ⚠ AI Estimate', desc:'Volume-Weighted Average Price anchored to a meaningful event (earnings, major swing low/high, breakout). The anchor point selection is a judgment call — cannot be determined algorithmically. Scored by AI estimate.'},
-  demark_combo: {name:'DeMark Combo', desc:'TD Combo is a variation of DeMark Sequential using close[i] vs close[i-2] (vs Sequential\'s close[i-4]), activating more frequently. Computed from real OHLC data.'},
+  adx:          {name:'ADX + DI (overlay)', desc:'ADX measures TREND STRENGTH (not direction). Not scored directly — instead acts as an overlay multiplier on trend-following indicator weights (SMA 200, Ichimoku, MA Cross, MACD Weekly). Below 20 = no trend (choppy, weights dampened 0.85×). Above 25 = trending (weights boosted). Above 40 = strong trend (weights boosted 1.20×). Computed from real OHLC data using Wilder\'s DMI (14-period).'},
   candle_signal: {name:'Candlestick Signal', desc:'Detects Topping Tails (Shooting Stars), Bottoming Tails (Hammers), and Engulfing patterns on daily bars. Topping Tails signal potential reversals after uptrends; Bottoming Tails after downtrends. Engulfing candles confirm directional momentum shifts. Stronger signals occur at key levels (VAH/VAL/SMA200) and on elevated volume.'},
   atr:          {name:'ATR Volatility',    desc:'Average True Range measures daily price volatility. HIGH ATR = wide swings, elevated risk, larger position sizing required. LOW ATR = tight range, potential for a volatility expansion. NOT a directional signal — score neutral unless volatility context is unusually high (bearish risk) or compressing (potential bullish breakout setup).'},
   adx:          {name:'ADX + DI (computed)', desc:'ADX measures TREND STRENGTH (not direction). Below 20 = no trend (choppy, trend indicators unreliable). Above 25 = trending. Above 40 = strong trend. +DI vs -DI determines direction: +DI > -DI = bullish trend, -DI > +DI = bearish trend. Acts as a trust gate — when ADX is low, MACD/SuperTrend/Ichimoku signals are less reliable. Computed from real OHLC data using Wilder\'s DMI (14-period).'},
@@ -1483,20 +1480,15 @@ const INDS={
     {id:'sma_200',     name:'SMA 200 Trend',    sub:'Price vs. 200-day (div-adj)',       iW:1.4},
     {id:'sma_cross',   name:'MA Cross 50/200',  sub:'Golden / Death cross',              iW:1.1},
     {id:'rsi_extreme', name:'RSI Extreme',      sub:'14-period — computing…',            iW:1.2},
-    {id:'adx',         name:'ADX + DI Lines',   sub:'14-period trend strength — computing…', iW:1.0},
+    {id:'obv',         name:'OBV Trend',        sub:'On-Balance Volume — computing…',   iW:1.0},
   ],
   med:[
     {id:'macd_weekly', name:'MACD (Weekly)',    sub:'12,26,9 weekly — computing…',      iW:1.1},
     {id:'ichimoku',    name:'Ichimoku Cloud',   sub:'Ichimoku — computing…',            iW:1.0},
     {id:'bollinger',   name:'Bollinger Bands',  sub:'20-period 2σ — computing…',        iW:0.9},
-    {id:'obv',         name:'OBV Trend',        sub:'On-Balance Volume — computing…',   iW:1.0},
-    {id:'supertrend',  name:'SuperTrend',       sub:'ATR trend flip — computing…',      iW:1.1},
     {id:'demark_seq',  name:'DeMark Sequential',sub:'TD 9/13 — computing…',             iW:0.9},
+    {id:'candle_signal',name:'Candlestick Signal',sub:'Scanning for reversal patterns…', iW:1.0},
   ],
-  low:[
-    {id:'demark_combo',     name:'DeMark Combo',       sub:'TD Combo — computing…',              iW:0.8},
-    {id:'candle_signal',    name:'Candlestick Signal', sub:'Scanning for reversal patterns…',    iW:1.0},
-  ]
 };
 
 // Conflict pairs: [id1, id2, description template]
@@ -1506,9 +1498,9 @@ const CONFLICT_PAIRS = [
   ['obv',        'bollinger',   'OBV volume flow and Bollinger price position conflict — volume tells a different story than price bands.'],
   ['demark_seq', 'sma_200',     'Exhaustion vs. Trend: DeMark signals a reversal while SMA200 confirms the current trend. If DeMark is perfected AND RSI confirms, the reversal signal gains credibility.'],
   ['macd_weekly','rsi_extreme', 'Trend vs. Exhaustion: Weekly MACD trend and RSI extreme reading conflict — MACD says momentum is one direction, RSI says it is overdone.'],
-  ['supertrend', 'ichimoku',    'SuperTrend and Ichimoku trend direction conflict — both are trend systems, so this disagreement suggests a trend transition in progress.'],
-  ['sma_cross',  'supertrend',  'MA Cross and SuperTrend disagree on trend direction — one may be leading the other in a developing trend change.'],
+  ['sma_cross',  'ichimoku',    'MA Cross and Ichimoku trend direction conflict — both are trend systems, so this disagreement suggests a trend transition in progress.'],
   ['obv',        'sma_200',     'Volume flow (OBV) and price trend (SMA200) diverging — smart money may be accumulating/distributing against the visible price trend.'],
+  ['sma_cross',  'macd_weekly', 'MA Cross and Weekly MACD disagree on trend direction — one may be leading the other in a developing trend change.'],
 ];
 const CONFLICT_THRESH = 40; // abs difference to flag
 
@@ -1516,10 +1508,10 @@ const CONFLICT_THRESH = 40; // abs difference to flag
 // [ids[], threshold (all must be above or below this), description, type]
 const CONFLUENCE_DEFS = [
   {
-    ids: ['sma_200', 'ichimoku', 'supertrend'],
+    ids: ['sma_200', 'ichimoku', 'sma_cross'],
     thresh: 62, // all above 62 = triple bull; all below 38 = triple bear
-    bull: '🔒 Triple Trend Confirmed — SMA200 + Ichimoku + SuperTrend aligned bullish. Highest-confidence trend reading.',
-    bear: '🔒 Triple Trend Confirmed — SMA200 + Ichimoku + SuperTrend aligned bearish. Highest-confidence trend reading.',
+    bull: '🔒 Triple Trend Confirmed — SMA200 + Ichimoku + MA Cross aligned bullish. Highest-confidence trend reading.',
+    bear: '🔒 Triple Trend Confirmed — SMA200 + Ichimoku + MA Cross aligned bearish. Highest-confidence trend reading.',
     strength: 'strong',
     multiplier: 1.12, // boost effective weight of these indicators
   },
@@ -1556,14 +1548,6 @@ const CONFLUENCE_DEFS = [
     multiplier: 1.06,
   },
   {
-    ids: ['adx', 'supertrend', 'macd_weekly'],
-    thresh: 62,
-    bull: '💪 Trend Trifecta — ADX confirms strong trend, SuperTrend + MACD aligned bullish.',
-    bear: '💪 Trend Trifecta — ADX confirms strong trend, SuperTrend + MACD aligned bearish.',
-    strength: 'strong',
-    multiplier: 1.10,
-  },
-  {
     ids: ['rsi_extreme', 'demark_seq', 'bollinger'],
     thresh: 62,
     bull: '🔥 Triple Exhaustion Reversal — RSI oversold + DeMark buy signal + Bollinger lower band. Highest-conviction mean-reversion setup.',
@@ -1571,66 +1555,87 @@ const CONFLUENCE_DEFS = [
     strength: 'strong',
     multiplier: 1.15,
   },
+  {
+    ids: ['obv', 'macd_weekly', 'sma_cross'],
+    thresh: 62,
+    bull: '💪 Momentum Trifecta — OBV accumulation + MACD bullish + MA Cross bullish. Smart money and momentum aligned.',
+    bear: '💪 Momentum Trifecta — OBV distribution + MACD bearish + MA Cross bearish. Smart money and momentum aligned.',
+    strength: 'strong',
+    multiplier: 1.10,
+  },
 ];
 
 // Active confluence multipliers (reset each recalc)
 let confluenceMultipliers = {};
 
-const BW={high:.50,med:.30,low:.20};
+// ── ADX OVERLAY ──
+// ADX is not a scored indicator. Instead, it modifies trend-follower weights:
+//   ADX > 25 (trending): boost SMA200, Ichimoku, MA Cross, MACD weights
+//   ADX < 20 (choppy):   dampen those weights
+// The multiplier is applied during recalc alongside confluence multipliers.
+const ADX_TREND_IDS = ['sma_200', 'ichimoku', 'sma_cross', 'macd_weekly'];
+let adxOverlay = { adx: null, plusDI: null, minusDI: null, multiplier: 1.0, label: 'N/A' };
+
+function computeADXOverlayMultiplier(adxVal) {
+  if (adxVal == null) return { multiplier: 1.0, label: 'N/A' };
+  if (adxVal >= 40)  return { multiplier: 1.20, label: `ADX ${adxVal} — Very Strong Trend (1.20×)` };
+  if (adxVal >= 30)  return { multiplier: 1.12, label: `ADX ${adxVal} — Strong Trend (1.12×)` };
+  if (adxVal >= 25)  return { multiplier: 1.06, label: `ADX ${adxVal} — Trending (1.06×)` };
+  if (adxVal >= 20)  return { multiplier: 1.00, label: `ADX ${adxVal} — Weak/Transitional (1.00×)` };
+  return { multiplier: 0.85, label: `ADX ${adxVal} — Choppy (0.85× dampen)` };
+}
+
+const BW={high:.60,med:.40};
 
 // ── Baseline weights (your recommended defaults — always preserved for reference) ──
-const BASELINE_BW={high:.50,med:.30,low:.20};
+const BASELINE_BW={high:.60,med:.40};
 const BASELINE_IW={
-  vol_profile:1.1, sma_200:1.4,  sma_cross:1.1, rsi_extreme:1.2, adx:1.0,
-  macd_weekly:1.1, ichimoku:1.0, bollinger:0.9, obv:1.0, supertrend:1.1, demark_seq:0.9,
-  demark_combo:0.8, candle_signal:1.0
+  vol_profile:1.1, sma_200:1.4,  sma_cross:1.1, rsi_extreme:1.2, obv:1.0,
+  macd_weekly:1.1, ichimoku:1.0, bollinger:0.9, demark_seq:0.9, candle_signal:1.0
 };
 // Custom weights — start at baseline, user can modify
 let customBW={...BASELINE_BW};
 // customIW is managed via INDS[b][i].iW directly; BASELINE_IW is read-only reference
 
 // ── TIMEFRAME PRESETS ──
-// Logic: shorter TF → RSI/Bollinger/DeMark/SuperTrend matter more, SMA200/Ichimoku less.
+// Logic: shorter TF → RSI/Bollinger/DeMark matter more, SMA200/Ichimoku less.
 //        longer TF → SMA200/Ichimoku/VolProfile matter more, RSI/Bollinger less.
+// Note: ADX is an overlay multiplier (not scored), so it's not in iw.
 const TF_PRESETS = {
   swing: {
     label: 'Swing (1–2 wk)',
     desc: 'Short-term momentum & exhaustion signals dominate.',
-    bw: { high:0.45, med:0.35, low:0.20 },
+    bw: { high:0.55, med:0.45 },
     iw: {
-      vol_profile:1.0, sma_200:0.8,  sma_cross:0.9,  rsi_extreme:1.5, adx:0.8,
-      macd_weekly:0.8, ichimoku:0.7,  bollinger:1.4,   obv:1.1, supertrend:1.3, demark_seq:1.4,
-      demark_combo:1.0, candle_signal:1.2,
+      vol_profile:1.0, sma_200:0.8,  sma_cross:0.9,  rsi_extreme:1.5, obv:1.1,
+      macd_weekly:0.8, ichimoku:0.7,  bollinger:1.4,   demark_seq:1.4, candle_signal:1.2,
     }
   },
   position: {
     label: 'Position (1–3 mo)',
     desc: 'Balanced blend — the system default.',
-    bw: { high:0.50, med:0.30, low:0.20 },
+    bw: { high:0.60, med:0.40 },
     iw: {
-      vol_profile:1.1, sma_200:1.4,  sma_cross:1.1,  rsi_extreme:1.2, adx:1.0,
-      macd_weekly:1.1, ichimoku:1.0,  bollinger:0.9,   obv:1.0, supertrend:1.1, demark_seq:0.9,
-      demark_combo:0.8, candle_signal:1.0,
+      vol_profile:1.1, sma_200:1.4,  sma_cross:1.1,  rsi_extreme:1.2, obv:1.0,
+      macd_weekly:1.1, ichimoku:1.0,  bollinger:0.9,   demark_seq:0.9, candle_signal:1.0,
     }
   },
   intermediate: {
     label: 'Intermediate (3–12 mo)',
     desc: 'Trend structure & volume profile carry the most weight.',
-    bw: { high:0.55, med:0.28, low:0.17 },
+    bw: { high:0.65, med:0.35 },
     iw: {
-      vol_profile:1.3, sma_200:1.5,  sma_cross:1.3,  rsi_extreme:0.9, adx:1.2,
-      macd_weekly:1.2, ichimoku:1.3,  bollinger:0.7,   obv:1.1, supertrend:1.2, demark_seq:0.7,
-      demark_combo:0.7, candle_signal:0.8,
+      vol_profile:1.3, sma_200:1.5,  sma_cross:1.3,  rsi_extreme:0.9, obv:1.1,
+      macd_weekly:1.2, ichimoku:1.3,  bollinger:0.7,   demark_seq:0.7, candle_signal:0.8,
     }
   },
   longterm: {
     label: 'Long-Term (1 yr+)',
     desc: 'SMA 200 & structural patterns dominate. Short signals mostly noise.',
-    bw: { high:0.55, med:0.25, low:0.20 },
+    bw: { high:0.65, med:0.35 },
     iw: {
-      vol_profile:1.2, sma_200:1.8,  sma_cross:1.5,  rsi_extreme:0.6, adx:1.3,
-      macd_weekly:1.0, ichimoku:1.4,  bollinger:0.5,   obv:1.2, supertrend:1.0, demark_seq:0.5,
-      demark_combo:0.6, candle_signal:0.6,
+      vol_profile:1.2, sma_200:1.8,  sma_cross:1.5,  rsi_extreme:0.6, obv:1.2,
+      macd_weekly:1.0, ichimoku:1.4,  bollinger:0.5,   demark_seq:0.5, candle_signal:0.6,
     }
   }
 };
@@ -1646,7 +1651,7 @@ function applyTFPreset(tf){
   // Apply bucket weights
   customBW = {...p.bw};
   // Apply individual weights
-  ['high','med','low'].forEach(b => INDS[b].forEach(i => {
+  ['high','med'].forEach(b => INDS[b].forEach(i => {
     if(p.iw[i.id] !== undefined) i.iW = p.iw[i.id];
   }));
   recalc();
@@ -1691,7 +1696,7 @@ let vals={}, fgVal=null;
 // MU preload
 const MU_PRELOAD={
   ticker:'MU', price:'422.90',
-  indicators:{vol_profile:72,sma_200:62,sma_cross:68,rsi_extreme:47,adx:65,demark_seq:62,macd_weekly:72,ichimoku:70,bollinger:52,obv:75,supertrend:65,demark_combo:58,candle_signal:50},
+  indicators:{vol_profile:72,sma_200:62,sma_cross:68,rsi_extreme:47,obv:75,demark_seq:62,macd_weekly:72,ichimoku:70,bollinger:52,candle_signal:50},
   levels:{r1:'$455–$471',r2:'$503–$515',s1:'$395–$415',s2:'$375',stop:'$390',target:'$500–$525'},
   divNote:'MU ~0.13% TTM yield. Total return is price-driven. Div-adj SMA 200 ≈ price-only.'
 };
@@ -1729,7 +1734,7 @@ function toggleDarkMode(){
   if(btn) btn.textContent = isDark ? '☀️' : '🌙';
   localStorage.setItem('ta-dark-mode', isDark ? '1' : '0');
   // Refresh all slider track colors for new theme
-  [...INDS.high,...INDS.med,...INDS.low].forEach(i=>{
+  [...INDS.high,...INDS.med].forEach(i=>{
     const sl=document.getElementById('sl-'+i.id);
     if(sl) sl.style.background=sbg(vals[i.id]??50);
   });
@@ -1767,11 +1772,11 @@ function updWtBadge(){
 
 function getWtDeviations(){
   const devs=[];
-  ['high','med','low'].forEach(b=>{
+  ['high','med'].forEach(b=>{
     if(Math.abs(customBW[b]-BASELINE_BW[b])>0.005)
-      devs.push({name:{high:'HIGH bucket',med:'MED bucket',low:'LOW bucket'}[b],base:BASELINE_BW[b]*100,cur:customBW[b]*100});
+      devs.push({name:{high:'HIGH bucket',med:'MED bucket'}[b],base:BASELINE_BW[b]*100,cur:customBW[b]*100});
   });
-  ['high','med','low'].forEach(b=>INDS[b].forEach(i=>{
+  ['high','med'].forEach(b=>INDS[b].forEach(i=>{
     if(Math.abs(i.iW-BASELINE_IW[i.id])>0.05)
       devs.push({name:i.name,base:BASELINE_IW[i.id],cur:i.iW});
   }));
@@ -1825,10 +1830,10 @@ function renderWtPanel(){
   colHdr.innerHTML='<div></div><div class="col-hdr">Baseline</div><div class="col-hdr">Custom %</div><div class="col-hdr">Delta</div>';
   bktSec.appendChild(colHdr);
 
-  const bktColors={high:'var(--high)',med:'var(--med)',low:'var(--low)'};
-  const bktNames={high:'HIGH',med:'MEDIUM',low:'LOW'};
+  const bktColors={high:'var(--high)',med:'var(--med)'};
+  const bktNames={high:'HIGH',med:'MEDIUM'};
   const bktInps={};
-  ['high','med','low'].forEach(b=>{
+  ['high','med'].forEach(b=>{
     const row=document.createElement('div'); row.className='bkt-wt-row';
     const lbl=document.createElement('div'); lbl.className='bwlbl';
     lbl.innerHTML=`<span style="color:${bktColors[b]};font-weight:600">${bktNames[b]}</span>`;
@@ -1850,18 +1855,18 @@ function renderWtPanel(){
 
   // sum bar
   const sumBar=document.createElement('div');
-  const total=Math.round((customBW.high+customBW.med+customBW.low)*100);
+  const total=Math.round((customBW.high+customBW.med)*100);
   sumBar.className='sum-bar '+(total===100?'ok':'err');
   sumBar.textContent=total===100?'✓ Bucket weights sum to 100%':'⚠ Currently sums to '+total+'% — must equal 100% before changes apply';
   bktSec.appendChild(sumBar);
   body.appendChild(bktSec);
 
   // ── Indicator Intra-Weights per bucket ──
-  ['high','med','low'].forEach(b=>{
+  ['high','med'].forEach(b=>{
     const sec=document.createElement('div'); sec.className='wt-section';
     const hdr=document.createElement('div'); hdr.className='wt-sec-hdr';
     const title=document.createElement('div'); title.className=`wt-sec-title ${b}`;
-    title.textContent={high:'High Confidence — Indicator Weights',med:'Medium Confidence — Indicator Weights',low:'Low Confidence — Indicator Weights'}[b];
+    title.textContent={high:'High Confidence — Indicator Weights',med:'Medium Confidence — Indicator Weights'}[b];
     const rst=document.createElement('button'); rst.className='reset-bkt'; rst.textContent='Reset';
     rst.onclick=()=>{INDS[b].forEach(i=>i.iW=BASELINE_IW[i.id]);recalc();renderWtPanel();updWtBadge();};
     hdr.appendChild(title); hdr.appendChild(rst); sec.appendChild(hdr);
@@ -1904,21 +1909,21 @@ function renderWtPanel(){
 function validateBucketSum(inputs, sumBar, changedBucket){
   // Read all current input values
   const vals={};
-  ['high','med','low'].forEach(b=>{ vals[b]=parseInt(inputs[b].value)||0; });
-  const total=vals.high+vals.med+vals.low;
+  ['high','med'].forEach(b=>{ vals[b]=parseInt(inputs[b].value)||0; });
+  const total=vals.high+vals.med;
 
   // Update sum bar
   if(total===100){
     sumBar.className='sum-bar ok';
     sumBar.textContent='✓ Bucket weights sum to 100%';
     // Only apply when valid
-    ['high','med','low'].forEach(b=>{
+    ['high','med'].forEach(b=>{
       customBW[b]=vals[b]/100;
       inputs[b].className='bw-inp'+(vals[b]/100!==BASELINE_BW[b]?' dev':'');
     });
     recalc(); updWtBadge();
     // update deltas
-    ['high','med','low'].forEach(b=>{
+    ['high','med'].forEach(b=>{
       const el=document.getElementById('bw-delta-'+b);
       if(!el) return;
       const delta=customBW[b]-BASELINE_BW[b];
@@ -1935,7 +1940,7 @@ function validateBucketSum(inputs, sumBar, changedBucket){
 
 function resetAllWeights(){
   customBW={...BASELINE_BW};
-  ['high','med','low'].forEach(b=>INDS[b].forEach(i=>i.iW=BASELINE_IW[i.id]));
+  ['high','med'].forEach(b=>INDS[b].forEach(i=>i.iW=BASELINE_IW[i.id]));
   recalc(); updWtBadge();
   if(document.getElementById('wt-panel-body').classList.contains('open')) renderWtPanel();
   showToast('✓ All weights reset to baseline');
@@ -2125,7 +2130,14 @@ async function runAllComputed(ticker){
     const S = result.scores;
     const I = result.indicators;
 
-    // ── Distribute all 13 scores to sliders ──
+    // ── Set ADX overlay (not scored — modifies trend-follower weights) ──
+    const adx = result.adx;
+    if(adx && adx.adx != null){
+      const overlay = computeADXOverlayMultiplier(adx.adx);
+      adxOverlay = { adx: adx.adx, plusDI: adx.plusDI, minusDI: adx.minusDI, multiplier: overlay.multiplier, label: overlay.label };
+    }
+
+    // ── Distribute all 10 scores to sliders ──
     Object.entries(S).forEach(([id, score]) => setSl(id, score, true));
 
     // ── Build detail strings from raw indicator data ──
@@ -2246,45 +2258,30 @@ async function runAllComputed(ticker){
     const obvNote = document.getElementById('nt-obv');
     if(obvNote && !obvNote.value) obvNote.value = `[Computed from ${n} daily bars] ${obvDetail}`;
 
-    // SuperTrend
-    const st = I.superT;
-    const stDist = Math.abs(price - st.value) / price * 100;
-    let stDetail;
-    if(st.direction === 1){
-      stDetail = `Bullish · price ${stDist.toFixed(1)}% above SuperTrend (${st.value.toFixed(2)})`;
-      if(st.barsSinceFlip <= 5) stDetail += ' · ★ fresh flip';
-      else if(st.barsSinceFlip <= 15) stDetail += ` · flipped ${st.barsSinceFlip}b ago`;
-    } else {
-      stDetail = `Bearish · price ${stDist.toFixed(1)}% below SuperTrend (${st.value.toFixed(2)})`;
-      if(st.barsSinceFlip <= 5) stDetail += ' · ★ fresh flip';
-      else if(st.barsSinceFlip <= 15) stDetail += ` · flipped ${st.barsSinceFlip}b ago`;
+    // ADX Overlay (not scored — displayed as regime indicator)
+    {
+      const adxData = I.adx;
+      const bullDir = adxData.plusDI > adxData.minusDI;
+      let adxDetail;
+      if(adxData.adx < 15)      adxDetail = `ADX ${adxData.adx} — No trend (choppy) · trend-follower weights dampened (${adxOverlay.multiplier}×)`;
+      else if(adxData.adx < 20) adxDetail = `ADX ${adxData.adx} — Weak/developing · ${bullDir ? '+DI' : '-DI'} leads · weights dampened (${adxOverlay.multiplier}×)`;
+      else if(adxData.adx < 25) adxDetail = `ADX ${adxData.adx} — Transitional · ${bullDir ? 'bullish' : 'bearish'} lean · weights neutral (${adxOverlay.multiplier}×)`;
+      else if(adxData.adx < 30) adxDetail = bullDir
+        ? `ADX ${adxData.adx} — Moderate bullish trend · +DI ${adxData.plusDI.toFixed(0)} > -DI ${adxData.minusDI.toFixed(0)} · weights boosted (${adxOverlay.multiplier}×)`
+        : `ADX ${adxData.adx} — Moderate bearish trend · -DI ${adxData.minusDI.toFixed(0)} > +DI ${adxData.plusDI.toFixed(0)} · weights boosted (${adxOverlay.multiplier}×)`;
+      else if(adxData.adx < 40) adxDetail = bullDir
+        ? `ADX ${adxData.adx} — Strong bullish trend · +DI ${adxData.plusDI.toFixed(0)} > -DI ${adxData.minusDI.toFixed(0)} · weights boosted (${adxOverlay.multiplier}×)`
+        : `ADX ${adxData.adx} — Strong bearish trend · -DI ${adxData.minusDI.toFixed(0)} > +DI ${adxData.plusDI.toFixed(0)} · weights boosted (${adxOverlay.multiplier}×)`;
+      else adxDetail = bullDir
+        ? `ADX ${adxData.adx} — Very strong bull · +DI ${adxData.plusDI.toFixed(0)} > -DI ${adxData.minusDI.toFixed(0)} · weights boosted (${adxOverlay.multiplier}×)`
+        : `ADX ${adxData.adx} — Very strong bear · -DI ${adxData.minusDI.toFixed(0)} > +DI ${adxData.plusDI.toFixed(0)} · weights boosted (${adxOverlay.multiplier}×)`;
+      if(adxData.adxRising && adxData.adx >= 20) adxDetail += ' · ADX rising';
+      else if(!adxData.adxRising && adxData.adx >= 20) adxDetail += ' · ADX fading';
+      // Display in ADX overlay badge
+      const adxBadge = document.getElementById('adx-overlay-badge');
+      if(adxBadge) adxBadge.textContent = adxDetail;
+      if(adxBadge) adxBadge.title = `ADX Overlay: Multiplies trend-follower weights (SMA200, Ichimoku, MA Cross, MACD) by ${adxOverlay.multiplier}×`;
     }
-    const stSub = document.getElementById('sub-supertrend');
-    if(stSub) stSub.textContent = stDetail;
-    const stNote = document.getElementById('nt-supertrend');
-    if(stNote && !stNote.value) stNote.value = `[Computed from ${n} daily bars] ${stDetail}`;
-
-    // ADX
-    const adx = I.adx;
-    const bullDir = adx.plusDI > adx.minusDI;
-    let adxDetail;
-    if(adx.adx < 15)      adxDetail = `ADX ${adx.adx} — No trend (choppy) · trend indicators unreliable`;
-    else if(adx.adx < 20) adxDetail = `ADX ${adx.adx} — Weak/developing · ${bullDir ? '+DI' : '-DI'} leads`;
-    else if(adx.adx < 30) adxDetail = bullDir
-      ? `ADX ${adx.adx} — Moderate bullish trend · +DI ${adx.plusDI.toFixed(0)} > -DI ${adx.minusDI.toFixed(0)}`
-      : `ADX ${adx.adx} — Moderate bearish trend · -DI ${adx.minusDI.toFixed(0)} > +DI ${adx.plusDI.toFixed(0)}`;
-    else if(adx.adx < 40) adxDetail = bullDir
-      ? `ADX ${adx.adx} — Strong bullish trend · +DI ${adx.plusDI.toFixed(0)} > -DI ${adx.minusDI.toFixed(0)}`
-      : `ADX ${adx.adx} — Strong bearish trend · -DI ${adx.minusDI.toFixed(0)} > +DI ${adx.plusDI.toFixed(0)}`;
-    else adxDetail = bullDir
-      ? `ADX ${adx.adx} — Very strong bull · +DI ${adx.plusDI.toFixed(0)} > -DI ${adx.minusDI.toFixed(0)} (may be extended)`
-      : `ADX ${adx.adx} — Very strong bear · -DI ${adx.minusDI.toFixed(0)} > +DI ${adx.plusDI.toFixed(0)} (capitulation risk)`;
-    if(adx.adxRising && adx.adx >= 20) adxDetail += ' · ADX rising';
-    else if(!adx.adxRising && adx.adx >= 20) adxDetail += ' · ADX fading';
-    const adxSub = document.getElementById('sub-adx');
-    if(adxSub) adxSub.textContent = adxDetail;
-    const adxNote = document.getElementById('nt-adx');
-    if(adxNote && !adxNote.value) adxNote.value = `[Computed from ${n} daily bars] ADX:${adx.adx} +DI:${adx.plusDI.toFixed(1)} -DI:${adx.minusDI.toFixed(1)} · ${adxDetail}`;
 
     // Volume Profile
     const vp = I.volProf;
@@ -2351,21 +2348,6 @@ async function runAllComputed(ticker){
     if(TIPS.demark_seq) TIPS.demark_seq.name = 'DeMark Sequential (computed)';
     const dmNote = document.getElementById('nt-demark_seq');
     if(dmNote && !dmNote.value) dmNote.value = `[Computed from ${n} daily bars] ${dmDetail}`;
-
-    // DeMark Combo
-    const dc = I.demarkC;
-    let dcDetail;
-    if(dc.lastSetup && dc.barsSince !== null && dc.barsSince <= 18){
-      dcDetail = dc.lastSetup === 'buy' ? `Combo Setup 9 BUY — ${dc.barsSince}b ago` : `Combo Setup 9 SELL — ${dc.barsSince}b ago`;
-    } else if(dc.activeBuy >= 5)  dcDetail = `Active BUY setup: bar ${dc.activeBuy}/9`;
-    else if(dc.activeSell >= 5)   dcDetail = `Active SELL setup: bar ${dc.activeSell}/9`;
-    else if(dc.activeBuy > 0)     dcDetail = `BUY setup counting: ${dc.activeBuy}/9`;
-    else if(dc.activeSell > 0)    dcDetail = `SELL setup counting: ${dc.activeSell}/9`;
-    else                          dcDetail = 'No active Combo signal · score neutral';
-    const dcSub = document.getElementById('sub-demark_combo');
-    if(dcSub) dcSub.textContent = dcDetail;
-    const dcNote = document.getElementById('nt-demark_combo');
-    if(dcNote && !dcNote.value) dcNote.value = `[Computed from ${n} daily bars] ${dcDetail}`;
 
     // Candlestick Signal
     const cs = I.candle;
@@ -2962,22 +2944,28 @@ function setSl(id,v,anim=true){
   recalc();
 }
 
-function buildAll(){['high','med','low'].forEach(b=>INDS[b].forEach(i=>buildRow(i,b)));updWB();}
+function buildAll(){['high','med'].forEach(b=>INDS[b].forEach(i=>buildRow(i,b)));updWB();}
 
 // ═══ CALCULATE ═══
 function bScore(b){
   const is=INDS[b];
-  // Apply confluence multipliers to effective weights
-  const tw=is.reduce((s,i)=>s+((i.iW||1)*(confluenceMultipliers[i.id]||1)),0);
-  return is.reduce((s,i)=>s+((vals[i.id]||50)/100)*(((i.iW||1)*(confluenceMultipliers[i.id]||1))/tw),0)*100;
+  // Apply confluence multipliers AND ADX overlay to effective weights
+  const effectiveW = (i) => {
+    let w = i.iW || 1;
+    w *= (confluenceMultipliers[i.id] || 1);
+    if (ADX_TREND_IDS.includes(i.id)) w *= (adxOverlay.multiplier || 1);
+    return w;
+  };
+  const tw=is.reduce((s,i)=>s+effectiveW(i),0);
+  return is.reduce((s,i)=>s+((vals[i.id]||50)/100)*(effectiveW(i)/tw),0)*100;
 }
 function recalc(){
   // Detect confluences first (populates confluenceMultipliers for bScore)
   detectConfluences();
-  const bs={high:bScore('high'),med:bScore('med'),low:bScore('low')};
-  const t=bs.high*customBW.high+bs.med*customBW.med+bs.low*customBW.low;
+  const bs={high:bScore('high'),med:bScore('med')};
+  const t=bs.high*customBW.high+bs.med*customBW.med;
   // Compute dispersion: std dev of all active indicator scores
-  const allInds=[...INDS.high,...INDS.med,...INDS.low];
+  const allInds=[...INDS.high,...INDS.med];
   const scores=allInds.map(i=>vals[i.id]??50);
   const mean=scores.reduce((s,v)=>s+v,0)/scores.length;
   const variance=scores.reduce((s,v)=>s+(v-mean)**2,0)/scores.length;
@@ -3003,8 +2991,8 @@ function detectConflicts(){
     const diff=Math.abs(va-vb);
     if(diff>=CONFLICT_THRESH){
       // Determine which is more bullish
-      const aName=INDS.high.concat(INDS.med,INDS.low).find(i=>i.id===a)?.name||a;
-      const bName=INDS.high.concat(INDS.med,INDS.low).find(i=>i.id===b)?.name||b;
+      const aName=INDS.high.concat(INDS.med).find(i=>i.id===a)?.name||a;
+      const bName=INDS.high.concat(INDS.med).find(i=>i.id===b)?.name||b;
       const aSig=getSig(va), bSig=getSig(vb);
       const severity=diff>=60?'high':'med';
       conflicts.push({aName,bName,aSig,bSig,diff,desc,severity});
@@ -3038,7 +3026,7 @@ function detectConfluences(){
 
   CONFLUENCE_DEFS.forEach(def => {
     const scores = def.ids.map(id => vals[id] ?? 50);
-    const names  = def.ids.map(id => INDS.high.concat(INDS.med, INDS.low).find(i=>i.id===id)?.name || id);
+    const names  = def.ids.map(id => INDS.high.concat(INDS.med).find(i=>i.id===id)?.name || id);
 
     // Check if ALL indicators are above threshold (bullish confluence)
     const allBull = scores.every(s => s >= def.thresh);
@@ -3099,40 +3087,39 @@ function detectFallingKnife(){
 
   const rsi      = vals.rsi_extreme ?? 50;
   const demark   = vals.demark_seq ?? 50;
-  const demarkC  = vals.demark_combo ?? 50;
   const candle   = vals.candle_signal ?? 50;
   const sma200   = vals.sma_200 ?? 50;
-  const superT   = vals.supertrend ?? 50;
-  const adx      = vals.adx ?? 50;
+  const adxVal   = adxOverlay.adx ?? 0;
   const obv      = vals.obv ?? 50;
   const boll     = vals.bollinger ?? 50;
+  const maCross  = vals.sma_cross ?? 50;
 
   // ── FALLING KNIFE (capitulation buy setup) ──
   // Exhaustion indicators fire bullish WHILE candlestick is bearish (the capitulation candle)
   // AND trend confirms we're in a downtrend
   const rsiBullish       = rsi >= 65;          // RSI oversold → contrarian buy
-  const demarkBullish    = demark >= 62 || demarkC >= 62;  // DeMark exhaustion buy
+  const demarkBullish    = demark >= 62;       // DeMark exhaustion buy
   const candleBearish    = candle <= 40;       // Bearish candle = the capitulation event
-  const trendBearish     = sma200 <= 40 || superT <= 35;   // Confirmed downtrend
+  const trendBearish     = sma200 <= 40 || maCross <= 35;   // Confirmed downtrend
   const bollingerBullish = boll >= 60;         // Near/below lower band
 
   // ── BLOW-OFF TOP (euphoria sell setup) ──
   // Exhaustion indicators fire bearish WHILE candlestick is bullish (blow-off candle)
   const rsiBearish       = rsi <= 35;
-  const demarkBearish    = demark <= 38 || demarkC <= 38;
+  const demarkBearish    = demark <= 38;
   const candleBullish    = candle >= 60;
-  const trendBullish     = sma200 >= 60 || superT >= 65;
+  const trendBullish     = sma200 >= 60 || maCross >= 65;
   const bollingerBearish = boll <= 40;
 
   let alertType = null; // 'knife' | 'blowoff'
   let strength = 0;     // count of confirming signals
 
-  // Falling Knife: need RSI + (DeMark OR Combo) + bearish candle + bearish trend
+  // Falling Knife: need RSI + DeMark + bearish candle + bearish trend
   if(rsiBullish && demarkBullish && candleBearish && trendBearish){
     alertType = 'knife';
     strength = 2; // base: RSI + DeMark
     if(bollingerBullish) strength++;  // Bollinger confirms oversold
-    if(adx >= 60 || adx <= 25) strength++; // ADX either strong trend or fading (both relevant)
+    if(adxVal >= 25) strength++; // ADX confirms strong trend (the downtrend is real)
     if(obv >= 60) strength++;  // OBV bullish divergence (accumulation into selloff)
   }
 
@@ -3141,7 +3128,7 @@ function detectFallingKnife(){
     alertType = 'blowoff';
     strength = 2;
     if(bollingerBearish) strength++;
-    if(adx >= 60 || adx <= 25) strength++;
+    if(adxVal >= 25) strength++;
     if(obv <= 40) strength++;
   }
 
@@ -3166,18 +3153,20 @@ function detectFallingKnife(){
 
   if(isKnife){
     addSig(`RSI Oversold (${rsi})`, 'bull');
-    addSig(`DeMark BUY (${Math.max(demark,demarkC)})`, 'bull');
+    addSig(`DeMark BUY (${demark})`, 'bull');
     addSig(`Bearish Candle (${candle})`, 'bear');
     addSig(`Downtrend Confirmed`, 'bear');
     if(bollingerBullish) addSig(`Bollinger Oversold (${boll})`, 'bull');
     if(obv >= 60) addSig(`OBV Accumulation (${obv})`, 'bull');
+    if(adxVal >= 25) addSig(`ADX Trending (${adxVal})`, 'neu');
   } else {
     addSig(`RSI Overbought (${rsi})`, 'bear');
-    addSig(`DeMark SELL (${Math.min(demark,demarkC)})`, 'bear');
+    addSig(`DeMark SELL (${demark})`, 'bear');
     addSig(`Bullish Candle (${candle})`, 'bull');
     addSig(`Uptrend Confirmed`, 'bull');
     if(bollingerBearish) addSig(`Bollinger Overbought (${boll})`, 'bear');
     if(obv <= 40) addSig(`OBV Distribution (${obv})`, 'bear');
+    if(adxVal >= 25) addSig(`ADX Trending (${adxVal})`, 'neu');
   }
   addSig(`Strength: ${strengthLabel}`, 'neu');
 
@@ -3199,32 +3188,34 @@ function detectDualSignalCommentary(){
   // Read all indicator scores
   const rsi      = vals.rsi_extreme ?? 50;
   const demark   = vals.demark_seq ?? 50;
-  const demarkC  = vals.demark_combo ?? 50;
   const candle   = vals.candle_signal ?? 50;
   const sma200   = vals.sma_200 ?? 50;
-  const superT   = vals.supertrend ?? 50;
   const ichi     = vals.ichimoku ?? 50;
-  const adx      = vals.adx ?? 50;
   const obv      = vals.obv ?? 50;
   const boll     = vals.bollinger ?? 50;
   const macd     = vals.macd_weekly ?? 50;
   const volP     = vals.vol_profile ?? 50;
   const maCross  = vals.sma_cross ?? 50;
 
-  // Compute weighted score
-  const allInds=[...INDS.high,...INDS.med,...INDS.low];
-  const tw2=allInds.reduce((s,i)=>s+((i.iW||1)*(confluenceMultipliers[i.id]||1)),0);
-  const wScore=Math.round(allInds.reduce((s,i)=>s+((vals[i.id]||50)/100)*(((i.iW||1)*(confluenceMultipliers[i.id]||1))/tw2),0)*100);
+  // Compute weighted score (incorporating ADX overlay on trend-followers)
+  const allInds=[...INDS.high,...INDS.med];
+  const effectiveW2 = (i) => {
+    let w = (i.iW||1)*(confluenceMultipliers[i.id]||1);
+    if(ADX_TREND_IDS.includes(i.id)) w *= (adxOverlay.multiplier||1);
+    return w;
+  };
+  const tw2=allInds.reduce((s,i)=>s+effectiveW2(i),0);
+  const wScore=Math.round(allInds.reduce((s,i)=>s+((vals[i.id]||50)/100)*(effectiveW2(i)/tw2),0)*100);
 
   // ── Classify indicator families ──
-  // Trend-following: SMA200, Ichimoku, SuperTrend, MA Cross
-  const trendScores = [sma200, ichi, superT, maCross];
+  // Trend-following: SMA200, Ichimoku, MA Cross (ADX amplifies/dampens these via overlay)
+  const trendScores = [sma200, ichi, maCross];
   const trendAvg = Math.round(trendScores.reduce((s,v)=>s+v,0)/trendScores.length);
   const trendBullCount = trendScores.filter(s => s >= 60).length;
   const trendBearCount = trendScores.filter(s => s <= 40).length;
 
-  // Exhaustion/contrarian: RSI, DeMark Seq, DeMark Combo, Bollinger
-  const exhScores = [rsi, demark, demarkC, boll];
+  // Exhaustion/contrarian: RSI, DeMark Seq, Bollinger
+  const exhScores = [rsi, demark, boll];
   const exhAvg = Math.round(exhScores.reduce((s,v)=>s+v,0)/exhScores.length);
   const exhBullCount = exhScores.filter(s => s >= 60).length;
   const exhBearCount = exhScores.filter(s => s <= 40).length;
@@ -3238,22 +3229,22 @@ function detectDualSignalCommentary(){
 
   // ── TREND ASSESSMENT ──
   if(trendBullCount >= 3){
-    parts.push(`<strong>${ticker} is in a confirmed uptrend</strong> — ${trendBullCount} of 4 trend-following indicators (SMA 200, Ichimoku, SuperTrend, MA Cross) are bullish. This means the broad direction of price is up, and institutional positioning favors buyers.`);
+    parts.push(`<strong>${ticker} is in a confirmed uptrend</strong> — all 3 trend-following indicators (SMA 200, Ichimoku, MA Cross) are bullish${adxOverlay.adx >= 25 ? ', and ADX confirms strong trend strength' : ''}. This means the broad direction of price is up, and institutional positioning favors buyers.`);
   } else if(trendBearCount >= 3){
-    parts.push(`<strong>${ticker} is in a confirmed downtrend</strong> — ${trendBearCount} of 4 trend-following indicators (SMA 200, Ichimoku, SuperTrend, MA Cross) are bearish. This means the broad direction of price is down, and the weight of evidence favors sellers.`);
+    parts.push(`<strong>${ticker} is in a confirmed downtrend</strong> — all 3 trend-following indicators (SMA 200, Ichimoku, MA Cross) are bearish${adxOverlay.adx >= 25 ? ', and ADX confirms strong trend strength' : ''}. This means the broad direction of price is down, and the weight of evidence favors sellers.`);
   } else if(trendBullCount >= 2 && trendBearCount === 0){
     parts.push(`<strong>${ticker} leans bullish on trend</strong> — most trend indicators point up, though the signal is not unanimous. The uptrend is developing but not yet fully confirmed across all systems.`);
   } else if(trendBearCount >= 2 && trendBullCount === 0){
     parts.push(`<strong>${ticker} leans bearish on trend</strong> — most trend indicators point down, though the signal is not unanimous. The downtrend is developing but not yet confirmed across all systems.`);
   } else {
-    parts.push(`<strong>${ticker} shows no clear trend</strong> — trend indicators are mixed or neutral. This typically means the stock is consolidating, transitioning between regimes, or choppy. Trend-following signals carry less conviction here.`);
+    parts.push(`<strong>${ticker} shows no clear trend</strong> — trend indicators are mixed or neutral${adxOverlay.adx < 20 ? ' (ADX below 20 confirms choppy/trendless conditions)' : ''}. This typically means the stock is consolidating, transitioning between regimes, or choppy. Trend-following signals carry less conviction here.`);
   }
 
   // ── EXHAUSTION / CONTRARIAN ASSESSMENT ──
   if(exhBullCount >= 3){
-    parts.push(`Meanwhile, <strong>exhaustion signals are flashing oversold</strong> — ${exhBullCount} of 4 contrarian indicators (RSI, DeMark, Bollinger) say the recent move down may be overdone. These are "mean reversion" signals that suggest the selling is stretched, not necessarily that it's over.`);
+    parts.push(`Meanwhile, <strong>exhaustion signals are flashing oversold</strong> — all 3 contrarian indicators (RSI, DeMark, Bollinger) say the recent move down may be overdone. These are "mean reversion" signals that suggest the selling is stretched, not necessarily that it's over.`);
   } else if(exhBearCount >= 3){
-    parts.push(`Meanwhile, <strong>exhaustion signals are flashing overbought</strong> — ${exhBearCount} of 4 contrarian indicators (RSI, DeMark, Bollinger) say the recent move up may be stretched. These signals warn that the rally could be running out of steam, not necessarily that it's reversing.`);
+    parts.push(`Meanwhile, <strong>exhaustion signals are flashing overbought</strong> — all 3 contrarian indicators (RSI, DeMark, Bollinger) say the recent move up may be stretched. These signals warn that the rally could be running out of steam, not necessarily that it's reversing.`);
   } else if(exhBullCount >= 2){
     parts.push(`Some contrarian indicators are starting to signal oversold conditions — suggesting the downward pressure may be getting stretched, though not yet at extreme levels.`);
   } else if(exhBearCount >= 2){
@@ -3363,17 +3354,17 @@ function drawGauge(score, dispersion){
 
 function updBD(bs,t){
   const el=document.getElementById('bdown');if(!el)return;
-  [{l:'HIGH',s:bs.high,w:'50%',c:'#4c8ef7'},{l:'MED',s:bs.med,w:'30%',c:'#a78bfa'},{l:'LOW',s:bs.low,w:'20%',c:'#64748b'},{l:'TOTAL',s:t,w:'100%',c:sCol(t)}]
-  .forEach((r,i)=>{const d=document.createElement('div');d.className='bsr';if(i===3)d.style.marginTop='6px';
+  [{l:'HIGH',s:bs.high,w:'60%',c:'#4c8ef7'},{l:'MED',s:bs.med,w:'40%',c:'#a78bfa'},{l:'TOTAL',s:t,w:'100%',c:sCol(t)}]
+  .forEach((r,i)=>{const d=document.createElement('div');d.className='bsr';if(i===2)d.style.marginTop='6px';
     d.innerHTML=`<div class="bsr-l" style="color:${r.c}">${r.l}</div><div class="bsr-bw"><div class="bsr-b" style="width:${r.s}%;background:${r.c}88"></div></div><div class="bsr-v" style="color:${r.c}">${Math.round(r.s)}</div><div class="bsr-w">${r.w}</div>`;
     el.appendChild(d);});
   // Update verdict bar bucket mini-scores
   const vbb=document.getElementById('vbar-buckets');
-  if(vbb) vbb.innerHTML=`<div class="vbar-bkt" style="color:#1a6fd4">H <span>${Math.round(bs.high)}</span></div><div class="vbar-bkt" style="color:#6040b8">M <span>${Math.round(bs.med)}</span></div><div class="vbar-bkt" style="color:#546070">L <span>${Math.round(bs.low)}</span></div>`;
+  if(vbb) vbb.innerHTML=`<div class="vbar-bkt" style="color:#1a6fd4">H <span>${Math.round(bs.high)}</span></div><div class="vbar-bkt" style="color:#6040b8">M <span>${Math.round(bs.med)}</span></div>${adxOverlay.adx!=null?'<div class="vbar-bkt" style="color:#d29922">ADX <span>'+adxOverlay.adx+'</span></div>':''}`;
 }
 
 function updDist(){
-  const all=[...INDS.high,...INDS.med,...INDS.low],ct={sb:0,b:0,neu:0,br:0,sbr:0};
+  const all=[...INDS.high,...INDS.med],ct={sb:0,b:0,neu:0,br:0,sbr:0};
   all.forEach(i=>ct[getSig(vals[i.id]).cls]++);
   const bar=document.getElementById('dist-bar');bar.innerHTML='';
   ['sb','b','neu','br','sbr'].forEach(cls=>{const d=document.createElement('div');d.className='dseg '+cls;d.style.flex=String(ct[cls]||.05);if(ct[cls]>0)d.textContent=ct[cls];bar.appendChild(d);});
@@ -3382,7 +3373,7 @@ function updDist(){
 }
 
 function updWB(){
-  ['high','med','low'].forEach(b=>{
+  ['high','med'].forEach(b=>{
     const is=INDS[b],tw=is.reduce((s,i)=>s+i.iW,0);
     is.forEach(i=>{
       const el=document.getElementById('wb-'+i.id);
@@ -3685,7 +3676,7 @@ async function runAnalysis(){
   // Apply timeframe preset on every new Analyze run
   applyTFPreset(getTF());
   if(document.getElementById('wt-panel-body').classList.contains('open')) renderWtPanel();
-  [...INDS.high,...INDS.med,...INDS.low].forEach(i=>setSl(i.id,50,false));
+  [...INDS.high,...INDS.med].forEach(i=>setSl(i.id,50,false));
   clearChartCache();
   // Reset DeMark sub-label
   const dmSub=document.getElementById('sub-demark_seq');
@@ -3703,18 +3694,12 @@ async function runAnalysis(){
   if(bollSub) bollSub.textContent='20-period 2σ — computing…';
   const obvSub = document.getElementById('sub-obv');
   if(obvSub) obvSub.textContent='OBV — computing…';
-  const stSub = document.getElementById('sub-supertrend');
-  if(stSub) stSub.textContent='SuperTrend — computing…';
-  const dcSub = document.getElementById('sub-demark_combo');
-  if(dcSub) dcSub.textContent='TD Combo — computing…';
   const vpSub = document.getElementById('sub-vol_profile');
   if(vpSub) vpSub.textContent='POC / VAH / VAL — computing…';
   const ichSub = document.getElementById('sub-ichimoku');
   if(ichSub) ichSub.textContent='Ichimoku — computing…';
   const csSub = document.getElementById('sub-candle_signal');
   if(csSub) csSub.textContent='Scanning for patterns…';
-  const adxSub = document.getElementById('sub-adx');
-  if(adxSub) adxSub.textContent='14-period trend strength — computing…';
   // Reset orientation chart
   const os=document.getElementById('orient-status');
   if(os) os.textContent='Loading…';
@@ -3812,7 +3797,7 @@ Return ONLY the JSON object.`;
     document.getElementById('price-val').textContent='$'+cleanPrice;syncPriceLvl();
     const _cname=window._lastSymbolName?` · ${window._lastSymbolName}`:'';
     // Compute initial score for status bar display
-    const _initScore = Math.round(bScore('high')*customBW.high + bScore('med')*customBW.med + bScore('low')*customBW.low);
+    const _initScore = Math.round(bScore('high')*customBW.high + bScore('med')*customBW.med);
     const _initVerdict = verd(_initScore).l;
     const _vCol = sCol(_initScore);
     st.innerHTML=`<span class="sticker">${parsed.ticker}</span>${_cname} — <span style="color:${_vCol};font-weight:600">${_initVerdict} (${_initScore})</span> · $${cleanPrice} · ${nowStamp()}`;
@@ -3823,7 +3808,7 @@ Return ONLY the JSON object.`;
         if(window._lastSymbolName){
           const cur=document.getElementById('stext');
           if(cur && cur.innerHTML.includes(parsed.ticker)){
-            const _s2 = Math.round(bScore('high')*customBW.high + bScore('med')*customBW.med + bScore('low')*customBW.low);
+            const _s2 = Math.round(bScore('high')*customBW.high + bScore('med')*customBW.med);
             const _v2 = verd(_s2).l, _c2 = sCol(_s2);
             cur.innerHTML=`<span class="sticker">${parsed.ticker}</span> · ${window._lastSymbolName} — <span style="color:${_c2};font-weight:600">${_v2} (${_s2})</span> · $${cleanPrice} · ${nowStamp()}`;
           }
@@ -3854,8 +3839,8 @@ function stateToUrl(){
     l:{r1:document.getElementById('r1').value,r2:document.getElementById('r2').value,s1:document.getElementById('s1').value,s2:document.getElementById('s2').value,stop:document.getElementById('stop').value,target:document.getElementById('target').value},
     dn:document.getElementById('div-note').value,
     fg:fgVal,
-    cbw:{h:customBW.high,m:customBW.med,lo:customBW.low},
-    ciw:Object.fromEntries(['high','med','low'].flatMap(b=>INDS[b].map(i=>[i.id,i.iW])))
+    cbw:{h:customBW.high,m:customBW.med},
+    ciw:Object.fromEntries(['high','med'].flatMap(b=>INDS[b].map(i=>[i.id,i.iW])))
   };
   return '#'+btoa(encodeURIComponent(JSON.stringify(state)));
 }
@@ -3876,8 +3861,8 @@ function loadFromUrl(){
     if(state.l)['r1','r2','s1','s2','stop','target'].forEach(k=>{const el=document.getElementById(k);if(el&&state.l[k])el.value=state.l[k];});
     if(state.dn)document.getElementById('div-note').value=state.dn;
     if(state.fg!==null&&state.fg!==undefined)setFGDisplay(state.fg);
-    if(state.cbw){customBW={high:state.cbw.h,med:state.cbw.m,low:state.cbw.lo};}
-    if(state.ciw){['high','med','low'].forEach(b=>INDS[b].forEach(i=>{if(state.ciw[i.id]!==undefined)i.iW=state.ciw[i.id];}));}
+    if(state.cbw){customBW={high:state.cbw.h,med:state.cbw.m};}
+    if(state.ciw){['high','med'].forEach(b=>INDS[b].forEach(i=>{if(state.ciw[i.id]!==undefined)i.iW=state.ciw[i.id];}));}
     onACChange();
     const dot=document.getElementById('sdot'),st=document.getElementById('stext');
     dot.className='sdot active';st.className='stext active';st.style.animation='';st.style.color='';
@@ -3909,7 +3894,7 @@ function mobTab(tab){
 
 // ═══ RESET ═══
 function resetAll(){
-  [...INDS.high,...INDS.med,...INDS.low].forEach(i=>{
+  [...INDS.high,...INDS.med].forEach(i=>{
     setSl(i.id,50,false);
     const nt=document.getElementById('nt-'+i.id);if(nt)nt.value='';
     const nr=document.getElementById('nr-'+i.id);if(nr)nr.classList.remove('open');
@@ -3921,14 +3906,15 @@ function resetAll(){
   document.getElementById('fg-sent').textContent='not loaded';document.getElementById('fg-sent').style.color='';
   document.getElementById('fg-manual').value='';drawFGA(null);document.getElementById('price-val').textContent='—';
   customBW={...BASELINE_BW};
-  ['high','med','low'].forEach(b=>INDS[b].forEach(i=>i.iW=BASELINE_IW[i.id]));
+  ['high','med'].forEach(b=>INDS[b].forEach(i=>i.iW=BASELINE_IW[i.id]));
   const tfSel=document.getElementById('timeframe-sel');if(tfSel)tfSel.value='position';
   const tfBadge=document.getElementById('tf-badge');if(tfBadge){tfBadge.textContent='Timeframe: '+TF_PRESETS.position.label;}
   document.getElementById('conflict-card').classList.remove('has-conflicts');
   document.getElementById('confluence-card').classList.remove('has-confluences');
   document.getElementById('knife-card').classList.remove('active');
   confluenceMultipliers = {};
-  ['high','med','low'].forEach(b=>INDS[b].forEach(i=>{
+  adxOverlay = { adx: null, plusDI: null, minusDI: null, multiplier: 1.0, label: 'N/A' };
+  ['high','med'].forEach(b=>INDS[b].forEach(i=>{
     const row=document.getElementById('row-'+i.id);
     if(row){ row.classList.remove('conflict-flag'); row.style.borderLeft=''; }
   }));
@@ -3941,9 +3927,9 @@ function resetAll(){
 // ═══ REPORT DATA ═══
 function buildRpt(){
   const ticker=document.getElementById('ticker-input').value.toUpperCase();
-  const bs={high:bScore('high'),med:bScore('med'),low:bScore('low')};
-  const t=bs.high*.5+bs.med*.3+bs.low*.2,v=verd(t);
-  const ais=[...INDS.high.map(i=>({...i,bkt:'HIGH'})),...INDS.med.map(i=>({...i,bkt:'MED'})),...INDS.low.map(i=>({...i,bkt:'LOW'}))];
+  const bs={high:bScore('high'),med:bScore('med')};
+  const t=bs.high*customBW.high+bs.med*customBW.med,v=verd(t);
+  const ais=[...INDS.high.map(i=>({...i,bkt:'HIGH'})),...INDS.med.map(i=>({...i,bkt:'MED'}))];
   const conflictList=[];
   CONFLICT_PAIRS.forEach(([a,b,desc])=>{if(Math.abs((vals[a]??50)-(vals[b]??50))>=CONFLICT_THRESH)conflictList.push(desc);});
   // Collect active confluences for report
@@ -3958,7 +3944,7 @@ function buildRpt(){
   return{
     meta:{ticker,price:document.getElementById('price-val').textContent,assetClass:getAC(),timeframe:TF_PRESETS[getTF()]?.label||'Position (1-3 mo)',runDate:nowStamp(),generated:new Date().toISOString()},
     weightedScore:Math.round(t*10)/10,verdict:v.l,confidence:v.c,
-    bucketScores:{high:Math.round(bs.high*10)/10,med:Math.round(bs.med*10)/10,low:Math.round(bs.low*10)/10},
+    bucketScores:{high:Math.round(bs.high*10)/10,med:Math.round(bs.med*10)/10},
     indicators:ais.map(i=>({id:i.id,name:i.name,bucket:i.bkt,signal:vals[i.id],label:getSig(vals[i.id]).txt,notes:(document.getElementById('nt-'+i.id)||{}).value||''})),
     conflicts:conflictList,
     confluences:confluenceList,
@@ -3978,7 +3964,7 @@ function copyReport(){
     `Symbol     : ${d.meta.ticker}`,`Asset Class: ${d.meta.assetClass.toUpperCase()}`,`Timeframe  : ${d.meta.timeframe}`,`Price      : ${d.meta.price}`,`Run Date   : ${d.meta.runDate}`,
     `F&G Index  : ${d.fearGreed?d.fearGreed.value+'/100 ('+d.fearGreed.sentiment+')':'not loaded'}`,'',
     `WEIGHTED SCORE : ${d.weightedScore} / 100`,`VERDICT        : ${d.verdict}`,`CONFIDENCE     : ${d.confidence}`,'',
-    'BUCKET SCORES',`  HIGH (50%) : ${d.bucketScores.high}`,`  MED  (30%) : ${d.bucketScores.med}`,`  LOW  (20%) : ${d.bucketScores.low}`];
+    'BUCKET SCORES',`  HIGH (60%) : ${d.bucketScores.high}`,`  MED  (40%) : ${d.bucketScores.med}`];
   if(d.conflicts.length>0){lines.push('','⚠ CONFLICTS DETECTED',...d.conflicts.map(c=>`  • ${c}`));}
   if(d.confluences.length>0){lines.push('','🔒 CONFLUENCES CONFIRMED',...d.confluences.map(c=>`  • ${c}`));}
   if(d.fallingKnife){lines.push('',`🔪 ${d.fallingKnife} ALERT ACTIVE`,'  Multiple exhaustion indicators firing against a bearish candlestick pattern.');}
@@ -4024,9 +4010,9 @@ async function exportPDF(){
 
     // Bucket scores
     doc.setFillColor(240,242,245); doc.roundedRect(margin,y,180,20,3,3,'F');
-    [[`HIGH (50%) : ${d.bucketScores.high}`,76,142,247],[`MED  (30%) : ${d.bucketScores.med}`,167,139,250],[`LOW  (20%) : ${d.bucketScores.low}`,100,116,139]].forEach(([txt,r,g,b],i)=>{
+    [[`HIGH (60%) : ${d.bucketScores.high}`,76,142,247],[`MED  (40%) : ${d.bucketScores.med}`,167,139,250]].forEach(([txt,r,g,b],i)=>{
       doc.setTextColor(r,g,b); doc.setFontSize(8); doc.setFont('courier','normal');
-      doc.text(txt,margin+4+(i*60),y+12);
+      doc.text(txt,margin+4+(i*90),y+12);
     });
     y+=26;
 
