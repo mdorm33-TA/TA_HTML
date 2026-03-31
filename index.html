@@ -753,9 +753,9 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
         <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
           <div class="regime-row"><span class="regime-lbl">S&amp;P 500 (SPY)</span><span class="regime-val" id="reg-spy">—</span></div>
           <div class="regime-row"><span class="regime-lbl">Volatility (VIX)</span><span class="regime-val" id="reg-vix">—</span></div>
-          <div class="regime-row"><span class="regime-lbl">Bonds / Rates (TLT)</span><span class="regime-val" id="reg-tlt">—</span></div>
-          <div class="regime-row"><span class="regime-lbl">Gold (GLD)</span><span class="regime-val" id="reg-gold">—</span></div>
-          <div class="regime-row"><span class="regime-lbl">Oil (USO)</span><span class="regime-val" id="reg-uso">—</span></div>
+          <div class="regime-row"><span class="regime-lbl">10-Yr Treasury Yield</span><span class="regime-val" id="reg-tlt">—</span></div>
+          <div class="regime-row"><span class="regime-lbl">Gold (XAU/USD)</span><span class="regime-val" id="reg-gold">—</span></div>
+          <div class="regime-row"><span class="regime-lbl">Oil WTI (CL)</span><span class="regime-val" id="reg-uso">—</span></div>
           <div class="regime-row">
             <span class="regime-lbl" id="fg-card-title">Fear &amp; Greed</span>
             <span class="regime-val" style="display:flex;align-items:center;gap:6px;">
@@ -3516,7 +3516,7 @@ async function fetchRegimeData(){
     for(const url of proxies){
       try{
         const ctrl = new AbortController();
-        const tid = setTimeout(()=>ctrl.abort(), 5000);
+        const tid = setTimeout(()=>ctrl.abort(), 8000);
         const res = await fetch(url, {signal:ctrl.signal});
         clearTimeout(tid);
         if(!res.ok) continue;
@@ -3539,8 +3539,8 @@ async function fetchRegimeData(){
     return null;
   }
 
-  const [spyData, vixData, tltData, gldData, usoData] = await Promise.all([
-    fetchETF('SPY'), fetchETF('%5EVIX'), fetchETF('TLT'), fetchETF('GLD'), fetchETF('USO')
+  const [spyData, vixData, tnxData, goldData, oilData] = await Promise.all([
+    fetchETF('SPY'), fetchETF('^VIX'), fetchETF('^TNX'), fetchETF('GC=F'), fetchETF('CL=F')
   ]);
 
   const summary = [];
@@ -3570,51 +3570,47 @@ async function fetchRegimeData(){
     else if(price >= 20) summary.push('VIX elevated (20–30) — caution warranted.');
   } else { vixEl.textContent = vixData ? 'Insufficient data' : 'Fetch failed'; }
 
-  // ── TLT (Bonds / Rates) ──
+  // ── 10-Year Treasury Yield (^TNX) ──
   const tltEl = document.getElementById('reg-tlt');
-  if(tltData && tltData.closes.length >= 50){
-    const c = tltData.closes, price = c[c.length-1];
-    const sma50 = c.slice(-50).reduce((s,v)=>s+v,0)/50;
-    const prev20 = c.length > 20 ? c[c.length-21] : null;
-    const pct20 = prev20 ? ((price-prev20)/prev20*100) : 0;
-    const trend = pct20 > 2 ? 'RISING' : pct20 < -2 ? 'FALLING' : 'FLAT';
-    const rateDir = trend==='FALLING' ? 'RATES ↑' : trend==='RISING' ? 'RATES ↓' : 'RATES STABLE';
-    const ratePill = trend==='FALLING' ? 'caution' : trend==='RISING' ? 'bull' : 'neu';
-    const trendPill = price > sma50 ? 'bull' : 'bear';
-    const trendLbl = price > sma50 ? 'ABOVE SMA50' : 'BELOW SMA50';
-    tltEl.innerHTML = `$${price.toFixed(2)} <span class="regime-pill ${trendPill}">${trendLbl}</span> <span class="regime-pill ${ratePill}">${rateDir}</span><br><span style="font-size:11px;color:var(--text3)">20d: ${pct20>0?'+':''}${pct20.toFixed(1)}%</span>`;
-    if(trend==='FALLING') summary.push('TLT falling — interest rates are rising. Headwind for rate-sensitive equities.');
-    else if(trend==='RISING') summary.push('TLT rising — rates are falling. Tailwind for equities, especially growth.');
-    else summary.push('TLT flat — rate environment is stable.');
-  } else { tltEl.textContent = tltData ? 'Insufficient data' : 'Fetch failed'; }
+  if(tnxData && tnxData.closes.length >= 20){
+    const c = tnxData.closes, raw = c[c.length-1];
+    const yieldPct = raw / 10; // ^TNX reports yield × 10
+    const prev20 = c.length > 20 ? c[c.length-21] / 10 : null;
+    const chg20 = prev20 ? (yieldPct - prev20) : 0;
+    const trend = chg20 > 0.15 ? 'RISING' : chg20 < -0.15 ? 'FALLING' : 'STABLE';
+    const pill = trend==='RISING' ? 'caution' : trend==='FALLING' ? 'bull' : 'neu';
+    tltEl.innerHTML = `${yieldPct.toFixed(2)}% <span class="regime-pill ${pill}">${trend}</span><br><span style="font-size:11px;color:var(--text3)">20d chg: ${chg20>0?'+':''}${chg20.toFixed(2)}%</span>`;
+    if(trend==='RISING') summary.push('10-Yr yield rising — rates increasing. Headwind for rate-sensitive equities and growth stocks.');
+    else if(trend==='FALLING') summary.push('10-Yr yield falling — rates declining. Tailwind for equities, especially growth.');
+    else summary.push('10-Yr yield stable — rate environment is neutral.');
+  } else { tltEl.textContent = tnxData ? 'Insufficient data' : 'Fetch failed'; }
 
-  // ── GLD (Gold) ──
+  // ── Gold Spot (GC=F / XAU) ──
   const gldEl = document.getElementById('reg-gold');
-  if(gldData && gldData.closes.length >= 50){
-    const c = gldData.closes, price = c[c.length-1];
-    const sma50 = c.slice(-50).reduce((s,v)=>s+v,0)/50;
+  if(goldData && goldData.closes.length >= 20){
+    const c = goldData.closes, price = c[c.length-1];
     const prev20 = c.length > 20 ? c[c.length-21] : null;
     const pct20 = prev20 ? ((price-prev20)/prev20*100) : 0;
     const trend = pct20 > 3 ? 'RISING' : pct20 < -3 ? 'FALLING' : 'FLAT';
     const pill = trend==='RISING' ? 'caution' : trend==='FALLING' ? 'bull' : 'neu';
     const label = trend==='RISING' ? 'RISK-OFF BID' : trend==='FALLING' ? 'RISK-ON' : 'STABLE';
     gldEl.innerHTML = `$${price.toFixed(2)} <span class="regime-pill ${pill}">${label}</span><br><span style="font-size:11px;color:var(--text3)">20d: ${pct20>0?'+':''}${pct20.toFixed(1)}%</span>`;
-    if(trend==='RISING') summary.push('Gold is rising — investors are seeking safety. Suggests uncertainty or inflation fears.');
-    else if(trend==='FALLING') summary.push('Gold is falling — risk appetite is healthy.');
-  } else { gldEl.textContent = gldData ? 'Insufficient data' : 'Fetch failed'; }
+    if(trend==='RISING') summary.push('Gold rising — investors seeking safety. Suggests uncertainty or inflation fears.');
+    else if(trend==='FALLING') summary.push('Gold falling — risk appetite is healthy.');
+  } else { gldEl.textContent = goldData ? 'Insufficient data' : 'Fetch failed'; }
 
-  // ── USO (Oil) ──
+  // ── Oil WTI (CL=F) ──
   const usoEl = document.getElementById('reg-uso');
-  if(usoData && usoData.closes.length >= 50){
-    const c = usoData.closes, price = c[c.length-1];
+  if(oilData && oilData.closes.length >= 20){
+    const c = oilData.closes, price = c[c.length-1];
     const prev20 = c.length > 20 ? c[c.length-21] : null;
     const pct20 = prev20 ? ((price-prev20)/prev20*100) : 0;
     const trend = pct20 > 3 ? 'RISING' : pct20 < -3 ? 'FALLING' : 'STABLE';
     const pill = trend==='RISING' ? 'caution' : trend==='FALLING' ? 'bull' : 'neu';
-    usoEl.innerHTML = `$${price.toFixed(2)} <span class="regime-pill ${pill}">${trend}</span><br><span style="font-size:11px;color:var(--text3)">20d: ${pct20>0?'+':''}${pct20.toFixed(1)}%</span>`;
+    usoEl.innerHTML = `$${price.toFixed(2)}/bbl <span class="regime-pill ${pill}">${trend}</span><br><span style="font-size:11px;color:var(--text3)">20d: ${pct20>0?'+':''}${pct20.toFixed(1)}%</span>`;
     if(trend==='RISING') summary.push('Oil rising — inflationary pressure, headwind for consumers/transport.');
     else if(trend==='FALLING') summary.push('Oil falling — easing inflation, tailwind for margins.');
-  } else { usoEl.textContent = usoData ? 'Insufficient data' : 'Fetch failed'; }
+  } else { usoEl.textContent = oilData ? 'Insufficient data' : 'Fetch failed'; }
 
   // ── Summary ──
   const sumEl = document.getElementById('reg-summary');
