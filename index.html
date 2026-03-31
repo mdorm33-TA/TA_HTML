@@ -3574,8 +3574,8 @@ async function fetchRegimeData(){
   const tltEl = document.getElementById('reg-tlt');
   if(tnxData && tnxData.closes.length >= 20){
     const c = tnxData.closes, raw = c[c.length-1];
-    const yieldPct = raw / 10; // ^TNX reports yield × 10
-    const prev20 = c.length > 20 ? c[c.length-21] / 10 : null;
+    const yieldPct = raw; // ^TNX returns yield directly as percentage
+    const prev20 = c.length > 20 ? c[c.length-21] : null;
     const chg20 = prev20 ? (yieldPct - prev20) : 0;
     const trend = chg20 > 0.15 ? 'RISING' : chg20 < -0.15 ? 'FALLING' : 'STABLE';
     const pill = trend==='RISING' ? 'caution' : trend==='FALLING' ? 'bull' : 'neu';
