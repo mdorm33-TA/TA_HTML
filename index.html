@@ -50,21 +50,21 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:18
 /* ── HEADER ── */
 .hdr{border-bottom:1px solid var(--border);background:var(--hdr-bg);padding:0;box-shadow:0 2px 8px rgba(0,0,0,.06);}
 .hdr-brand{display:flex;align-items:center;gap:14px;padding:10px 18px 8px;border-bottom:1px solid var(--border);background:var(--hdr-brand-bg);}
-.hdr-controls{display:flex;align-items:center;gap:10px;padding:7px 18px;flex-wrap:wrap;background:var(--hdr-bg);}
+.hdr-controls{display:flex;align-items:center;gap:8px;padding:5px 18px;flex-wrap:wrap;background:var(--hdr-bg);}
 .logo{font-family:var(--mono);font-size:30px;font-weight:700;color:var(--hdr-text);letter-spacing:.04em;white-space:nowrap;}
-.hdr-logo-img{height:180px;width:auto;border-radius:6px;object-fit:contain;flex-shrink:0;}
+.hdr-logo-img{height:220px;width:auto;border-radius:6px;object-fit:contain;flex-shrink:0;}
 .logo-sub{font-size:9px;color:var(--hdr-text);font-family:var(--mono);margin-top:2px;opacity:0.7;}.logo-subtitle{font-size:22px;font-weight:700;font-style:italic;color:var(--hdr-text);font-family:var(--mono);margin-top:8px;letter-spacing:.03em;text-align:center;width:100%;line-height:1.3;opacity:0.85;}
 .search-bar{display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;flex:1;min-width:0;}
-.search-bar input{background:none;border:none;color:var(--text);font-family:var(--mono);font-size:18px;font-weight:600;outline:none;width:85px;text-transform:uppercase;letter-spacing:.08em;}
+.search-bar input{background:none;border:none;color:var(--text);font-family:var(--mono);font-size:15px;font-weight:600;outline:none;width:75px;text-transform:uppercase;letter-spacing:.08em;}
 .search-bar input::placeholder{color:var(--text3);font-weight:400;}
 .sdiv{width:1px;height:18px;background:var(--border2);flex-shrink:0;}
-.pdisp{font-family:var(--mono);font-size:16px;color:var(--hdr-text);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pdisp{font-family:var(--mono);font-size:13px;color:var(--hdr-text);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .pdisp .pv{color:var(--hdr-text);font-weight:500;}
 .pdisp .pfetch{font-size:10px;cursor:pointer;color:var(--text3);margin-left:6px;text-decoration:underline;text-decoration-style:dotted;}
 .pdisp .pfetch:hover{color:var(--accent);}
-.asel{background:var(--surface3);border:1px solid var(--border2);color:var(--text2);font-family:var(--mono);font-size:15px;padding:5px 9px;border-radius:4px;outline:none;cursor:pointer;}
+.asel{background:var(--surface3);border:1px solid var(--border2);color:var(--text2);font-family:var(--mono);font-size:13px;padding:4px 7px;border-radius:4px;outline:none;cursor:pointer;}
 .asel:focus{border-color:var(--accent);}
-.run-btn{padding:8px 18px;background:linear-gradient(135deg,#1a6fd4 0%,#1558b0 100%);border:none;border-radius:6px;color:#fff;font-family:var(--mono);font-size:15px;font-weight:600;letter-spacing:.06em;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px;transition:all .15s;flex-shrink:0;box-shadow:0 2px 8px rgba(26,111,212,.3);}
+.run-btn{padding:6px 14px;background:linear-gradient(135deg,#1a6fd4 0%,#1558b0 100%);border:none;border-radius:6px;color:#fff;font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.06em;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px;transition:all .15s;flex-shrink:0;box-shadow:0 2px 8px rgba(26,111,212,.3);}
 .run-btn:hover{background:linear-gradient(135deg,#1d7ae8 0%,#1a6fd4 100%);box-shadow:0 4px 14px rgba(26,111,212,.4);transform:translateY(-1px);}
 .run-btn:disabled{background:var(--surface3);color:var(--text3);cursor:not-allowed;}
 .spinner{width:10px;height:10px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;display:none;}
@@ -120,7 +120,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:18
 .tip-wrap{position:relative;display:inline-block;flex-shrink:0;}
 .tip-icon{width:14px;height:14px;border-radius:50%;background:var(--surface3);border:1px solid var(--border2);font-size:9px;color:var(--text3);text-align:center;line-height:14px;cursor:help;margin-top:1px;transition:all .15s;user-select:none;}
 .tip-icon:hover{background:var(--high-dim);border-color:var(--accent);color:var(--accent);}
-.tip-box{display:none;position:fixed;z-index:9999;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;width:270px;box-shadow:0 4px 20px rgba(0,0,0,.15);pointer-events:none;font-family:var(--sans);}
+.tip-box{display:none;position:fixed;z-index:9999;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;width:270px;max-width:calc(100vw - 24px);box-shadow:0 4px 20px rgba(0,0,0,.15);pointer-events:none;font-family:var(--sans);word-wrap:break-word;overflow-wrap:break-word;}
 /* tip-box shown via JS mouseover for correct fixed-position behavior */
 .tip-box.visible{display:block;}
 .tip-box .tp-name{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--accent);margin-bottom:4px;}
@@ -364,6 +364,9 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
 .wt-panel-badge.modified{background:#a06a0018;color:var(--neu);}
 .wt-chevron{font-size:10px;color:var(--text3);transition:transform .2s;}
 .wt-chevron.open{transform:rotate(180deg);}
+/* Timeframe selector highlight */
+.tf-sel-highlight{border:2px solid var(--bear)!important;color:var(--bear)!important;background:var(--surface)!important;border-radius:6px!important;}
+.tf-sel-highlight:focus{border-color:var(--bear)!important;box-shadow:0 0 0 2px rgba(255,69,96,.2)!important;}
 .wt-panel-body{display:none;padding:12px 13px 13px;border-top:1px solid var(--border);}
 .wt-panel-body.open{display:block;}
 
@@ -581,7 +584,7 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
     <div class="bucket">
       <div class="bucket-hdr">
         <div class="bpill high">High Confidence</div>
-        <span class="bdesc">Volume Profile · SMA 200 · MA Cross · RSI Extreme · DeMark Seq (computed)</span>
+        <span class="bdesc">Volume Profile · SMA 200 · MA Cross · RSI Extreme · ADX</span>
         <div class="bw">Weight: <span>50%</span></div>
       </div>
       <div id="bucket-high"></div>
@@ -590,7 +593,7 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
     <div class="bucket">
       <div class="bucket-hdr">
         <div class="bpill med">Medium Confidence</div>
-        <span class="bdesc">MACD Wkly · Ichimoku · Bollinger · OBV · SuperTrend (all computed)</span>
+        <span class="bdesc">MACD Wkly · Ichimoku · Bollinger · OBV · SuperTrend · DeMark Seq (all computed)</span>
         <div class="bw">Weight: <span>30%</span></div>
       </div>
       <div id="bucket-med"></div>
@@ -645,7 +648,7 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
           <span class="wt-panel-badge" id="tf-badge" style="background:#1a6fd418;color:var(--accent);" title="Current timeframe preset">Position (1–3 mo)</span>
         </div>
         <div style="display:flex;align-items:center;gap:8px;" onclick="event.stopPropagation()">
-          <select id="timeframe-sel" class="asel" onchange="onTFChange()" title="Timeframe preset — adjusts indicator weights for your trade horizon" style="font-size:11px;padding:4px 7px;">
+          <select id="timeframe-sel" class="asel tf-sel-highlight" onchange="onTFChange()" title="Timeframe preset — adjusts bucket weights and individual indicator weights for your trade horizon" style="font-size:14px;padding:6px 10px;font-weight:600;">
             <option value="swing">Swing (1–2 wk)</option>
             <option value="position" selected>Position (1–3 mo)</option>
             <option value="intermediate">Intermediate (3–12 mo)</option>
@@ -708,6 +711,21 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
         <div class="lvl-row"><div class="lvl-lbl"><div class="lvl-dot" style="background:var(--accent)"></div>Target</div><input class="lvl-in" id="target" placeholder="—"></div>
       </div>
 
+      <!-- FUNDAMENTALS DASHBOARD -->
+    <div class="fund-panel" id="fund-panel" style="margin-top:10px;">
+      <div class="fund-panel-hdr" onclick="toggleFundPanel()">
+        <div class="fund-panel-title">
+          📊 Fundamentals Dashboard
+          <span class="fund-badge" id="fund-badge">— run Analyze</span>
+          <span class="fund-context-note">Context only — no weighting applied to TA score</span>
+        </div>
+        <span class="fund-chevron" id="fund-chevron">▼</span>
+      </div>
+      <div class="fund-body" id="fund-body">
+        <!-- injected by renderFundamentals() -->
+      </div>
+    </div>
+
       <!-- MACRO REGIME PANEL (includes F&G) -->
       <div class="fg-card" id="regime-card">
         <div class="stitle" style="display:flex;justify-content:space-between;align-items:center;">
@@ -738,20 +756,6 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
         <div id="reg-summary" style="margin-top:8px;padding:8px;border-radius:6px;background:var(--surface3);font-size:12px;color:var(--text2);line-height:1.5;">
           Click "Fetch Live" or run Analyze to load macro data.
         </div>
-      </div>
-
-      <!-- FUNDAMENTALS DASHBOARD -->
-    <div class="fund-panel" id="fund-panel" style="margin-top:10px;">
-      <div class="fund-panel-hdr" onclick="toggleFundPanel()">
-        <div class="fund-panel-title">
-          📊 Fundamentals Dashboard
-          <span class="fund-badge" id="fund-badge">— run Analyze</span>
-          <span class="fund-context-note">Context only — no weighting applied to TA score</span>
-        </div>
-        <span class="fund-chevron" id="fund-chevron">▼</span>
-      </div>
-      <div class="fund-body" id="fund-body">
-        <!-- injected by renderFundamentals() -->
       </div>
 
     </div><!-- /printable-scorecard -->
@@ -2871,13 +2875,30 @@ function buildRow(ind,bkt){
   // JS-driven tooltip — CSS :hover breaks with position:fixed children
   tipBtn.addEventListener('mouseenter', e=>{
     const rect=tipBtn.getBoundingClientRect();
-    tipBox.style.left=(rect.left+rect.width+6)+'px';
-    tipBox.style.top=Math.max(4,rect.top-10)+'px';
-    // Clamp to viewport
-    tipBox.style.maxWidth='270px';
+    const vw=window.innerWidth, vh=window.innerHeight;
+    const tipW=270;
+    // Try right of button first; if overflows, position left or centered
+    let left=rect.left+rect.width+6;
+    if(left+tipW > vw-12) left=Math.max(12, vw-tipW-12);
+    tipBox.style.left=left+'px';
+    tipBox.style.top=Math.max(4,Math.min(rect.top-10, vh-300))+'px';
+    tipBox.style.maxWidth=Math.min(tipW, vw-24)+'px';
     tipBox.classList.add('visible');
   });
   tipBtn.addEventListener('mouseleave', ()=>tipBox.classList.remove('visible'));
+  // Touch support for mobile
+  tipBtn.addEventListener('touchstart', e=>{
+    e.preventDefault();
+    const rect=tipBtn.getBoundingClientRect();
+    const vw=window.innerWidth, vh=window.innerHeight;
+    const tipW=270;
+    let left=rect.left+rect.width+6;
+    if(left+tipW > vw-12) left=Math.max(12, vw-tipW-12);
+    tipBox.style.left=left+'px';
+    tipBox.style.top=Math.max(4,Math.min(rect.top-10, vh-300))+'px';
+    tipBox.style.maxWidth=Math.min(tipW, vw-24)+'px';
+    tipBox.classList.toggle('visible');
+  }, {passive:false});
 
   // Chart button for chartable indicators
   if(CHARTABLE[ind.id]){
@@ -3299,7 +3320,6 @@ function drawGauge(score, dispersion){
   const na=Math.PI+(score/100)*Math.PI;
   ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+(r-20)*Math.cos(na),cy+(r-20)*Math.sin(na));ctx.lineWidth=2;ctx.strokeStyle=needleColor;ctx.lineCap='round';ctx.stroke();
   ctx.beginPath();ctx.arc(cx,cy,4,0,Math.PI*2);ctx.fillStyle=needleColor;ctx.fill();
-  ctx.font='9px IBM Plex Mono';ctx.fillStyle='#ff4560';ctx.textAlign='center';ctx.fillText('Bear',cx-r+7,cy-5);ctx.fillStyle='#00d97e';ctx.fillText('Bull',cx+r-7,cy-5);
   const v=verd(score);
   document.getElementById('gscore').textContent=Math.round(score);document.getElementById('gscore').style.color=sCol(score);
   document.getElementById('gverdict').textContent=v.l;document.getElementById('gverdict').style.color=v.col;
@@ -4173,6 +4193,12 @@ async function fetchTides(){
 document.addEventListener('DOMContentLoaded',()=>{
   buildAll();
   updWtBadge();
+  // Dismiss tooltips on tap outside (mobile)
+  document.addEventListener('touchstart', e=>{
+    if(!e.target.classList.contains('tip-icon')){
+      document.querySelectorAll('.tip-box.visible').forEach(b=>b.classList.remove('visible'));
+    }
+  });
   // Auto-open and load tide panel
   (function(){
     const body=document.getElementById('tide-body');
