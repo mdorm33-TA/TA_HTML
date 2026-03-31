@@ -604,11 +604,10 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
     </div>
 
     <!-- ADX REGIME OVERLAY -->
-    <div class="adx-overlay-card" id="adx-overlay-card" style="background:linear-gradient(145deg,var(--surface) 0%,var(--surface2) 100%);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:10px;font-family:var(--mono);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <div class="adx-overlay-card" id="adx-overlay-card" style="background:linear-gradient(145deg,var(--surface) 0%,var(--surface2) 100%);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:10px;font-family:var(--mono);display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:relative;">
       <span style="font-size:11px;font-weight:700;color:var(--neu);">⚡ ADX Regime Overlay</span>
       <span id="adx-overlay-badge" style="font-size:11px;color:var(--text2);flex:1;">Awaiting OHLC data…</span>
-      <button class="tip-icon" onclick="this.nextElementSibling.classList.toggle('show')" style="width:22px;height:22px;font-size:13px;border:1.5px solid var(--border2);border-radius:50%;background:var(--surface3);color:var(--text3);cursor:pointer;">?</button>
-      <div class="tip-pop" style="display:none;position:absolute;right:0;top:28px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:10px;font-size:11px;color:var(--text2);max-width:320px;z-index:100;box-shadow:var(--card-shadow);" onclick="this.classList.remove('show')">ADX is not a scored indicator — it acts as a <strong>regime overlay</strong> that multiplies the weights of trend-following indicators (SMA 200, Ichimoku, MA Cross, MACD Weekly). When ADX &gt; 25 (trending market), trend signals are amplified. When ADX &lt; 20 (choppy market), trend signals are dampened. This implements the insight that trend-following indicators are unreliable in trendless conditions.</div>
+      <span class="tip-wrap"><button class="tip-icon" style="width:22px;height:22px;font-size:13px;border:1.5px solid var(--border2);border-radius:50%;background:var(--surface3);color:var(--text3);cursor:pointer;">?</button><div class="tip-box"><div class="tp-name">ADX Regime Overlay</div><div class="tp-desc">ADX is <strong>not</strong> a scored indicator — it acts as a <strong>regime overlay</strong> that multiplies the weights of trend-following indicators (SMA 200, Ichimoku, MA Cross, MACD Weekly).<br><br><strong>How it works:</strong><br>• ADX ≥ 40: Very Strong Trend → weights boosted 1.20×<br>• ADX ≥ 30: Strong Trend → weights boosted 1.12×<br>• ADX ≥ 25: Trending → weights boosted 1.06×<br>• ADX ≥ 20: Transitional → weights neutral (1.00×)<br>• ADX &lt; 20: Choppy → weights dampened 0.85×<br><br>This implements the insight that trend-following indicators are unreliable in trendless conditions. +DI vs -DI shows the direction of the trend.</div></div></span>
     </div>
 
     <!-- FALLING KNIFE ALERT -->
@@ -2030,6 +2029,15 @@ function renderFundamentals(){
   // Growth
   if(!isLimited && f.rev_growth && f.rev_growth !== 'N/A'){
     sep('Growth'); row('Revenue Growth (YoY)', f.rev_growth);
+    // PEG Ratio = P/E ÷ Growth Rate (computed client-side from existing data)
+    if(f.pe_fwd && f.pe_fwd !== 'N/A'){
+      const peNum = parseFloat(String(f.pe_fwd).replace(/[^0-9.\-]/g, ''));
+      const grNum = parseFloat(String(f.rev_growth).replace(/[^0-9.\-]/g, ''));
+      if(!isNaN(peNum) && !isNaN(grNum) && grNum > 0){
+        const peg = (peNum / grNum).toFixed(2);
+        row('PEG Ratio', peg);
+      }
+    }
   }
 
   // Cash Flow & Balance Sheet
