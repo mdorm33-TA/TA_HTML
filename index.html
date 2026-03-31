@@ -3275,10 +3275,13 @@ function detectDualSignalCommentary(){
   }
 
   // ── ADX CONTEXT ──
-  if(adx >= 70){
-    parts.push(`Trend strength (ADX) is very high — whatever direction is in play has strong momentum behind it. Contrarian signals tend to be less reliable in this environment.`);
-  } else if(adx <= 25){
-    parts.push(`Trend strength (ADX) is weak — the market is range-bound or lacking directional conviction. Contrarian/mean-reversion signals tend to be more reliable in this environment.`);
+  const adxVal_c = adxOverlay.adx ?? 0;
+  if(adxVal_c >= 40){
+    parts.push(`Trend strength (ADX ${adxVal_c}) is very high — whatever direction is in play has strong momentum behind it. Trend-follower weights are boosted ${adxOverlay.multiplier}×. Contrarian signals tend to be less reliable in this environment.`);
+  } else if(adxVal_c >= 25){
+    parts.push(`Trend strength (ADX ${adxVal_c}) confirms a trending market — trend-follower weights are boosted ${adxOverlay.multiplier}×.`);
+  } else if(adxVal_c > 0 && adxVal_c < 20){
+    parts.push(`Trend strength (ADX ${adxVal_c}) is weak — the market is range-bound or lacking directional conviction. Trend-follower weights are dampened (${adxOverlay.multiplier}×). Contrarian/mean-reversion signals tend to be more reliable in this environment.`);
   }
 
   // ── AGREEMENT/DISAGREEMENT ──
