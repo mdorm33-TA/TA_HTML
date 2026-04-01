@@ -2448,6 +2448,20 @@ async function runAllComputed(ticker){
 
     console.log('runAllComputed: ALL DONE — detail strings complete for', ticker);
 
+    // Schedule a delayed force-refresh to guarantee DOM updates render
+    // This catches any case where synchronous DOM updates don't visually flush
+    setTimeout(() => {
+      console.log('runAllComputed: delayed force-refresh firing');
+      [...INDS.high,...INDS.med].forEach(i => {
+        const v = vals[i.id]; if(v == null) return;
+        const sl = document.getElementById('sl-'+i.id);
+        if(sl) { sl.value = v; sl.style.background = sbg(v); }
+        const lb = document.getElementById('lb-'+i.id);
+        if(lb) { const s = getSig(v); lb.className = 'slbl '+s.cls; lb.textContent = s.txt; }
+      });
+      recalc();
+    }, 100);
+
   } catch(err){
     console.warn('runAllComputed failed:', err.message);
     // Sub-labels revert to defaults on error — AI estimates remain
@@ -3889,17 +3903,8 @@ async function runAnalysis(){
       runLevelsComputed(ticker);
       renderOrientationChart(ticker);
       computedDone = true;
-      // Force re-apply all scores from vals to DOM (ensures sliders visually update)
-      [...INDS.high,...INDS.med].forEach(i => {
-        const v = vals[i.id]; if(v == null) return;
-        const sl = document.getElementById('sl-'+i.id);
-        if(sl) { sl.value = v; sl.style.background = sbg(v); }
-        const lb = document.getElementById('lb-'+i.id);
-        if(lb) { const s = getSig(v); lb.className = 'slbl '+s.cls; lb.textContent = s.txt; }
-      });
-      recalc();
-      console.log('computedPromise: force-refreshed sliders from vals:', JSON.stringify(vals));
       // Update status bar immediately with computed scores
+      // (sliders are updated by runAllComputed + delayed force-refresh)
       const _sc = Math.round(bScore('high')*customBW.high + bScore('med')*customBW.med);
       const _vc = verd(_sc).l, _cc = sCol(_sc);
       const _cnc = window._lastSymbolName ? ` · ${window._lastSymbolName}` : '';
