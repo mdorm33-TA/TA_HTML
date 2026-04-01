@@ -2239,11 +2239,13 @@ Rules:
 // Fetches OHLC once, calls scoreSymbol(), distributes scores + detail strings.
 
 async function runAllComputed(ticker){
+  console.log('[runAllComputed] START for', ticker);
   try{
     const ohlc = await Promise.race([
       fetchOHLCForCharts(ticker),
       new Promise((_,r)=>setTimeout(()=>r(new Error('OHLC timeout')),30000))
     ]);
+    console.log('[runAllComputed] OHLC received, daily bars:', ohlc?.daily?.length);
     if(!ohlc || !ohlc.daily || ohlc.daily.length < 30) throw new Error('Insufficient bars ('+((ohlc?.daily?.length)||0)+')');
 
     const daily = ohlc.daily;
