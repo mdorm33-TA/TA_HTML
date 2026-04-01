@@ -433,6 +433,23 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
 .fund-chevron.open{transform:rotate(180deg);}
 .fund-body{display:none;border-top:1px solid var(--border);padding:12px 13px 13px;}
 .fund-body.open{display:block;}
+.news-panel{background:var(--surface2);border:2px solid #f59e0b;border-radius:10px;margin-top:10px;overflow:hidden;}
+.news-panel-hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 13px;cursor:pointer;user-select:none;transition:background .15s;border-radius:10px;}
+.news-panel-hdr:hover{background:var(--surface3);}
+.news-panel-title{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--text2);display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.news-badge{font-size:10px;padding:1px 6px;border-radius:3px;font-weight:400;background:var(--surface3);color:var(--text3);}
+.news-badge.loaded{background:#f59e0b18;color:#f59e0b;}
+.news-badge.loading{background:#f59e0b18;color:#f59e0b;animation:blink 0.7s step-end infinite;}
+.news-badge.error{background:#ff456018;color:#ff4560;}
+.news-body{padding:12px 13px 13px;}
+.news-content{font-family:var(--sans);font-size:14px;color:var(--text2);line-height:1.7;}
+.news-content ul{margin:6px 0 10px;padding-left:20px;}
+.news-content li{margin-bottom:6px;}
+.news-content strong{color:var(--text);}
+.news-cost-note{font-family:var(--mono);font-size:9px;color:var(--text3);font-style:italic;margin-top:8px;}
+.news-fetch-btn{font-family:var(--mono);font-size:11px;padding:5px 12px;border:1px solid #f59e0b;border-radius:5px;background:#f59e0b18;color:#f59e0b;cursor:pointer;font-weight:600;transition:all .15s;}
+.news-fetch-btn:hover{background:#f59e0b30;}
+.news-fetch-btn:disabled{opacity:0.5;cursor:not-allowed;}
 .fund-na{font-family:var(--mono);font-size:11px;color:var(--text3);font-style:italic;padding:4px 0 6px;}
 
 /* compact multi-column grid */
@@ -739,6 +756,21 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
       </div>
       <div class="fund-body" id="fund-body">
         <!-- injected by renderFundamentals() -->
+      </div>
+    </div>
+
+    <!-- NEWS & PRICE ACTION PANEL -->
+    <div class="news-panel" id="news-panel">
+      <div class="news-panel-hdr">
+        <div class="news-panel-title">
+          📰 What's Driving This?
+          <span class="news-badge" id="news-badge">click button to load</span>
+        </div>
+        <button class="news-fetch-btn" id="news-fetch-btn" onclick="fetchNewsAnalysis()">🔍 Fetch News</button>
+      </div>
+      <div class="news-body" id="news-body" style="display:none;">
+        <div class="news-content" id="news-content"></div>
+        <div class="news-cost-note">Uses AI web search · ~$0.10–0.15 per query</div>
       </div>
     </div>
 
@@ -2119,6 +2151,87 @@ All values plain text only — no HTML, no citations. Use N/A if unknown. Return
     console.error('Fundamentals fetch failed:', err);
   }
   renderFundamentals();
+}
+
+// ═══ NEWS & PRICE ACTION ANALYSIS (on-demand, uses web search) ═══
+async function fetchNewsAnalysis(){
+  const ticker = document.getElementById('ticker-input').value.trim().toUpperCase();
+  if(!ticker){ alert('Enter a ticker symbol first.'); return; }
+
+  const btn = document.getElementById('news-fetch-btn');
+  const badge = document.getElementById('news-badge');
+  const body = document.getElementById('news-body');
+  const content = document.getElementById('news-content');
+
+  btn.disabled = true;
+  btn.textContent = '⟳ Searching…';
+  badge.className = 'news-badge loading';
+  badge.textContent = 'searching news…';
+  body.style.display = 'block';
+  content.innerHTML = '<div style="color:var(--text3);font-style:italic;">Searching for recent news and analyzing price action…</div>';
+
+  const companyName = window._lastSymbolName || '';
+  const priceStr = document.getElementById('price-val').textContent.replace('$','').trim();
+
+  const sys = `You are a financial news analyst. Search the web for the most recent news, events, and developments for the given stock ticker. Then provide a concise analysis of what is driving recent price action.
+
+Format your response as clean HTML (no markdown). Use this structure:
+<strong>Recent Catalysts</strong>
+<ul>
+<li><strong>[Date or timeframe]:</strong> Brief description of the event/news</li>
+</ul>
+<strong>Price Action Read</strong>
+<p>2-3 sentences interpreting what the technicals + news together suggest about near-term direction.</p>
+
+Rules:
+- Focus on the last 1-4 weeks of news
+- Include earnings, analyst actions, sector moves, regulatory news, insider activity if relevant
+- Be specific with dates and numbers where possible
+- If very little news exists for this ticker, say so honestly
+- Keep it concise — 4-6 bullet points max for catalysts
+- No generic filler — every bullet should be a specific, dated event
+- Plain HTML only, no markdown backticks`;
+
+  try {
+    const res = await fetch('https://tacall.mdorm33.workers.dev', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1000,
+        system: sys,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        messages: [{ role: 'user', content: `What is driving recent price action for ${ticker}${companyName ? ' (' + companyName + ')' : ''}? Current price: $${priceStr}. Search for the latest news and events.` }]
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || 'API error ' + res.status);
+    }
+
+    const data = await res.json();
+    const textBlocks = data.content.filter(b => b.type === 'text').map(b => b.text);
+    if (textBlocks.length === 0) throw new Error('No text in response');
+
+    const raw = textBlocks.join('');
+    // Clean any markdown code fences that might slip through
+    const cleaned = raw.replace(/```html?\n?/gi, '').replace(/```/g, '').trim();
+
+    content.innerHTML = cleaned;
+    badge.className = 'news-badge loaded';
+    badge.textContent = '✓ loaded';
+    btn.textContent = '🔍 Refresh';
+    btn.disabled = false;
+
+  } catch(err) {
+    content.innerHTML = `<div style="color:var(--bear);">⚠ News fetch failed: ${err.message}</div>`;
+    badge.className = 'news-badge error';
+    badge.textContent = '⚠ failed';
+    btn.textContent = '🔍 Retry';
+    btn.disabled = false;
+    console.error('News analysis error:', err);
+  }
 }
 
 // ═══ UNIFIED COMPUTED SCORING — uses shared scoring engine ═══
@@ -3802,6 +3915,12 @@ async function runAnalysis(){
 
   ['r1','r2','s1','s2','stop','target'].forEach(k=>{const el=document.getElementById(k);if(el)el.value='';});
   document.getElementById('div-note').value='';
+
+  // Reset news panel
+  const nb = document.getElementById('news-badge'); if(nb){ nb.className='news-badge'; nb.textContent='click button to load'; }
+  const nBody = document.getElementById('news-body'); if(nBody) nBody.style.display='none';
+  const nContent = document.getElementById('news-content'); if(nContent) nContent.innerHTML='';
+  const nBtn = document.getElementById('news-fetch-btn'); if(nBtn){ nBtn.textContent='🔍 Fetch News'; nBtn.disabled=false; }
 
   // Handle fund not applicable immediately
   if(fundNotApplicable(getAC())){
