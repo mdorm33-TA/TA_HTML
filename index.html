@@ -2759,24 +2759,22 @@ async function fetchOHLCForCharts(ticker){
   const WORKER_BASE = 'https://ta-alerts.mdorm33.workers.dev';
   const fetchBars = async (interval, range) => {
     const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=${interval}&range=${range}`;
-    const yahoo2Url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=${interval}&range=${range}`;
     const proxies = [
-      `${WORKER_BASE}/ohlc?ticker=${encodeURIComponent(ticker)}&interval=${interval}&range=${range}`,
-      yahooUrl,
-      yahoo2Url,
-      `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`,
-      `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`,
-      `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(yahooUrl)}`,
+      { url: `${WORKER_BASE}/ohlc?ticker=${encodeURIComponent(ticker)}&interval=${interval}&range=${range}`, timeout: 12000 },
+      { url: `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`, timeout: 6000 },
+      { url: `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`, timeout: 6000 },
+      { url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(yahooUrl)}`, timeout: 6000 },
     ];
     let res = null;
-    for(const url of proxies){
+    for(const proxy of proxies){
       try{
         const ctrl = new AbortController();
-        const tid = setTimeout(()=>ctrl.abort(), 5000);
-        res = await fetch(url, {signal:ctrl.signal});
+        const tid = setTimeout(()=>ctrl.abort(), proxy.timeout);
+        res = await fetch(proxy.url, {signal:ctrl.signal});
         clearTimeout(tid);
-        if(res.ok) break;
-      }catch(e){ res = null; }
+        if(res.ok){ console.log('OHLC proxy OK:', proxy.url.slice(0,60)); break; }
+        else { console.warn('OHLC proxy non-OK:', res.status, proxy.url.slice(0,60)); res = null; }
+      }catch(e){ console.warn('OHLC proxy failed:', e.message, proxy.url.slice(0,60)); res = null; }
     }
     if(!res || !res.ok) throw new Error('OHLC fetch failed for '+interval);
     const data = await res.json();
