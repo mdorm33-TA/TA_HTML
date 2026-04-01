@@ -2259,8 +2259,8 @@ async function runAllComputed(ticker){
     await new Promise(r => setTimeout(r, 0));
 
     // ── Single call to scoring engine — source of truth ──
-    // Use last 500 bars for scoring (200 warmup + 300 scored) — full dataset used for charts
-    const scoringBars = daily.length > 500 ? daily.slice(-500) : daily;
+    // Use last 252 bars for scoring (1yr) — full dataset used for charts only
+    const scoringBars = daily.length > 252 ? daily.slice(-252) : daily;
     console.log('[runAllComputed] calling scoreSymbol with', scoringBars.length, 'bars (from', daily.length, 'total), price:', price);
     let result;
     try {
