@@ -293,10 +293,10 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
 /* ── ORIENTATION CHART ── */
 .orient-card{background:linear-gradient(145deg,var(--surface) 0%,var(--surface2) 100%);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:14px;box-shadow:var(--card-shadow);}
 .orient-hdr{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;}
-.orient-title{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--text);}
-.orient-sub{font-family:var(--mono);font-size:10px;color:var(--text3);}
-.orient-status{font-family:var(--mono);font-size:10px;color:var(--text3);margin-left:auto;}
-.orient-rsi-lbl{font-family:var(--mono);font-size:9px;color:var(--text3);margin-bottom:2px;}
+.orient-title{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--text);}
+.orient-sub{font-family:var(--mono);font-size:12px;color:var(--text3);}
+.orient-status{font-family:var(--mono);font-size:12px;color:var(--text3);margin-left:auto;}
+.orient-rsi-lbl{font-family:var(--mono);font-size:11px;color:var(--text3);margin-bottom:2px;}
 
 
 .lvl-card{background:linear-gradient(145deg,var(--surface) 0%,var(--surface2) 100%);border:1px solid var(--border);border-radius:12px;padding:12px;box-shadow:var(--card-shadow);}
@@ -2101,7 +2101,7 @@ All values plain text only — no HTML, no citations. Use N/A if unknown. Return
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
-        model:'claude-haiku-4-5-20251001', max_tokens:400, system:sys,
+        model:'claude-sonnet-4-6', max_tokens:400, system:sys,
         messages:[{role:'user',content:`Return fundamental data JSON for ${ticker}.`}]
       })
     });
@@ -2587,17 +2587,17 @@ async function renderOrientationChart(ticker){
         responsive:true, maintainAspectRatio:false, animation:false,
         interaction:{mode:'index',intersect:false},
         plugins:{
-          legend:{display:true,position:'top',labels:{boxWidth:20,font:{size:10},color:chartColors().legend}},
+          legend:{display:true,position:'top',labels:{boxWidth:20,font:{size:13},color:chartColors().legend}},
           tooltip:{enabled:true},
           annotation:{annotations:{
-            ...(vpVAH!=null?{vah:{type:'line',yMin:vpVAH,yMax:vpVAH,borderColor:'rgba(26,111,212,0.5)',borderWidth:1,borderDash:[4,3],label:{content:'VAH',display:true,position:'end',font:{size:8},color:'rgba(26,111,212,0.8)',backgroundColor:'transparent',padding:2}}}:{}),
-            ...(vpVAL!=null?{val:{type:'line',yMin:vpVAL,yMax:vpVAL,borderColor:'rgba(10,138,78,0.5)',borderWidth:1,borderDash:[4,3],label:{content:'VAL',display:true,position:'end',font:{size:8},color:'rgba(10,138,78,0.8)',backgroundColor:'transparent',padding:2}}}:{}),
-            ...(vpPoc!=null?{poc:{type:'line',yMin:vpPoc,yMax:vpPoc,borderColor:'rgba(240,180,41,0.5)',borderWidth:1,borderDash:[2,3],label:{content:'POC',display:true,position:'end',font:{size:8},color:'rgba(240,180,41,0.9)',backgroundColor:'transparent',padding:2}}}:{}),
+            ...(vpVAH!=null?{vah:{type:'line',yMin:vpVAH,yMax:vpVAH,borderColor:'rgba(26,111,212,0.5)',borderWidth:1,borderDash:[4,3],label:{content:'VAH',display:true,position:'end',font:{size:11},color:'rgba(26,111,212,0.8)',backgroundColor:'transparent',padding:2}}}:{}),
+            ...(vpVAL!=null?{val:{type:'line',yMin:vpVAL,yMax:vpVAL,borderColor:'rgba(10,138,78,0.5)',borderWidth:1,borderDash:[4,3],label:{content:'VAL',display:true,position:'end',font:{size:11},color:'rgba(10,138,78,0.8)',backgroundColor:'transparent',padding:2}}}:{}),
+            ...(vpPoc!=null?{poc:{type:'line',yMin:vpPoc,yMax:vpPoc,borderColor:'rgba(240,180,41,0.5)',borderWidth:1,borderDash:[2,3],label:{content:'POC',display:true,position:'end',font:{size:11},color:'rgba(240,180,41,0.9)',backgroundColor:'transparent',padding:2}}}:{}),
           }}
         },
         scales:{
-          x:{ticks:{maxTicksLimit:12,font:{size:9},color:chartColors().tick,maxRotation:0},grid:{color:chartColors().gridFaint}},
-          y:{ticks:{font:{size:9},color:chartColors().tick},grid:{color:chartColors().grid}}
+          x:{ticks:{maxTicksLimit:12,font:{size:12},color:chartColors().tick,maxRotation:0},grid:{color:chartColors().gridFaint}},
+          y:{ticks:{font:{size:12},color:chartColors().tick},grid:{color:chartColors().grid}}
         }
       }
     });
@@ -2618,8 +2618,8 @@ async function renderOrientationChart(ticker){
           }}
         },
         scales:{
-          x:{ticks:{maxTicksLimit:8,font:{size:9},color:chartColors().tick,maxRotation:0},grid:{color:chartColors().grid}},
-          y:{min:0,max:100,ticks:{stepSize:20,font:{size:9},color:chartColors().tick},grid:{color:chartColors().grid}}
+          x:{ticks:{maxTicksLimit:8,font:{size:12},color:chartColors().tick,maxRotation:0},grid:{color:chartColors().grid}},
+          y:{min:0,max:100,ticks:{stepSize:20,font:{size:12},color:chartColors().tick},grid:{color:chartColors().grid}}
         }
       }
     });
@@ -2761,8 +2761,8 @@ async function renderChart(id){
     const baseOpts = {
       responsive:true, maintainAspectRatio:false,
       animation:{duration:300},
-      plugins:{legend:{display:true,position:'top',labels:{font:{family:'IBM Plex Mono',size:9},color:_cc.legendSm,boxWidth:12,padding:8}},tooltip:{mode:'index',intersect:false,titleFont:{family:'IBM Plex Mono',size:10},bodyFont:{family:'IBM Plex Mono',size:10}}},
-      scales:{x:{ticks:{font:{family:'IBM Plex Mono',size:8},color:_cc.tick,maxTicksLimit:8,maxRotation:0},grid:{color:_cc.grid}},y:{ticks:{font:{family:'IBM Plex Mono',size:8},color:_cc.tick},grid:{color:_cc.grid},position:'right'}}
+      plugins:{legend:{display:true,position:'top',labels:{font:{family:'IBM Plex Mono',size:13},color:_cc.legendSm,boxWidth:12,padding:8}},tooltip:{mode:'index',intersect:false,titleFont:{family:'IBM Plex Mono',size:13},bodyFont:{family:'IBM Plex Mono',size:13}}},
+      scales:{x:{ticks:{font:{family:'IBM Plex Mono',size:12},color:_cc.tick,maxTicksLimit:8,maxRotation:0},grid:{color:_cc.grid}},y:{ticks:{font:{family:'IBM Plex Mono',size:12},color:_cc.tick},grid:{color:_cc.grid},position:'right'}}
     };
 
     cc.innerHTML = ''; // clear loading
@@ -3825,8 +3825,8 @@ async function runAnalysis(){
 divNote: one sentence on dividend yield or total return context.${fundApplicable ? `\nreturn_3yr, return_5yr, return_10yr must be TOTAL RETURN (price + dividends reinvested), annualised.${isLimited ? ' This is a Bond/MLP/ETF — pe_fwd and rev_growth likely N/A. Focus on div_yield and total returns.' : ''}` : ''}
 All values plain text only — no HTML, no citations. Use N/A if unknown. Return ONLY the JSON.`;
 
-  // Haiku only — fast, low cost, no web search needed (price + F&G fetched separately)
-  const MODEL = 'claude-haiku-4-5-20251001';
+  // Sonnet 4.6 — smarter, less hallucination, same $3/$15 pricing tier as 4.5
+  const MODEL = 'claude-sonnet-4-6';
 
   try{
     let data=null, lastErr=null;
@@ -3848,7 +3848,7 @@ All values plain text only — no HTML, no citations. Use N/A if unknown. Return
           body:JSON.stringify({
             model:MODEL, max_tokens:500,
             system:[{type:'text',text:sys,cache_control:{type:'ephemeral'}}],
-            messages:[{role:'user',content:`Return JSON for ${ticker}.`}]
+            messages:[{role:'user',content:`Return JSON for ${ticker}${window._lastSymbolName ? ' ('+window._lastSymbolName+')' : ''}.`}]
           })
         });
         body=await res.json().catch(()=>({}));
