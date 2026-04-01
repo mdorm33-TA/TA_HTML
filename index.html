@@ -3889,6 +3889,16 @@ async function runAnalysis(){
       runLevelsComputed(ticker);
       renderOrientationChart(ticker);
       computedDone = true;
+      // Force re-apply all scores from vals to DOM (ensures sliders visually update)
+      [...INDS.high,...INDS.med].forEach(i => {
+        const v = vals[i.id]; if(v == null) return;
+        const sl = document.getElementById('sl-'+i.id);
+        if(sl) { sl.value = v; sl.style.background = sbg(v); }
+        const lb = document.getElementById('lb-'+i.id);
+        if(lb) { const s = getSig(v); lb.className = 'slbl '+s.cls; lb.textContent = s.txt; }
+      });
+      recalc();
+      console.log('computedPromise: force-refreshed sliders from vals:', JSON.stringify(vals));
       // Update status bar immediately with computed scores
       const _sc = Math.round(bScore('high')*customBW.high + bScore('med')*customBW.med);
       const _vc = verd(_sc).l, _cc = sCol(_sc);
