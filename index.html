@@ -2254,6 +2254,7 @@ async function runAllComputed(ticker){
 
     // ── Single call to scoring engine — source of truth ──
     const result = scoreSymbol(daily, weekly);
+    console.log('scoreSymbol completed. Weighted:', result.scores ? 'OK' : 'MISSING');
     const S = result.scores;
     const I = result.indicators;
 
@@ -3806,11 +3807,11 @@ async function fetchPrice(){
   const lbl=document.getElementById('price-fetch-lbl');
   lbl.textContent='…'; lbl.style.color='var(--neu)';
   try{
-    // Yahoo Finance — try multiple endpoints for CORS compatibility
+    // Yahoo Finance — use Worker proxy first, then CORS proxies
+    const WORKER_BASE = 'https://ta-alerts.mdorm33.workers.dev';
     const yahooBase = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d`;
     const priceUrls = [
-      yahooBase,
-      `https://query2.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d`,
+      `${WORKER_BASE}/ohlc?ticker=${encodeURIComponent(ticker)}&interval=1d&range=1d`,
       `https://corsproxy.io/?${encodeURIComponent(yahooBase)}`,
       `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooBase)}`,
     ];
