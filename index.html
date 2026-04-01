@@ -2242,7 +2242,7 @@ async function runAllComputed(ticker){
   try{
     const ohlc = await Promise.race([
       fetchOHLCForCharts(ticker),
-      new Promise((_,r)=>setTimeout(()=>r(new Error('OHLC timeout')),15000))
+      new Promise((_,r)=>setTimeout(()=>r(new Error('OHLC timeout')),30000))
     ]);
     if(!ohlc || !ohlc.daily || ohlc.daily.length < 30) throw new Error('Insufficient bars ('+((ohlc?.daily?.length)||0)+')');
 
@@ -2508,7 +2508,7 @@ async function runAllComputed(ticker){
 // ═══ KEY PRICE LEVELS — COMPUTED FROM OHLC ═══
 async function runLevelsComputed(ticker){
   try{
-    const ohlc = await Promise.race([fetchOHLCForCharts(ticker), new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),15000))]);
+    const ohlc = await Promise.race([fetchOHLCForCharts(ticker), new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),30000))]);
     if(!ohlc || ohlc.daily.length < 30) throw new Error('Insufficient bars');
     const bars = ohlc.daily;
     const n    = bars.length;
@@ -2796,10 +2796,15 @@ async function fetchOHLCForCharts(ticker){
     }
     return out;
   };
-  const [daily, weekly] = await Promise.all([
-    fetchBars('1d','5y'),
-    fetchBars('1wk','5y')
-  ]);
+  // Fetch daily first (required), then weekly (nice-to-have for MACD)
+  const daily = await fetchBars('1d','5y');
+  let weekly;
+  try {
+    weekly = await fetchBars('1wk','5y');
+  } catch(e) {
+    console.warn('Weekly OHLC fetch failed (MACD will use daily):', e.message);
+    weekly = [];
+  }
   ohlcCache = { ticker, daily, weekly };
   return ohlcCache;
 }
