@@ -2455,12 +2455,19 @@ async function runAllComputed(ticker){
       [...INDS.high,...INDS.med].forEach(i => {
         const v = vals[i.id]; if(v == null) return;
         const sl = document.getElementById('sl-'+i.id);
-        if(sl) { sl.value = v; sl.style.background = sbg(v); }
+        if(sl) {
+          // Force reflow: read offsetWidth to flush pending layout, then set value
+          sl.offsetWidth;
+          sl.value = v;
+          sl.style.background = sbg(v);
+          // Dispatch input event to trigger any listeners
+          sl.dispatchEvent(new Event('input', {bubbles:true}));
+        }
         const lb = document.getElementById('lb-'+i.id);
         if(lb) { const s = getSig(v); lb.className = 'slbl '+s.cls; lb.textContent = s.txt; }
       });
       recalc();
-    }, 100);
+    }, 250);
 
   } catch(err){
     console.warn('runAllComputed failed:', err.message);
@@ -3043,7 +3050,10 @@ function buildRow(ind,bkt){
 
 function setSl(id,v,anim=true){
   const sl=document.getElementById('sl-'+id),lb=document.getElementById('lb-'+id),row=document.getElementById('row-'+id);
-  if(!sl)return; sl.value=v; vals[id]=v; sl.style.background=sbg(v);
+  if(!sl)return;
+  const prev = vals[id];
+  sl.value=v; vals[id]=v; sl.style.background=sbg(v);
+  if(v !== 50 || prev !== 50) console.log(`setSl: ${id} ${prev}→${v}`);
   const s=getSig(v); lb.className='slbl '+s.cls; lb.textContent=s.txt;
   if(anim&&row){row.classList.remove('just-updated');void row.offsetWidth;row.classList.add('just-updated');}
   recalc();
