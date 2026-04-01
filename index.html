@@ -3934,6 +3934,12 @@ async function runAnalysis(){
       st.innerHTML=`<span class="sticker">${ticker}</span>${_cnc} — <span style="color:${_cc};font-weight:600">${_vc} (${_sc})</span> · ${priceC} · OHLC scored · ${nowStamp()}`;
       so.textContent='Waiting for AI (divNote + fundamentals)…';
       btn.disabled=false;btn.classList.remove('loading');
+      // Force final UI refresh via setTimeout(0) to escape any microtask blocking
+      setTimeout(() => {
+        [...INDS.high,...INDS.med].forEach(i => setSl(i.id, vals[i.id] ?? 50, false));
+        recalc();
+        console.log('computedPromise: final setTimeout refresh, score=', Math.round(bScore('high')*customBW.high + bScore('med')*customBW.med));
+      }, 0);
       console.log('computedPromise: scoring done, status bar updated. Score:', _sc);
       return true;
     } catch(e) {
