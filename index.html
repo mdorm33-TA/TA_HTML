@@ -2259,6 +2259,8 @@ async function runAllComputed(ticker){
     // Use last 252 bars for scoring (1yr) — full dataset used for charts only
     const scoringBars = daily.length > 252 ? daily.slice(-252) : daily;
     console.log('[runAllComputed] calling scoreSymbol with', scoringBars.length, 'bars (from', daily.length, 'total), price:', price);
+    console.log('[runAllComputed] typeof scoreSymbol:', typeof scoreSymbol);
+    if(typeof scoreSymbol !== 'function') throw new Error('scoreSymbol is not a function! Type: ' + typeof scoreSymbol);
     console.time('scoreSymbol');
     let result;
     try {
@@ -2269,12 +2271,14 @@ async function runAllComputed(ticker){
       console.error('[runAllComputed] scoreSymbol CRASHED:', scoreErr.message, scoreErr.stack);
       throw scoreErr;
     }
-    console.log('[runAllComputed] scoreSymbol completed. Score:', result.weightedScore);
+    console.log('[runAllComputed] scoreSymbol returned. Has scores:', !!result.scores, 'Has adx:', !!result.adx);
     const S = result.scores;
     const I = result.indicators;
+    console.log('[runAllComputed] S keys:', Object.keys(S).join(','));
 
     // ── Set ADX overlay (not scored — modifies trend-follower weights) ──
     const adx = result.adx;
+    console.log('[runAllComputed] ADX:', adx?.adx);
     if(adx && adx.adx != null){
       const overlay = computeADXOverlayMultiplier(adx.adx);
       adxOverlay = { adx: adx.adx, plusDI: adx.plusDI, minusDI: adx.minusDI, multiplier: overlay.multiplier, label: overlay.label };
