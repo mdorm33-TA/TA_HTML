@@ -3867,11 +3867,21 @@ async function runAnalysis(){
   fetchRegimeData();
 
   // OHLC scoring runs in PARALLEL with AI call (not blocked by it)
+  // When scoring completes, it updates sliders + status bar immediately — doesn't wait for AI.
   const computedPromise = (async () => {
     try {
       await runAllComputed(ticker);
       runLevelsComputed(ticker);
       renderOrientationChart(ticker);
+      // Update status bar immediately with computed scores
+      const _sc = Math.round(bScore('high')*customBW.high + bScore('med')*customBW.med);
+      const _vc = verd(_sc).l, _cc = sCol(_sc);
+      const _cnc = window._lastSymbolName ? ` · ${window._lastSymbolName}` : '';
+      const priceC = document.getElementById('price-val').textContent || '';
+      st.innerHTML=`<span class="sticker">${ticker}</span>${_cnc} — <span style="color:${_cc};font-weight:600">${_vc} (${_sc})</span> · ${priceC} · ${nowStamp()}`;
+      dot.className='sdot active';st.className='stext active';st.style.animation='';st.style.color='';
+      so.textContent='OHLC scoring complete. AI loading…';
+      console.log('computedPromise: scoring done, status bar updated. Score:', _sc);
       return true;
     } catch(e) {
       console.error('Computed scoring failed:', e);
@@ -3898,7 +3908,7 @@ All values plain text only — no HTML, no citations. N/A if unknown.`;
 
   try{
     let data=null, lastErr=null;
-    const maxAttempts=4;
+    const maxAttempts=3;
     for(let attempt=1; attempt<=maxAttempts; attempt++){
       if(attempt>1){
         const delay=attempt===2?5000:attempt===3?10000:15000;
@@ -3911,14 +3921,18 @@ All values plain text only — no HTML, no citations. N/A if unknown.`;
       so.textContent=attempt>1?`Attempt ${attempt}/${maxAttempts}…`:'';
       let res, body;
       try{
+        const ctrl = new AbortController();
+        const aiTimeout = setTimeout(()=>ctrl.abort(), 30000); // 30s hard timeout per attempt
         res=await fetch('https://tacall.mdorm33.workers.dev',{
           method:'POST',headers:{'Content-Type':'application/json'},
+          signal: ctrl.signal,
           body:JSON.stringify({
             model:MODEL, max_tokens:500,
             system:[{type:'text',text:sys,cache_control:{type:'ephemeral'}}],
             messages:[{role:'user',content:`JSON for ${ticker}${companyHint}. Timeframe: ${TF_PRESETS[getTF()]?.label||'Position (1-3 mo)'}.`}]
           })
         });
+        clearTimeout(aiTimeout);
         body=await res.json().catch(()=>({}));
       }catch(fetchErr){
         lastErr=fetchErr; continue;
