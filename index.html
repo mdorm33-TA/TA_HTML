@@ -2796,16 +2796,10 @@ async function fetchOHLCForCharts(ticker){
     }
     return out;
   };
-  // Fetch daily first (required), then weekly (nice-to-have for MACD)
+  // Fetch daily only — weekly dropped for speed/reliability.
+  // MACD computes from daily closes instead (more responsive for swing/intermediate).
   const daily = await fetchBars('1d','5y');
-  let weekly;
-  try {
-    weekly = await fetchBars('1wk','5y');
-  } catch(e) {
-    console.warn('Weekly OHLC fetch failed (MACD will use daily):', e.message);
-    weekly = [];
-  }
-  ohlcCache = { ticker, daily, weekly };
+  ohlcCache = { ticker, daily, weekly: [] };
   return ohlcCache;
 }
 
