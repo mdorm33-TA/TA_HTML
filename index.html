@@ -1368,17 +1368,23 @@ function computeVolumeProfile(bars) {
   let mn = Infinity, mx = -Infinity;
   for (let i = startIdx; i < n; i++) { if (bars[i].l < mn) mn = bars[i].l; if (bars[i].h > mx) mx = bars[i].h; }
   const BUCKETS = 24, step = (mx - mn) / BUCKETS;
-  if (step === 0) return null;
+  if (step <= 0 || !isFinite(step)) return null;
   const vols = Array(BUCKETS).fill(0);
-  for (let i = startIdx; i < n; i++) { const idx = Math.min(Math.floor((bars[i].c - mn) / step), BUCKETS - 1); vols[idx] += bars[i].v; }
+  for (let i = startIdx; i < n; i++) {
+    const idx = Math.max(0, Math.min(Math.floor((bars[i].c - mn) / step), BUCKETS - 1));
+    vols[idx] += bars[i].v;
+  }
   let maxVol = 0, pocIdx = 0;
   for (let i = 0; i < BUCKETS; i++) { if (vols[i] > maxVol) { maxVol = vols[i]; pocIdx = i; } }
   const poc = mn + (pocIdx + 0.5) * step;
   const totalVol = vols.reduce((s, v) => s + v, 0), target = totalVol * 0.70;
+  if (!isFinite(target) || target <= 0) return null;
   let vaVol = vols[pocIdx], vaLow = pocIdx, vaHigh = pocIdx;
-  while (vaVol < target && (vaLow > 0 || vaHigh < BUCKETS - 1)) {
+  let iter = 0;
+  while (vaVol < target && (vaLow > 0 || vaHigh < BUCKETS - 1) && iter < 50) {
     const addLow = vaLow > 0 ? vols[vaLow - 1] : 0, addHigh = vaHigh < BUCKETS - 1 ? vols[vaHigh + 1] : 0;
     if (addHigh >= addLow) { vaHigh++; vaVol += addHigh; } else { vaLow--; vaVol += addLow; }
+    iter++;
   }
   const vah = mn + (vaHigh + 1) * step, val = mn + vaLow * step, price = bars[n - 1].c;
   let vol5 = 0, vol20 = 0;
@@ -2483,23 +2489,28 @@ async function runLevelsComputed(ticker){
     const mx = Math.max(...recent.map(b=>b.h));
     const BUCKETS = 24;
     const step = (mx - mn) / BUCKETS;
+    let _vah = null, _val = null;
+    if(step <= 0 || !isFinite(step)){ /* skip VP levels */ } else {
     const vols = Array(BUCKETS).fill(0);
     recent.forEach(b => {
-      const idx = Math.min(Math.floor((b.c - mn) / step), BUCKETS-1);
+      const idx = Math.max(0, Math.min(Math.floor((b.c - mn) / step), BUCKETS-1));
       vols[idx] += b.v;
     });
     const pocIdx = vols.indexOf(Math.max(...vols));
     const poc    = mn + (pocIdx + 0.5) * step;
     const totalVol = vols.reduce((s,v)=>s+v,0);
     let vaVol = vols[pocIdx], vaLow = pocIdx, vaHigh = pocIdx;
-    while(vaVol < totalVol * 0.70 && (vaLow > 0 || vaHigh < BUCKETS-1)){
+    let iter2 = 0;
+    while(vaVol < totalVol * 0.70 && (vaLow > 0 || vaHigh < BUCKETS-1) && iter2 < 50){
       const addLow  = vaLow  > 0         ? vols[vaLow-1]  : 0;
       const addHigh = vaHigh < BUCKETS-1 ? vols[vaHigh+1] : 0;
       if(addHigh >= addLow){ vaHigh++; vaVol += addHigh; }
       else                  { vaLow--;  vaVol += addLow;  }
+      iter2++;
     }
-    const vah = mn + (vaHigh + 1) * step;
-    const val = mn + vaLow * step;
+    _vah = mn + (vaHigh + 1) * step;
+    _val = mn + vaLow * step;
+    } // end VP block
 
     // ── Recent swing high/low (last 20 bars) for tighter S/R ──
     const swing = bars.slice(n-20);
@@ -2507,12 +2518,15 @@ async function runLevelsComputed(ticker){
     const swingLo = Math.min(...swing.map(b=>b.l));
 
     // ── Assign levels ──
+    // Use VP levels if available, else fall back to swing levels
+    if(!isFinite(_vah)) _vah = swingHi;
+    if(!isFinite(_val)) _val = swingLo;
     // R1: VAH if above price, else recent swing high, else 52wk hi
-    const r1val = vah > price ? vah : (swingHi > price ? swingHi : hi52);
+    const r1val = _vah > price ? _vah : (swingHi > price ? swingHi : hi52);
     // R2: 52-week high (if different from R1), else R1 + ATR buffer
     const r2val = hi52 > r1val + atr * 0.5 ? hi52 : r1val + atr * 2;
     // S1: VAL if below price, else recent swing low
-    const s1val = val < price ? val : (swingLo < price ? swingLo : price - atr);
+    const s1val = _val < price ? _val : (swingLo < price ? swingLo : price - atr);
     // S2: 52-week low
     const s2val = lo52;
 
