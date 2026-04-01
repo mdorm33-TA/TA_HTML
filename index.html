@@ -2206,8 +2206,12 @@ async function runAllComputed(ticker){
     }
 
     // ── Distribute all 10 scores to sliders ──
-    Object.entries(S).forEach(([id, score]) => setSl(id, score, true));
-    console.log('runAllComputed: sliders updated, building detail strings...');
+    Object.entries(S).forEach(([id, score]) => {
+      vals[id] = score; // Always set vals directly (even if slider DOM not found)
+      setSl(id, score, true);
+    });
+    console.log('runAllComputed: sliders updated, vals=', JSON.stringify(vals));
+    console.log('runAllComputed: building detail strings...');
 
     // ── Build detail strings from raw indicator data ──
     // Each block is guarded — if a compute returned null, we skip its detail string.
@@ -3050,10 +3054,10 @@ function buildRow(ind,bkt){
 
 function setSl(id,v,anim=true){
   const sl=document.getElementById('sl-'+id),lb=document.getElementById('lb-'+id),row=document.getElementById('row-'+id);
-  if(!sl)return;
+  if(!sl){ if(v!==50) console.warn(`setSl: sl-${id} NOT FOUND, value=${v}`); return; }
   const prev = vals[id];
   sl.value=v; vals[id]=v; sl.style.background=sbg(v);
-  if(v !== 50 || prev !== 50) console.log(`setSl: ${id} ${prev}→${v}`);
+  if(v !== 50 || (prev !== undefined && prev !== 50)) console.log(`setSl: ${id} ${prev}→${v}`);
   const s=getSig(v); lb.className='slbl '+s.cls; lb.textContent=s.txt;
   if(anim&&row){row.classList.remove('just-updated');void row.offsetWidth;row.classList.add('just-updated');}
   recalc();
