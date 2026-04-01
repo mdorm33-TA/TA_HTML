@@ -2251,15 +2251,22 @@ async function runAllComputed(ticker){
     const daily = ohlc.daily;
     const weekly = ohlc.weekly;
     const n = daily.length;
-    const closes = daily.map(b => b.c);
-    const price = closes[n - 1];
+    const closes = daily.map(b => b.c).filter(c => c != null);
+    if(closes.length < 30) throw new Error('Insufficient valid closes: ' + closes.length);
+    const price = closes[closes.length - 1];
 
     // Yield to browser before heavy computation
     await new Promise(r => setTimeout(r, 0));
 
     // ── Single call to scoring engine — source of truth ──
-    console.log('[runAllComputed] calling scoreSymbol with', n, 'daily bars');
-    const result = scoreSymbol(daily, weekly);
+    console.log('[runAllComputed] calling scoreSymbol with', daily.length, 'daily bars, price:', price);
+    let result;
+    try {
+      result = scoreSymbol(daily, weekly);
+    } catch(scoreErr) {
+      console.error('[runAllComputed] scoreSymbol CRASHED:', scoreErr);
+      throw scoreErr;
+    }
     console.log('[runAllComputed] scoreSymbol completed. Score:', result.weightedScore);
     const S = result.scores;
     const I = result.indicators;
