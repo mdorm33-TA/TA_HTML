@@ -3735,16 +3735,26 @@ function loadPreset(d){
   if(d.indicators) Object.entries(d.indicators).forEach(([id,v])=>setSl(id,v,true));
   if(d.fear_greed !== undefined && d.fear_greed !== null) setFGDisplay(Math.round(Number(d.fear_greed)));
   if(d.levels)['r1','r2','s1','s2','stop','target'].forEach(k=>{const el=document.getElementById(k);if(el&&d.levels[k])el.value=d.levels[k];});
-  // Handle flat target from new AI response format
-  if(d.target){ const el=document.getElementById('target'); if(el && !el.value) el.value=d.target+' [analyst]'; }
   if(d.divNote) document.getElementById('div-note').value = d.divNote.replace(/<cite[^>]*>/gi,'').replace(/<\/cite>/gi,'').replace(/<[^>]*>/g,'').trim();
-  const cleanPrice = String(d.price).replace(/<[^>]*>/g,'').replace(/\$cite[^>]*/g,'').trim();
-  document.getElementById('price-val').textContent='$'+cleanPrice;
+  // Extract fundamentals from merged response
+  if(d.sector || d.pe_fwd || d.div_yield){
+    fundData = {
+      sector: d.sector, pe_fwd: d.pe_fwd, rev_growth: d.rev_growth,
+      fcf_yield: d.fcf_yield, debt_equity: d.debt_equity, div_yield: d.div_yield,
+      return_3yr: d.return_3yr, return_5yr: d.return_5yr, return_10yr: d.return_10yr,
+      context: d.fundContext || null
+    };
+    renderFundamentals();
+  }
+  if(d.price){
+    const cleanPrice = String(d.price).replace(/<[^>]*>/g,'').replace(/\$cite[^>]*/g,'').trim();
+    document.getElementById('price-val').textContent='$'+cleanPrice;
+  }
   syncPriceLvl();
   recalc();
 }
 
-// ═══ LIVE API (with web_search tool) ═══
+// ═══ LIVE API (merged: divNote + fundamentals, no web search) ═══
 async function runAnalysis(){
   const ticker=document.getElementById('ticker-input').value.trim().toUpperCase();
   if(!ticker){alert('Enter a ticker symbol.');return;}
@@ -3788,10 +3798,16 @@ async function runAnalysis(){
   document.getElementById('fund-body').innerHTML = '';
   document.getElementById('fund-body').classList.remove('open');
   document.getElementById('fund-chevron').classList.remove('open');
-  const fb = document.getElementById('fund-badge'); if(fb){ fb.className='fund-badge'; fb.textContent='— loading…'; }
+  const fb = document.getElementById('fund-badge'); if(fb){ fb.className='fund-badge'; fb.textContent='⟳ loading…'; }
 
   ['r1','r2','s1','s2','stop','target'].forEach(k=>{const el=document.getElementById(k);if(el)el.value='';});
   document.getElementById('div-note').value='';
+
+  // Handle fund not applicable immediately
+  if(fundNotApplicable(getAC())){
+    fundData = { error: null };
+    renderFundamentals();
+  }
 
   // Also try to fetch price in parallel
   fetchPrice();
@@ -3800,21 +3816,16 @@ async function runAnalysis(){
   // Auto-fetch Macro Regime data
   fetchRegimeData();
 
-  // Fetch fundamentals in parallel (separate API call)
-  fundData = null;
-  const fundBadge = document.getElementById('fund-badge');
-  if(fundBadge){ fundBadge.className='fund-badge'; fundBadge.textContent='⟳ loading…'; }
-  fetchFundamentals(ticker, getAC());
+  // Fetch fundamentals in parallel — now merged into the main AI call (no separate fetchFundamentals)
+  const isLimited = FUND_LIMITED[getAC()];
+  const fundApplicable = !fundNotApplicable(getAC());
 
-  const sys=`JSON API for technical analysis. Respond with ONLY a raw JSON object — no text before or after. Use web search for current data. Output this exact structure:
-{"ticker":"SYMBOL","price":"123.45","fear_greed":0-100,"target":"price target string or empty","divNote":"brief dividend/return context"}
-fear_greed: current CNN Fear & Greed index value for equities/gold/bonds; Alternative.me crypto fear & greed for crypto. Integer 0–100.
-price: current market price, plain number only, no $ or HTML.
-target: analyst consensus price target as a plain text string (e.g. "$195–$210") or empty string if unknown. This is the only level needed — support/resistance/stop are computed from live OHLC data.
-divNote: one sentence on dividend yield or total return context. Plain text only.
-Return ONLY the JSON object.`;
+  const sys=`JSON API. Respond with ONLY a raw JSON object — no text before or after. Output this exact structure:
+{"ticker":"SYMBOL","divNote":"brief dividend/return context"${fundApplicable ? ',"sector":"sector","pe_fwd":"value or N/A","rev_growth":"value% or N/A","fcf_yield":"value% or N/A","debt_equity":"value or N/A","div_yield":"value% or N/A","return_3yr":"value% or N/A","return_5yr":"value% or N/A","return_10yr":"value% or N/A","fundContext":"one sentence of key fundamental context or null"' : ''}}
+divNote: one sentence on dividend yield or total return context.${fundApplicable ? `\nreturn_3yr, return_5yr, return_10yr must be TOTAL RETURN (price + dividends reinvested), annualised.${isLimited ? ' This is a Bond/MLP/ETF — pe_fwd and rev_growth likely N/A. Focus on div_yield and total returns.' : ''}` : ''}
+All values plain text only — no HTML, no citations. Use N/A if unknown. Return ONLY the JSON.`;
 
-  // Haiku only — fast, low congestion, sufficient for structured JSON + web search
+  // Haiku only — fast, low cost, no web search needed (price + F&G fetched separately)
   const MODEL = 'claude-haiku-4-5-20251001';
 
   try{
@@ -3835,10 +3846,9 @@ Return ONLY the JSON object.`;
         res=await fetch('https://tacall.mdorm33.workers.dev',{
           method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({
-            model:MODEL, max_tokens:1200,
+            model:MODEL, max_tokens:500,
             system:[{type:'text',text:sys,cache_control:{type:'ephemeral'}}],
-            tools:[{type:'web_search_20250305',name:'web_search',cache_control:{type:'ephemeral'}}],
-            messages:[{role:'user',content:`TA scorecard JSON for ${ticker}. Timeframe: ${TF_PRESETS[getTF()]?.label||'Position (1-3 mo)'}.`}]
+            messages:[{role:'user',content:`Return JSON for ${ticker}.`}]
           })
         });
         body=await res.json().catch(()=>({}));
@@ -3870,9 +3880,8 @@ Return ONLY the JSON object.`;
     const parsed=JSON.parse(raw.slice(jStart,jEnd+1));
     loadPreset(parsed);
     dot.className='sdot active';st.className='stext active';st.style.animation='';st.style.color='';
-    // Clean price display
-    const cleanPrice = String(parsed.price).replace(/<[^>]*>/g,'').replace(/\$cite[^>]*/g,'').trim();
-    document.getElementById('price-val').textContent='$'+cleanPrice;syncPriceLvl();
+    // Price is fetched separately by fetchPrice() — read from DOM
+    const cleanPrice = document.getElementById('price-val').textContent.replace('$','').trim() || '—';
     const _cname=window._lastSymbolName?` · ${window._lastSymbolName}`:'';
     // Compute initial score for status bar display
     const _initScore = Math.round(bScore('high')*customBW.high + bScore('med')*customBW.med);
@@ -3916,6 +3925,8 @@ Return ONLY the JSON object.`;
     dot.className='sdot error';st.className='stext';st.style.color='';st.style.animation='';
     st.textContent='AI unavailable — computing from OHLC data…';
     so.textContent=err.message;console.error('TA·WEIGHT AI error:',err);
+    // Clean up fundamentals badge if AI failed
+    if(!fundData){ fundData = { error: 'AI call failed' }; renderFundamentals(); }
   }finally{
     btn.disabled=false;btn.classList.remove('loading');if(document.getElementById('stext').style.animation)document.getElementById('stext').style.animation='';
     // Always compute OHLC-derived indicators, even if AI call failed.
