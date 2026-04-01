@@ -2206,11 +2206,22 @@ async function runAllComputed(ticker){
     }
 
     // ── Distribute all 10 scores to sliders ──
-    Object.entries(S).forEach(([id, score]) => {
-      vals[id] = score; // Always set vals directly (even if slider DOM not found)
-      setSl(id, score, true);
+    // Set vals directly first (always works regardless of DOM state)
+    Object.entries(S).forEach(([id, score]) => { vals[id] = score; });
+    // Schedule DOM updates in requestAnimationFrame to guarantee browser repaint
+    await new Promise(resolve => {
+      requestAnimationFrame(() => {
+        Object.entries(S).forEach(([id, score]) => {
+          const sl = document.getElementById('sl-'+id);
+          if(sl) { sl.value = score; sl.style.background = sbg(score); }
+          const lb = document.getElementById('lb-'+id);
+          if(lb) { const s = getSig(score); lb.className = 'slbl '+s.cls; lb.textContent = s.txt; }
+        });
+        recalc();
+        console.log('runAllComputed: sliders painted via rAF, vals=', JSON.stringify(vals));
+        resolve();
+      });
     });
-    console.log('runAllComputed: sliders updated, vals=', JSON.stringify(vals));
     console.log('runAllComputed: building detail strings...');
 
     // ── Build detail strings from raw indicator data ──
