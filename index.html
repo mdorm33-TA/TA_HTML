@@ -1460,7 +1460,7 @@ function scoreSymbol(dailyBars, weeklyBars) {
   const n = dailyBars.length;
   const closes = dailyBars.map(b => b.c);
   const price = closes[n - 1];
-  const macdCloses = weeklyBars ? weeklyBars.map(b => b.c) : closes;
+  const macdCloses = weeklyBars && weeklyBars.length > 0 ? weeklyBars.map(b => b.c) : closes;
   const rsi = computeRSI(closes), sma200 = computeSMA200(closes), sma50 = computeSMA(closes, 50);
   const boll = computeBollinger(closes), macd = computeMACD(macdCloses);
   const obv = computeOBV(dailyBars);
