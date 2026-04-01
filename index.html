@@ -2255,18 +2255,18 @@ async function runAllComputed(ticker){
     if(closes.length < 30) throw new Error('Insufficient valid closes: ' + closes.length);
     const price = closes[closes.length - 1];
 
-    // Yield to browser before heavy computation
-    await new Promise(r => setTimeout(r, 0));
-
     // ── Single call to scoring engine — source of truth ──
     // Use last 252 bars for scoring (1yr) — full dataset used for charts only
     const scoringBars = daily.length > 252 ? daily.slice(-252) : daily;
     console.log('[runAllComputed] calling scoreSymbol with', scoringBars.length, 'bars (from', daily.length, 'total), price:', price);
+    console.time('scoreSymbol');
     let result;
     try {
       result = scoreSymbol(scoringBars, weekly);
+      console.timeEnd('scoreSymbol');
     } catch(scoreErr) {
-      console.error('[runAllComputed] scoreSymbol CRASHED:', scoreErr);
+      console.timeEnd('scoreSymbol');
+      console.error('[runAllComputed] scoreSymbol CRASHED:', scoreErr.message, scoreErr.stack);
       throw scoreErr;
     }
     console.log('[runAllComputed] scoreSymbol completed. Score:', result.weightedScore);
