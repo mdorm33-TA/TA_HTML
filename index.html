@@ -52,7 +52,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:18
 .hdr-brand{display:flex;align-items:center;gap:14px;padding:10px 18px 8px;border-bottom:1px solid var(--border);background:var(--hdr-brand-bg);}
 .hdr-controls{display:flex;align-items:center;gap:8px;padding:5px 18px;flex-wrap:wrap;background:var(--surface2);border-top:1px solid var(--border);}
 .logo{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--hdr-text);letter-spacing:.04em;white-space:nowrap;text-align:center;width:100%;}
-.hdr-logo-img{height:300px;width:auto;border-radius:6px;object-fit:contain;flex-shrink:0;}
+.hdr-logo-img{height:220px;width:auto;border-radius:6px;object-fit:contain;flex-shrink:0;}
 .logo-sub{font-size:9px;color:var(--hdr-text);font-family:var(--mono);margin-top:2px;opacity:0.7;}.logo-subtitle{font-size:22px;font-weight:700;font-style:italic;color:var(--hdr-text);font-family:var(--mono);margin-top:8px;letter-spacing:.03em;text-align:center;width:100%;line-height:1.3;opacity:0.85;}
 .search-bar{display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;flex:1;min-width:0;}
 .search-bar input{background:none;border:none;color:var(--text);font-family:var(--mono);font-size:15px;font-weight:600;outline:none;width:75px;text-transform:uppercase;letter-spacing:.08em;}
@@ -433,23 +433,6 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
 .fund-chevron.open{transform:rotate(180deg);}
 .fund-body{display:none;border-top:1px solid var(--border);padding:12px 13px 13px;}
 .fund-body.open{display:block;}
-.news-panel{background:var(--surface2);border:2px solid #f59e0b;border-radius:10px;margin-top:10px;overflow:hidden;}
-.news-panel-hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 13px;cursor:pointer;user-select:none;transition:background .15s;border-radius:10px;}
-.news-panel-hdr:hover{background:var(--surface3);}
-.news-panel-title{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--text2);display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
-.news-badge{font-size:10px;padding:1px 6px;border-radius:3px;font-weight:400;background:var(--surface3);color:var(--text3);}
-.news-badge.loaded{background:#f59e0b18;color:#f59e0b;}
-.news-badge.loading{background:#f59e0b18;color:#f59e0b;animation:blink 0.7s step-end infinite;}
-.news-badge.error{background:#ff456018;color:#ff4560;}
-.news-body{padding:12px 13px 13px;}
-.news-content{font-family:var(--sans);font-size:14px;color:var(--text2);line-height:1.7;}
-.news-content ul{margin:6px 0 10px;padding-left:20px;}
-.news-content li{margin-bottom:6px;}
-.news-content strong{color:var(--text);}
-.news-cost-note{font-family:var(--mono);font-size:9px;color:var(--text3);font-style:italic;margin-top:8px;}
-.news-fetch-btn{font-family:var(--mono);font-size:11px;padding:5px 12px;border:1px solid #f59e0b;border-radius:5px;background:#f59e0b18;color:#f59e0b;cursor:pointer;font-weight:600;transition:all .15s;}
-.news-fetch-btn:hover{background:#f59e0b30;}
-.news-fetch-btn:disabled{opacity:0.5;cursor:not-allowed;}
 .fund-na{font-family:var(--mono);font-size:11px;color:var(--text3);font-style:italic;padding:4px 0 6px;}
 
 /* compact multi-column grid */
@@ -477,7 +460,7 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
   .nrow{padding-left:0;padding-top:4px;}
   .hdr-controls{gap:6px;padding:6px 10px;flex-wrap:wrap;}
   .search-bar{max-width:100%;flex:1;}
-  .hdr-logo-img{height:100px;}
+  .hdr-logo-img{height:60px;}
   .logo-subtitle{font-size:14px;letter-spacing:.01em;}
   .logo{font-size:16px;text-align:center;width:100%;white-space:normal;}
   .logo-sub{display:none;}
@@ -756,21 +739,6 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
       </div>
       <div class="fund-body" id="fund-body">
         <!-- injected by renderFundamentals() -->
-      </div>
-    </div>
-
-    <!-- NEWS & PRICE ACTION PANEL -->
-    <div class="news-panel" id="news-panel">
-      <div class="news-panel-hdr">
-        <div class="news-panel-title">
-          📰 What's Driving This?
-          <span class="news-badge" id="news-badge">click button to load</span>
-        </div>
-        <button class="news-fetch-btn" id="news-fetch-btn" onclick="fetchNewsAnalysis()">🔍 Fetch News</button>
-      </div>
-      <div class="news-body" id="news-body" style="display:none;">
-        <div class="news-content" id="news-content"></div>
-        <div class="news-cost-note">Uses AI web search · ~$0.10–0.15 per query</div>
       </div>
     </div>
 
@@ -2153,132 +2121,31 @@ All values plain text only — no HTML, no citations. Use N/A if unknown. Return
   renderFundamentals();
 }
 
-// ═══ NEWS & PRICE ACTION ANALYSIS (on-demand, uses web search) ═══
-async function fetchNewsAnalysis(){
-  const ticker = document.getElementById('ticker-input').value.trim().toUpperCase();
-  if(!ticker){ alert('Enter a ticker symbol first.'); return; }
-
-  const btn = document.getElementById('news-fetch-btn');
-  const badge = document.getElementById('news-badge');
-  const body = document.getElementById('news-body');
-  const content = document.getElementById('news-content');
-
-  btn.disabled = true;
-  btn.textContent = '⟳ Searching…';
-  badge.className = 'news-badge loading';
-  badge.textContent = 'searching news…';
-  body.style.display = 'block';
-  content.innerHTML = '<div style="color:var(--text3);font-style:italic;">Searching for recent news and analyzing price action…</div>';
-
-  const companyName = window._lastSymbolName || '';
-  const priceStr = document.getElementById('price-val').textContent.replace('$','').trim();
-
-  const sys = `You are a financial news analyst. Search the web for the most recent news, events, and developments for the given stock ticker. Then provide a concise analysis of what is driving recent price action.
-
-Format your response as clean HTML (no markdown). Use this structure:
-<strong>Recent Catalysts</strong>
-<ul>
-<li><strong>[Date or timeframe]:</strong> Brief description of the event/news</li>
-</ul>
-<strong>Price Action Read</strong>
-<p>2-3 sentences interpreting what the technicals + news together suggest about near-term direction.</p>
-
-Rules:
-- Focus on the last 1-4 weeks of news
-- Include earnings, analyst actions, sector moves, regulatory news, insider activity if relevant
-- Be specific with dates and numbers where possible
-- If very little news exists for this ticker, say so honestly
-- Keep it concise — 4-6 bullet points max for catalysts
-- No generic filler — every bullet should be a specific, dated event
-- Plain HTML only, no markdown backticks`;
-
-  try {
-    const res = await fetch('https://tacall.mdorm33.workers.dev', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1000,
-        system: sys,
-        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-        messages: [{ role: 'user', content: `What is driving recent price action for ${ticker}${companyName ? ' (' + companyName + ')' : ''}? Current price: $${priceStr}. Search for the latest news and events.` }]
-      })
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error?.message || 'API error ' + res.status);
-    }
-
-    const data = await res.json();
-    const textBlocks = data.content.filter(b => b.type === 'text').map(b => b.text);
-    if (textBlocks.length === 0) throw new Error('No text in response');
-
-    const raw = textBlocks.join('');
-    // Clean any markdown code fences that might slip through
-    const cleaned = raw.replace(/```html?\n?/gi, '').replace(/```/g, '').trim();
-
-    content.innerHTML = cleaned;
-    badge.className = 'news-badge loaded';
-    badge.textContent = '✓ loaded';
-    btn.textContent = '🔍 Refresh';
-    btn.disabled = false;
-
-  } catch(err) {
-    content.innerHTML = `<div style="color:var(--bear);">⚠ News fetch failed: ${err.message}</div>`;
-    badge.className = 'news-badge error';
-    badge.textContent = '⚠ failed';
-    btn.textContent = '🔍 Retry';
-    btn.disabled = false;
-    console.error('News analysis error:', err);
-  }
-}
-
 // ═══ UNIFIED COMPUTED SCORING — uses shared scoring engine ═══
 // Single call replaces all 13 individual run*Computed functions.
 // Fetches OHLC once, calls scoreSymbol(), distributes scores + detail strings.
 
 async function runAllComputed(ticker){
-  console.log('[runAllComputed] START for', ticker);
   try{
     const ohlc = await Promise.race([
       fetchOHLCForCharts(ticker),
-      new Promise((_,r)=>setTimeout(()=>r(new Error('OHLC timeout')),30000))
+      new Promise((_,r)=>setTimeout(()=>r(new Error('OHLC timeout')),15000))
     ]);
-    console.log('[runAllComputed] OHLC received, daily bars:', ohlc?.daily?.length);
     if(!ohlc || !ohlc.daily || ohlc.daily.length < 30) throw new Error('Insufficient bars ('+((ohlc?.daily?.length)||0)+')');
 
     const daily = ohlc.daily;
     const weekly = ohlc.weekly;
     const n = daily.length;
-    const closes = daily.map(b => b.c).filter(c => c != null);
-    if(closes.length < 30) throw new Error('Insufficient valid closes: ' + closes.length);
-    const price = closes[closes.length - 1];
+    const closes = daily.map(b => b.c);
+    const price = closes[n - 1];
 
     // ── Single call to scoring engine — source of truth ──
-    // Use last 252 bars for scoring (1yr) — full dataset used for charts only
-    const scoringBars = daily.length > 252 ? daily.slice(-252) : daily;
-    console.log('[runAllComputed] calling scoreSymbol with', scoringBars.length, 'bars (from', daily.length, 'total), price:', price);
-    console.log('[runAllComputed] typeof scoreSymbol:', typeof scoreSymbol);
-    if(typeof scoreSymbol !== 'function') throw new Error('scoreSymbol is not a function! Type: ' + typeof scoreSymbol);
-    console.time('scoreSymbol');
-    let result;
-    try {
-      result = scoreSymbol(scoringBars, weekly);
-      console.timeEnd('scoreSymbol');
-    } catch(scoreErr) {
-      console.timeEnd('scoreSymbol');
-      console.error('[runAllComputed] scoreSymbol CRASHED:', scoreErr.message, scoreErr.stack);
-      throw scoreErr;
-    }
-    console.log('[runAllComputed] scoreSymbol returned. Has scores:', !!result.scores, 'Has adx:', !!result.adx);
+    const result = scoreSymbol(daily, weekly);
     const S = result.scores;
     const I = result.indicators;
-    console.log('[runAllComputed] S keys:', Object.keys(S).join(','));
 
     // ── Set ADX overlay (not scored — modifies trend-follower weights) ──
     const adx = result.adx;
-    console.log('[runAllComputed] ADX:', adx?.adx);
     if(adx && adx.adx != null){
       const overlay = computeADXOverlayMultiplier(adx.adx);
       adxOverlay = { adx: adx.adx, plusDI: adx.plusDI, minusDI: adx.minusDI, multiplier: overlay.multiplier, label: overlay.label };
@@ -2513,22 +2380,14 @@ async function runAllComputed(ticker){
 
   } catch(err){
     console.warn('runAllComputed failed:', err.message);
-    // Show failure in the stream output so user knows computed scores didn't load
-    const so = document.getElementById('sstream');
-    if(so) so.textContent = 'OHLC computed failed: ' + err.message;
-    // Mark sub-labels that are still showing "computing…"
-    ['rsi_extreme','sma_200','sma_cross','macd_weekly','bollinger','obv','vol_profile','ichimoku','demark_seq','candle_signal'].forEach(id => {
-      const sub = document.getElementById('sub-'+id);
-      if(sub && sub.textContent.includes('computing')) sub.textContent = '⚠ OHLC fetch failed — using AI estimate';
-    });
-    throw err; // re-throw so callers know it failed
+    // Sub-labels revert to defaults on error — AI estimates remain
   }
 }
 
 // ═══ KEY PRICE LEVELS — COMPUTED FROM OHLC ═══
 async function runLevelsComputed(ticker){
   try{
-    const ohlc = await Promise.race([fetchOHLCForCharts(ticker), new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),30000))]);
+    const ohlc = await Promise.race([fetchOHLCForCharts(ticker), new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),15000))]);
     if(!ohlc || ohlc.daily.length < 30) throw new Error('Insufficient bars');
     const bars = ohlc.daily;
     const n    = bars.length;
@@ -2792,9 +2651,9 @@ async function fetchOHLCForCharts(ticker){
         const tid = setTimeout(()=>ctrl.abort(), proxy.timeout);
         res = await fetch(proxy.url, {signal:ctrl.signal});
         clearTimeout(tid);
-        if(res.ok){ console.log('OHLC proxy OK:', proxy.url.slice(0,60)); break; }
-        else { console.warn('OHLC proxy non-OK:', res.status, proxy.url.slice(0,60)); res = null; }
-      }catch(e){ console.warn('OHLC proxy failed:', e.message, proxy.url.slice(0,60)); res = null; }
+        if(res.ok) break;
+        else res = null;
+      }catch(e){ res = null; }
     }
     if(!res || !res.ok) throw new Error('OHLC fetch failed for '+interval);
     const data = await res.json();
@@ -2816,8 +2675,8 @@ async function fetchOHLCForCharts(ticker){
     }
     return out;
   };
-  // Fetch daily only — weekly dropped for speed/reliability.
-  // MACD computes from daily closes instead (more responsive for swing/intermediate).
+  // Daily only — weekly dropped for speed/reliability.
+  // MACD computes from daily closes (more responsive for swing/intermediate).
   const daily = await fetchBars('1d','5y');
   ohlcCache = { ticker, daily, weekly: [] };
   return ohlcCache;
@@ -3826,7 +3685,7 @@ async function fetchPrice(){
   const lbl=document.getElementById('price-fetch-lbl');
   lbl.textContent='…'; lbl.style.color='var(--neu)';
   try{
-    // Yahoo Finance — use Worker proxy first, then CORS proxies
+    // Yahoo Finance — Worker proxy first, then CORS proxies
     const WORKER_BASE = 'https://ta-alerts.mdorm33.workers.dev';
     const yahooBase = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d`;
     const priceUrls = [
@@ -3884,7 +3743,7 @@ function loadPreset(d){
   recalc();
 }
 
-// ═══ LIVE API (merged: divNote + fundamentals, no web search) ═══
+// ═══ LIVE API (with web_search tool) ═══
 async function runAnalysis(){
   const ticker=document.getElementById('ticker-input').value.trim().toUpperCase();
   if(!ticker){alert('Enter a ticker symbol.');return;}
@@ -3928,22 +3787,10 @@ async function runAnalysis(){
   document.getElementById('fund-body').innerHTML = '';
   document.getElementById('fund-body').classList.remove('open');
   document.getElementById('fund-chevron').classList.remove('open');
-  const fb = document.getElementById('fund-badge'); if(fb){ fb.className='fund-badge'; fb.textContent='⟳ loading…'; }
+  const fb = document.getElementById('fund-badge'); if(fb){ fb.className='fund-badge'; fb.textContent='— loading…'; }
 
   ['r1','r2','s1','s2','stop','target'].forEach(k=>{const el=document.getElementById(k);if(el)el.value='';});
   document.getElementById('div-note').value='';
-
-  // Reset news panel
-  const nb = document.getElementById('news-badge'); if(nb){ nb.className='news-badge'; nb.textContent='click button to load'; }
-  const nBody = document.getElementById('news-body'); if(nBody) nBody.style.display='none';
-  const nContent = document.getElementById('news-content'); if(nContent) nContent.innerHTML='';
-  const nBtn = document.getElementById('news-fetch-btn'); if(nBtn){ nBtn.textContent='🔍 Fetch News'; nBtn.disabled=false; }
-
-  // Handle fund not applicable immediately
-  if(fundNotApplicable(getAC())){
-    fundData = { error: null };
-    renderFundamentals();
-  }
 
   // Also try to fetch price in parallel
   fetchPrice();
@@ -3952,38 +3799,22 @@ async function runAnalysis(){
   // Auto-fetch Macro Regime data
   fetchRegimeData();
 
-  // Fetch fundamentals in parallel — now merged into the main AI call (no separate fetchFundamentals)
+  // Merged AI call: divNote + fundamentals (no separate fetchFundamentals call)
+  fundData = null;
+  const fundBadge = document.getElementById('fund-badge');
+  if(fundBadge){ fundBadge.className='fund-badge'; fundBadge.textContent='⟳ loading…'; }
+
   const isLimited = FUND_LIMITED[getAC()];
   const fundApplicable = !fundNotApplicable(getAC());
+  if(!fundApplicable){ fundData = { error: null }; renderFundamentals(); }
 
   const sys=`JSON API. Respond with ONLY a raw JSON object — no text before or after. Output this exact structure:
 {"ticker":"SYMBOL","divNote":"brief dividend/return context"${fundApplicable ? ',"sector":"sector","pe_fwd":"value or N/A","rev_growth":"value% or N/A","fcf_yield":"value% or N/A","debt_equity":"value or N/A","div_yield":"value% or N/A","return_3yr":"value% or N/A","return_5yr":"value% or N/A","return_10yr":"value% or N/A","fundContext":"one sentence of key fundamental context or null"' : ''}}
 divNote: one sentence on dividend yield or total return context.${fundApplicable ? `\nreturn_3yr, return_5yr, return_10yr must be TOTAL RETURN (price + dividends reinvested), annualised.${isLimited ? ' This is a Bond/MLP/ETF — pe_fwd and rev_growth likely N/A. Focus on div_yield and total returns.' : ''}` : ''}
 All values plain text only — no HTML, no citations. Use N/A if unknown. Return ONLY the JSON.`;
 
-  // Sonnet 4.6 — smarter, less hallucination, same $3/$15 pricing tier as 4.5
+  // Sonnet 4.6 — smarter, less hallucination, no web search needed
   const MODEL = 'claude-sonnet-4-6';
-
-  // Fire OHLC scoring IMMEDIATELY in parallel — don't wait for AI call
-  // This is the critical path: all 10 computed indicators from live market data
-  const computedPromise = (async () => {
-    try {
-      await runAllComputed(ticker);
-      runLevelsComputed(ticker);
-      renderOrientationChart(ticker);
-      // Refresh status bar with computed score
-      const _sc = Math.round(bScore('high')*customBW.high + bScore('med')*customBW.med);
-      const _vc = verd(_sc).l, _cc = sCol(_sc);
-      const _cn = window._lastSymbolName ? ` · ${window._lastSymbolName}` : '';
-      const _pr = document.getElementById('price-val').textContent.replace('$','').trim() || '—';
-      st.innerHTML=`<span class="sticker">${ticker}</span>${_cn} — <span style="color:${_cc};font-weight:600">${_vc} (${_sc})</span> · $${_pr} · ${nowStamp()}`;
-      st.style.animation='';
-      dot.className='sdot active';
-      so.textContent='All 10 indicators computed from live OHLC data.';
-    } catch(compErr) {
-      console.error('Parallel computed error:', compErr);
-    }
-  })();
 
   try{
     let data=null, lastErr=null;
@@ -4037,8 +3868,9 @@ All values plain text only — no HTML, no citations. Use N/A if unknown. Return
     const parsed=JSON.parse(raw.slice(jStart,jEnd+1));
     loadPreset(parsed);
     dot.className='sdot active';st.className='stext active';st.style.animation='';st.style.color='';
-    // Price is fetched separately by fetchPrice() — read from DOM
-    const cleanPrice = document.getElementById('price-val').textContent.replace('$','').trim() || '—';
+    // Clean price display
+    const cleanPrice = String(parsed.price).replace(/<[^>]*>/g,'').replace(/\$cite[^>]*/g,'').trim();
+    document.getElementById('price-val').textContent='$'+cleanPrice;syncPriceLvl();
     const _cname=window._lastSymbolName?` · ${window._lastSymbolName}`:'';
     // Compute initial score for status bar display
     const _initScore = Math.round(bScore('high')*customBW.high + bScore('med')*customBW.med);
@@ -4063,16 +3895,7 @@ All values plain text only — no HTML, no citations. Use N/A if unknown. Return
     // Single call to scoring engine — replaces 13 individual run*Computed functions
     // NOTE: These are now also called in the finally block as a safety net,
     // but calling here first means they run immediately on AI success.
-    try {
-      await runAllComputed(ticker);
-      // Refresh status bar with computed score (overwrites the AI-era "NEUTRAL 50" placeholder)
-      const _sC = Math.round(bScore('high')*customBW.high + bScore('med')*customBW.med);
-      const _vC = verd(_sC).l, _cC = sCol(_sC);
-      const _cnC = window._lastSymbolName ? ` · ${window._lastSymbolName}` : '';
-      st.innerHTML=`<span class="sticker">${parsed.ticker}</span>${_cnC} — <span style="color:${_cC};font-weight:600">${_vC} (${_sC})</span> · $${cleanPrice} · ${nowStamp()}`;
-    } catch(ohlcErr) {
-      console.warn('Happy-path OHLC failed, will retry in finally:', ohlcErr.message);
-    }
+    await runAllComputed(ticker);
     // Compute key price levels from OHLC (fills empty fields only — won't overwrite AI or manual values)
     runLevelsComputed(ticker);
     // Render orientation chart at top of indicators panel
@@ -4082,8 +3905,6 @@ All values plain text only — no HTML, no citations. Use N/A if unknown. Return
     dot.className='sdot error';st.className='stext';st.style.color='';st.style.animation='';
     st.textContent='AI unavailable — computing from OHLC data…';
     so.textContent=err.message;console.error('TA·WEIGHT AI error:',err);
-    // Clean up fundamentals badge if AI failed
-    if(!fundData){ fundData = { error: 'AI call failed' }; renderFundamentals(); }
   }finally{
     btn.disabled=false;btn.classList.remove('loading');if(document.getElementById('stext').style.animation)document.getElementById('stext').style.animation='';
     // Always compute OHLC-derived indicators, even if AI call failed.
@@ -4092,16 +3913,13 @@ All values plain text only — no HTML, no citations. Use N/A if unknown. Return
       await runAllComputed(ticker);
       runLevelsComputed(ticker);
       renderOrientationChart(ticker);
-      // Always refresh status bar with final computed score
-      const _s3 = Math.round(bScore('high')*customBW.high + bScore('med')*customBW.med);
-      const _v3 = verd(_s3).l, _c3 = sCol(_s3);
-      const _cn3 = window._lastSymbolName ? ` · ${window._lastSymbolName}` : '';
+      // If AI failed but computed succeeded, update status bar
       if(dot.className.includes('error')){
+        const _s3 = Math.round(bScore('high')*customBW.high + bScore('med')*customBW.med);
+        const _v3 = verd(_s3).l, _c3 = sCol(_s3);
+        const _cn3 = window._lastSymbolName ? ` · ${window._lastSymbolName}` : '';
         st.innerHTML=`<span class="sticker">${ticker}</span>${_cn3} — <span style="color:${_c3};font-weight:600">${_v3} (${_s3})</span> · OHLC only · ${nowStamp()}`;
         so.textContent='AI call failed — all 10 scored indicators computed from live OHLC data.';
-        dot.className='sdot active'; // upgrade from error since computed worked
-      } else {
-        st.innerHTML=`<span class="sticker">${ticker}</span>${_cn3} — <span style="color:${_c3};font-weight:600">${_v3} (${_s3})</span> · $${document.getElementById('price-val').textContent.replace('$','')} · ${nowStamp()}`;
       }
     } catch(compErr) {
       console.error('TA·WEIGHT computed error:', compErr);
