@@ -3039,7 +3039,7 @@ function setSl(id,v,anim=true){
   const sl=document.getElementById('sl-'+id),lb=document.getElementById('lb-'+id),row=document.getElementById('row-'+id);
   if(!sl){ if(v!==50) console.warn(`setSl: sl-${id} NOT FOUND, value=${v}`); return; }
   const prev = vals[id];
-  sl.value=v; vals[id]=v; sl.style.background=sbg(v);
+  sl.value=v; sl.setAttribute('value', String(v)); vals[id]=v; sl.style.background=sbg(v);
   if(v !== 50 || (prev !== undefined && prev !== 50)) console.log(`setSl: ${id} ${prev}→${v}`);
   const s=getSig(v); lb.className='slbl '+s.cls; lb.textContent=s.txt;
   if(anim&&row){row.classList.remove('just-updated');void row.offsetWidth;row.classList.add('just-updated');}
@@ -3900,15 +3900,26 @@ async function runAnalysis(){
     runLevelsComputed(ticker);
     renderOrientationChart(ticker);
     computedDone = true;
-    // Force sliders + gauge via direct DOM manipulation (belt + suspenders)
+
+    // ── CRITICAL: yield to browser, then force all UI updates ──
+    // Without this yield, the browser may batch the reset-to-50 and score-set
+    // into a single paint frame, causing the reset to win visually.
+    await new Promise(r => setTimeout(r, 0));
+
+    // Re-apply ALL slider values, labels, and backgrounds from vals
     [...INDS.high,...INDS.med].forEach(i => {
-      const v = vals[i.id]; if(v == null) return;
+      const v = vals[i.id] ?? 50;
       const sl = document.getElementById('sl-'+i.id);
-      if(sl){ sl.value = v; sl.style.background = sbg(v); }
+      if(sl){
+        sl.value = v;
+        sl.setAttribute('value', String(v)); // attribute AND property
+        sl.style.background = sbg(v);
+      }
       const lb = document.getElementById('lb-'+i.id);
       if(lb){ const s = getSig(v); lb.className = 'slbl '+s.cls; lb.textContent = s.txt; }
     });
     recalc();
+
     // Update status bar with computed scores
     const _sc = Math.round(bScore('high')*customBW.high + bScore('med')*customBW.med);
     const _vc = verd(_sc).l, _cc = sCol(_sc);
@@ -3919,6 +3930,14 @@ async function runAnalysis(){
     so.textContent='Waiting for AI (divNote + fundamentals)…';
     btn.disabled=false;btn.classList.remove('loading');
     console.log('runAnalysis: OHLC scoring done. Score:', _sc, 'vals:', JSON.stringify(vals));
+    // DOM verification — check that slider DOM actually reflects vals
+    const domCheck = {};
+    [...INDS.high,...INDS.med].forEach(i => {
+      const sl = document.getElementById('sl-'+i.id);
+      const lb = document.getElementById('lb-'+i.id);
+      domCheck[i.id] = { val: vals[i.id], slValue: sl?.value, slAttr: sl?.getAttribute('value'), lbText: lb?.textContent };
+    });
+    console.log('runAnalysis: DOM verification:', JSON.stringify(domCheck));
   } catch(e) {
     console.error('OHLC scoring failed:', e);
     dot.className='sdot error';st.className='stext';st.style.color='';st.style.animation='';
