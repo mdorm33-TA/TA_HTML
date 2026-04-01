@@ -2160,14 +2160,20 @@ async function runAllComputed(ticker){
 
     const daily = ohlc.daily;
     const weekly = (ohlc.weekly && ohlc.weekly.length > 0) ? ohlc.weekly : null;
-    const n = daily.length;
-    const closes = daily.map(b => b.c);
+    // Cap bars for scoring — 504 (2yr) is plenty for all indicators (SMA200 needs 200+buffer).
+    // Full daily set is kept in ohlcCache for chart rendering.
+    const scoringBars = daily.length > 504 ? daily.slice(-504) : daily;
+    const n = scoringBars.length;
+    const closes = scoringBars.map(b => b.c);
     const price = closes[n - 1];
 
+    // Yield to main thread before heavy computation (prevents "Page Unresponsive")
+    await new Promise(r => setTimeout(r, 0));
+
     // ── Single call to scoring engine — source of truth ──
-    console.log('runAllComputed: calling scoreSymbol...');
+    console.log('runAllComputed: calling scoreSymbol with', n, 'bars (capped from', daily.length, ')...');
     const t0 = performance.now();
-    const result = scoreSymbol(daily, weekly);
+    const result = scoreSymbol(scoringBars, weekly);
     console.log('runAllComputed: scoreSymbol completed in', (performance.now()-t0).toFixed(0), 'ms');
     const S = result.scores;
     const I = result.indicators;
@@ -2718,7 +2724,8 @@ async function fetchOHLCForCharts(ticker){
     return out;
   };
   // Daily only — weekly bars dropped (MACD uses daily closes, more responsive for swing/intermediate)
-  const daily = await fetchBars('1d','5y');
+  // 3y range = ~756 bars — plenty for SMA200 + chart display
+  const daily = await fetchBars('1d','3y');
   ohlcCache = { ticker, daily, weekly: [] };
   return ohlcCache;
 }
