@@ -3882,19 +3882,22 @@ async function runAnalysis(){
 
   // OHLC scoring runs in PARALLEL with AI call (not blocked by it)
   // When scoring completes, it updates sliders + status bar immediately — doesn't wait for AI.
+  let computedDone = false;
   const computedPromise = (async () => {
     try {
       await runAllComputed(ticker);
       runLevelsComputed(ticker);
       renderOrientationChart(ticker);
+      computedDone = true;
       // Update status bar immediately with computed scores
       const _sc = Math.round(bScore('high')*customBW.high + bScore('med')*customBW.med);
       const _vc = verd(_sc).l, _cc = sCol(_sc);
       const _cnc = window._lastSymbolName ? ` · ${window._lastSymbolName}` : '';
       const priceC = document.getElementById('price-val').textContent || '';
-      st.innerHTML=`<span class="sticker">${ticker}</span>${_cnc} — <span style="color:${_cc};font-weight:600">${_vc} (${_sc})</span> · ${priceC} · ${nowStamp()}`;
       dot.className='sdot active';st.className='stext active';st.style.animation='';st.style.color='';
-      so.textContent='OHLC scoring complete. AI loading…';
+      st.innerHTML=`<span class="sticker">${ticker}</span>${_cnc} — <span style="color:${_cc};font-weight:600">${_vc} (${_sc})</span> · ${priceC} · OHLC scored · ${nowStamp()}`;
+      so.textContent='Waiting for AI (divNote + fundamentals)…';
+      btn.disabled=false;btn.classList.remove('loading');
       console.log('computedPromise: scoring done, status bar updated. Score:', _sc);
       return true;
     } catch(e) {
@@ -3925,14 +3928,16 @@ All values plain text only — no HTML, no citations. N/A if unknown.`;
     const maxAttempts=3;
     for(let attempt=1; attempt<=maxAttempts; attempt++){
       if(attempt>1){
-        const delay=attempt===2?5000:attempt===3?10000:15000;
-        dot.className='sdot loading';
-        st.style.animation='blink 0.7s step-end infinite';
-        st.textContent=`Overloaded — retrying in ${delay/1000}s… (attempt ${attempt}/${maxAttempts})`;
-        so.textContent='Claude API busy — retrying automatically…';
+        const delay=attempt===2?5000:10000;
+        if(!computedDone){
+          dot.className='sdot loading';
+          st.style.animation='blink 0.7s step-end infinite';
+          st.textContent=`Overloaded — retrying in ${delay/1000}s… (attempt ${attempt}/${maxAttempts})`;
+        }
+        so.textContent=`Claude API busy — retry ${attempt}/${maxAttempts} in ${delay/1000}s…`;
         await new Promise(r=>setTimeout(r,delay));
       }
-      so.textContent=attempt>1?`Attempt ${attempt}/${maxAttempts}…`:'';
+      if(!computedDone) so.textContent=attempt>1?`Attempt ${attempt}/${maxAttempts}…`:'';
       let res, body;
       try{
         const ctrl = new AbortController();
@@ -3998,24 +4003,27 @@ All values plain text only — no HTML, no citations. N/A if unknown.`;
       }, 3000);
     }
   }catch(err){
-    // AI failure is non-fatal — computed indicators still loading in parallel
-    dot.className='sdot error';st.className='stext';st.style.color='';st.style.animation='';
-    st.textContent='AI unavailable — computing from OHLC data…';
+    // AI failure is non-fatal — computed indicators already loaded if computedDone
+    if(!computedDone){
+      dot.className='sdot error';st.className='stext';st.style.color='';st.style.animation='';
+      st.textContent='AI unavailable — computing from OHLC data…';
+    }
     so.textContent=err.message;console.error('TA·WEIGHT AI error:',err);
   }finally{
-    btn.disabled=false;btn.classList.remove('loading');if(document.getElementById('stext').style.animation)document.getElementById('stext').style.animation='';
+    btn.disabled=false;btn.classList.remove('loading');
+    if(document.getElementById('stext').style.animation) document.getElementById('stext').style.animation='';
     // Wait for the parallel computed scoring to finish
     const computedOK = await computedPromise;
     if(computedOK){
-      // Update status bar with final score (computed indicators now populated)
+      // Final status bar update with computed scores
       const _s3 = Math.round(bScore('high')*customBW.high + bScore('med')*customBW.med);
       const _v3 = verd(_s3).l, _c3 = sCol(_s3);
       const _cn3 = window._lastSymbolName ? ` · ${window._lastSymbolName}` : '';
       const priceNow = document.getElementById('price-val').textContent || '';
-      const isErr = dot.className.includes('error');
-      st.innerHTML=`<span class="sticker">${ticker}</span>${_cn3} — <span style="color:${_c3};font-weight:600">${_v3} (${_s3})</span> · ${priceNow}${isErr ? ' · OHLC only' : ''} · ${nowStamp()}`;
-      if(isErr) so.textContent='AI call failed — all 10 scored indicators computed from live OHLC data.';
-    } else if(dot.className.includes('error')){
+      dot.className='sdot active';st.className='stext active';st.style.animation='';st.style.color='';
+      st.innerHTML=`<span class="sticker">${ticker}</span>${_cn3} — <span style="color:${_c3};font-weight:600">${_v3} (${_s3})</span> · ${priceNow} · ${nowStamp()}`;
+      so.textContent='';
+    } else if(!computedDone){
       so.textContent += ' | OHLC scoring also failed.';
     }
   }
