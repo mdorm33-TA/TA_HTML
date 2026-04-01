@@ -2254,9 +2254,13 @@ async function runAllComputed(ticker){
     const closes = daily.map(b => b.c);
     const price = closes[n - 1];
 
+    // Yield to browser before heavy computation
+    await new Promise(r => setTimeout(r, 0));
+
     // ── Single call to scoring engine — source of truth ──
+    console.log('[runAllComputed] calling scoreSymbol with', n, 'daily bars');
     const result = scoreSymbol(daily, weekly);
-    console.log('scoreSymbol completed. Weighted:', result.scores ? 'OK' : 'MISSING');
+    console.log('[runAllComputed] scoreSymbol completed. Score:', result.weightedScore);
     const S = result.scores;
     const I = result.indicators;
 
