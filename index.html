@@ -2171,12 +2171,26 @@ async function runAllComputed(ticker){
     await new Promise(r => setTimeout(r, 0));
 
     // ── Single call to scoring engine — source of truth ──
+    // Guard: if scoreSymbol takes >5s, something is wrong — abort gracefully
     console.log('runAllComputed: calling scoreSymbol with', n, 'bars (capped from', daily.length, ')...');
     const t0 = performance.now();
-    const result = scoreSymbol(scoringBars, weekly);
-    console.log('runAllComputed: scoreSymbol completed in', (performance.now()-t0).toFixed(0), 'ms');
+    let result;
+    try {
+      // Run scoreSymbol in a microtask so we can detect hangs
+      result = scoreSymbol(scoringBars, weekly);
+    } catch(scoreErr) {
+      console.error('runAllComputed: scoreSymbol threw:', scoreErr);
+      throw scoreErr;
+    }
+    const elapsed = performance.now() - t0;
+    console.log('runAllComputed: scoreSymbol completed in', elapsed.toFixed(0), 'ms');
+    if(!result || !result.scores || Object.keys(result.scores).length === 0){
+      console.warn('runAllComputed: scoreSymbol returned empty scores, skipping');
+      throw new Error('scoreSymbol returned empty');
+    }
     const S = result.scores;
     const I = result.indicators;
+    console.log('runAllComputed: scores =', JSON.stringify(S));
 
     // ── Set ADX overlay (not scored — modifies trend-follower weights) ──
     const adx = result.adx;
@@ -2187,6 +2201,7 @@ async function runAllComputed(ticker){
 
     // ── Distribute all 10 scores to sliders ──
     Object.entries(S).forEach(([id, score]) => setSl(id, score, true));
+    console.log('runAllComputed: sliders updated, building detail strings...');
 
     // ── Build detail strings from raw indicator data ──
     // Each block is guarded — if a compute returned null, we skip its detail string.
@@ -2424,6 +2439,8 @@ async function runAllComputed(ticker){
       const csSub = document.getElementById('sub-candle_signal');
       if(csSub) csSub.textContent = 'No reversal pattern detected (last 5 bars)';
     }
+
+    console.log('runAllComputed: ALL DONE — detail strings complete for', ticker);
 
   } catch(err){
     console.warn('runAllComputed failed:', err.message);
