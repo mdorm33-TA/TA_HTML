@@ -3898,6 +3898,8 @@ function autoDetectAssetClass(ticker){
       detected = 'crypto';
     } else if(futurePatterns.test(t)){
       detected = 'gold';
+    } else {
+      detected = 'equity'; // Default: if no quoteType and not crypto/futures pattern, assume equity
     }
     if(detected) console.log(`autoDetectAssetClass: ticker-pattern fallback for ${t} → ${detected}`);
   }
