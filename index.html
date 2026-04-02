@@ -2456,6 +2456,30 @@ async function runAllComputed(ticker){
 
     console.log('runAllComputed: ALL DONE — detail strings complete for', ticker);
 
+    // ── FORCE UI UPDATE HERE — before returning to caller ──
+    // Belt + suspenders: update sliders, labels, gauge, and status bar
+    // directly from this function so it happens before any other code runs.
+    [...INDS.high,...INDS.med].forEach(i => {
+      const v = vals[i.id] ?? 50;
+      const sl2 = document.getElementById('sl-'+i.id);
+      if(sl2){ sl2.value = v; sl2.setAttribute('value', String(v)); sl2.style.background = sbg(v); }
+      const lb2 = document.getElementById('lb-'+i.id);
+      if(lb2){ const s = getSig(v); lb2.className = 'slbl '+s.cls; lb2.textContent = s.txt; }
+    });
+    recalc();
+    // Status bar
+    const _fsc = Math.round(bScore('high')*customBW.high + bScore('med')*customBW.med);
+    const _fvc = verd(_fsc).l, _fcc = sCol(_fsc);
+    const _fcn = window._lastSymbolName ? ` · ${window._lastSymbolName}` : '';
+    const _fpr = document.getElementById('price-val').textContent || '';
+    const dot2=document.getElementById('sdot'), st2=document.getElementById('stext'), so2=document.getElementById('sstream');
+    const btn2=document.getElementById('run-btn');
+    dot2.className='sdot active'; st2.className='stext active'; st2.style.animation=''; st2.style.color='';
+    st2.innerHTML=`<span class="sticker">${ticker}</span>${_fcn} — <span style="color:${_fcc};font-weight:600">${_fvc} (${_fsc})</span> · ${_fpr} · OHLC scored · ${new Date().toLocaleString()}`;
+    so2.textContent='Waiting for AI…';
+    btn2.disabled=false; btn2.classList.remove('loading');
+    console.log('runAllComputed: UI force-updated. Score:', _fsc);
+
   } catch(err){
     console.warn('runAllComputed failed:', err.message);
     // Sub-labels revert to defaults on error — AI estimates remain
