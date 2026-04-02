@@ -3921,8 +3921,6 @@ async function runAnalysis(){
     await new Promise(r => setTimeout(r, 50)); // Let initial reset paint
     await runAllComputed(ticker);
     console.log('runAnalysis: runAllComputed returned OK');
-    runLevelsComputed(ticker);
-    renderOrientationChart(ticker);
     computedDone = true;
     console.log('runAnalysis: about to reapply vals to DOM. vals=', JSON.stringify(vals));
 
@@ -4004,6 +4002,12 @@ async function runAnalysis(){
   // Use setTimeout(16) instead of rAF — rAF doesn't fire in backgrounded tabs
   await new Promise(r => setTimeout(r, 16));
   console.log('runAnalysis: paint yield done');
+
+  // ── Deferred: chart + levels + AI (after scores are painted) ──
+  // These are fire-and-forget — they don't modify scored vals.
+  // CRITICAL: must be AFTER the yield so Chart.js rendering doesn't block the paint.
+  runLevelsComputed(ticker);
+  renderOrientationChart(ticker);
 
   // ── Merged AI call: divNote + fundamentals in one call, no web search ──
   const ac = getAC();
