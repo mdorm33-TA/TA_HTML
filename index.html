@@ -3960,6 +3960,39 @@ async function runAnalysis(){
     so.textContent='Waiting for AI (divNote + fundamentals)…';
     btn.disabled=false;btn.classList.remove('loading');
     console.log('runAnalysis: ALL DONE. Score:', _sc);
+
+    // Nuclear option: schedule a delayed forced repaint after 500ms
+    // This fires AFTER any pending microtasks, macrotasks, or rAF callbacks
+    const _savedVals = {...vals};
+    const _savedTicker = ticker;
+    setTimeout(() => {
+      console.log('runAnalysis: 500ms force-refresh firing. savedVals:', JSON.stringify(_savedVals), 'current vals:', JSON.stringify(vals));
+      // Check if vals were overwritten
+      const changed = Object.keys(_savedVals).some(k => _savedVals[k] !== vals[k]);
+      if(changed) console.warn('runAnalysis: vals were OVERWRITTEN between scoring and 500ms refresh!');
+      // Force everything from saved vals
+      Object.entries(_savedVals).forEach(([id, v]) => {
+        vals[id] = v;
+        const sl = document.getElementById('sl-'+id);
+        if(sl){ sl.value = v; sl.setAttribute('value', String(v)); sl.style.background = sbg(v); }
+        const lb = document.getElementById('lb-'+id);
+        if(lb){ const s = getSig(v); lb.className = 'slbl '+s.cls; lb.textContent = s.txt; }
+      });
+      recalc();
+      // Also force status bar
+      const sc2 = Math.round(bScore('high')*customBW.high + bScore('med')*customBW.med);
+      const vc2 = verd(sc2).l, cc2 = sCol(sc2);
+      const cn2 = window._lastSymbolName ? ` · ${window._lastSymbolName}` : '';
+      const pr2 = document.getElementById('price-val').textContent || '';
+      document.getElementById('sdot').className='sdot active';
+      const st3 = document.getElementById('stext');
+      st3.className='stext active'; st3.style.animation=''; st3.style.color='';
+      st3.innerHTML=`<span class="sticker">${_savedTicker}</span>${cn2} — <span style="color:${cc2};font-weight:600">${vc2} (${sc2})</span> · ${pr2} · OHLC scored · ${nowStamp()}`;
+      document.getElementById('sstream').textContent='Waiting for AI…';
+      document.getElementById('run-btn').disabled=false;
+      document.getElementById('run-btn').classList.remove('loading');
+      console.log('runAnalysis: 500ms force-refresh done. Score:', sc2);
+    }, 500);
   } catch(e) {
     console.error('OHLC scoring failed:', e);
     dot.className='sdot error';st.className='stext';st.style.color='';st.style.animation='';
