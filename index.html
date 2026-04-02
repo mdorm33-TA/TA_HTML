@@ -888,16 +888,7 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
         </div>
         <div class="gverdict" id="gverdict">LOADING…</div>
         <div class="gconf">Confidence: <span id="gconf">—</span></div>
-        <div class="gdisp">Agreement: <span id="gdisp-lbl">—</span>
-          <div class="gdisp-bar"><div class="gdisp-fill" id="gdisp-fill"></div></div>
-          <div class="gdisp-legend">
-            <span style="color:#00d97e">●</span> Strong (σ&lt;8)
-            <span style="color:#4dd9a0">●</span> Good (8–14)
-            <span style="color:#f0b429">●</span> Moderate (15–21)
-            <span style="color:#ff9a7c">●</span> Weak (22–29)
-            <span style="color:#ff4560">●</span> Conflicted (30+)
-          </div>
-        </div>
+        <div class="gdisp">Agreement: <span id="gdisp-lbl">—</span></div>
       </div>
 
 
@@ -968,13 +959,13 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
           <button class="fg-fetch" id="regime-fetch-btn" onclick="fetchRegimeData()">↻ Fetch Live</button>
         </div>
         <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
-          <div class="regime-row"><span class="regime-lbl">S&amp;P 500 (SPY)</span><span class="regime-val" id="reg-spy">—</span></div>
+          <div class="regime-row"><span class="regime-lbl">S&amp;P 500</span><span class="regime-val" id="reg-spy">—</span></div>
           <div class="regime-row"><span class="regime-lbl">Volatility (VIX)</span><span class="regime-val" id="reg-vix">—</span></div>
           <div class="regime-row"><span class="regime-lbl">10-Yr Treasury Yield</span><span class="regime-val" id="reg-tlt">—</span></div>
           <div class="regime-row"><span class="regime-lbl">Gold (XAU/USD)</span><span class="regime-val" id="reg-gold">—</span></div>
           <div class="regime-row"><span class="regime-lbl">Oil WTI (CL)</span><span class="regime-val" id="reg-uso">—</span></div>
           <div class="regime-row" style="border-top:1px solid var(--border);padding-top:6px;margin-top:2px;">
-            <span class="regime-lbl" style="display:flex;align-items:center;gap:4px;">Lev. Vol Sentiment
+            <span class="regime-lbl" style="display:flex;align-items:center;gap:4px;">Leveraged ETF Vol.
               <span class="tip-wrap"><button class="tip-icon" style="width:16px;height:16px;font-size:10px;border:1px solid var(--border2);border-radius:50%;background:var(--surface3);color:var(--text3);cursor:pointer;padding:0;line-height:16px;">?</button><div class="tip-box"><div class="tp-name">Leveraged ETF Volume Sentiment</div><div class="tp-desc">Measures retail/short-term conviction by comparing daily volume in bullish 3× leveraged ETFs vs bearish 3× leveraged ETFs.<br><br><strong>Primary pair:</strong> TQQQ (3× Nasdaq bull) vs SQQQ (3× Nasdaq bear) — the most liquid leveraged ETFs, often 100M+ shares/day combined.<br><br><strong>Secondary pair:</strong> UPRO (3× S&P bull) vs SPXU (3× S&P bear) — broader market confirmation.<br><br><strong>Reading:</strong> High bull/bear ratio → bullish conviction/greed. Low ratio → fear/hedging. The 20-day average smooths noise. Spikes above 2× the 20d avg in either direction signal sentiment extremes.</div></div></span>
             </span>
             <span class="regime-val" id="reg-levsent">—</span>
@@ -4014,7 +4005,7 @@ async function fetchRegimeData(){
   }
 
   const [spyData, vixData, tnxData, goldData, oilData, tqqqData, sqqqData, uproData, spxuData] = await Promise.all([
-    fetchETF('SPY'), fetchETF('^VIX'), fetchETF('^TNX'), fetchETF('GC=F'), fetchETF('CL=F'),
+    fetchETF('^GSPC'), fetchETF('^VIX'), fetchETF('^TNX'), fetchETF('GC=F'), fetchETF('CL=F'),
     fetchETF('TQQQ'), fetchETF('SQQQ'), fetchETF('UPRO'), fetchETF('SPXU')
   ]);
 
@@ -4029,9 +4020,9 @@ async function fetchRegimeData(){
     const above = price > sma200;
     const pill = above ? 'bull' : 'bear';
     const lbl = above ? 'ABOVE' : 'BELOW';
-    spyEl.innerHTML = `$${price.toFixed(2)} <span class="regime-pill ${pill}">${lbl} SMA200</span><br><span style="font-size:11px;color:var(--text3)">SMA200: $${sma200.toFixed(2)} (${pct>0?'+':''}${pct.toFixed(1)}%)</span>`;
-    if(above) summary.push('SPY above SMA200 — broad market trend is bullish.');
-    else summary.push('SPY below SMA200 — broad market in downtrend.');
+    spyEl.innerHTML = `${price.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})} <span class="regime-pill ${pill}">${lbl} SMA200</span><br><span style="font-size:11px;color:var(--text3)">SMA200: ${sma200.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})} (${pct>0?'+':''}${pct.toFixed(1)}%)</span>`;
+    if(above) summary.push('S&P 500 above SMA200 — broad market trend is bullish.');
+    else summary.push('S&P 500 below SMA200 — broad market in downtrend.');
   } else { spyEl.textContent = spyData ? 'Insufficient data' : 'Fetch failed'; }
 
   // ── VIX (Volatility) ──
