@@ -1226,9 +1226,11 @@ function computeMACD(closes) {
   const macdLine = closes.map((_, i) => ema12[i] != null && ema26[i] != null ? ema12[i] - ema26[i] : null);
   const validMacd = macdLine.filter(v => v !== null);
   const signalRaw = emaCalc(validMacd, 9);
+  // O(n) mapping instead of O(n²) — track running count of non-null MACD values
+  let nonNullCount = 0;
   const signalFull = macdLine.map((v, i) => {
-    const idx = macdLine.slice(0, i + 1).filter(x => x !== null).length - 1;
-    return signalRaw[idx] ?? null;
+    if(v !== null) nonNullCount++;
+    return signalRaw[nonNullCount - 1] ?? null;
   });
   const n = closes.length;
   const last = macdLine[n - 1], prev = macdLine[n - 2];
@@ -1661,7 +1663,7 @@ function aggregateWeekly(dailyBars) {
 // ─── COMPOSITE: scoreSymbol ──────────────────────────────────
 // Full scorer: 10 scored indicators + ADX overlay data.
 // The HTML tool calls this once with daily + weekly bars.
-function scoreSymbol(dailyBars, weeklyBars) {
+async function scoreSymbol(dailyBars, weeklyBars) {
   // ── Sanitize bars: drop any with null/NaN/undefined OHLC, coerce missing volume to 0 ──
   const clean = b => b && isFinite(b.o) && isFinite(b.h) && isFinite(b.l) && isFinite(b.c);
   dailyBars = dailyBars.filter(clean).map(b => ({...b, v: isFinite(b.v) ? b.v : 0}));
@@ -1673,6 +1675,9 @@ function scoreSymbol(dailyBars, weeklyBars) {
   const price = closes[n - 1];
   const macdCloses = (weeklyBars && weeklyBars.length > 0) ? weeklyBars.map(b => b.c) : closes;
 
+  // ── Yield helper — lets browser paint between heavy compute calls ──
+  const yld = () => new Promise(r => setTimeout(r, 0));
+
   // ── Wrap each compute in try/catch with timing ──
   const safe = (label, fn) => {
     const t0 = performance.now();
@@ -1682,15 +1687,19 @@ function scoreSymbol(dailyBars, weeklyBars) {
   const rsi = safe('RSI', ()=>computeRSI(closes));
   const sma200 = safe('SMA200', ()=>computeSMA200(closes));
   const sma50 = safe('SMA50', ()=>computeSMA(closes, 50));
+  await yld();
   const boll = safe('Bollinger', ()=>computeBollinger(closes));
   const macd = safe('MACD', ()=>computeMACD(macdCloses));
   const obv = safe('OBV', ()=>computeOBV(dailyBars));
+  await yld();
   const ichimoku = safe('Ichimoku', ()=>computeIchimoku(dailyBars));
   const demark = safe('DeMark', ()=>computeDeMark(dailyBars));
   const candle = safe('Candle', ()=>computeCandleSignal(dailyBars));
+  await yld();
   const adx = safe('ADX', ()=>computeADX(dailyBars)) || {adx:0,plusDI:0,minusDI:0,adxRising:false};
   const volProf = safe('VolProfile', ()=>computeVolumeProfile(dailyBars));
   const cross = safe('Cross', ()=>detectGoldenDeathCross(closes)) || {type:null,barsAgo:null,sma50:sma50,sma200:sma200};
+  await yld();
   console.log('scoreSymbol: all computes done, scoring...');
   const scores = {
     vol_profile: safe('sVP', ()=>scoreVolumeProfile(volProf)) ?? 50,
@@ -2499,8 +2508,8 @@ async function runAllComputed(ticker){
     const t0 = performance.now();
     let result;
     try {
-      // Run scoreSymbol in a microtask so we can detect hangs
-      result = scoreSymbol(scoringBars, weekly);
+      // Run scoreSymbol — now async with yields to prevent page unresponsive
+      result = await scoreSymbol(scoringBars, weekly);
     } catch(scoreErr) {
       console.error('runAllComputed: scoreSymbol threw:', scoreErr);
       throw scoreErr;
