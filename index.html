@@ -3892,33 +3892,39 @@ async function runAnalysis(){
   fetchRegimeData();
 
   // ── OHLC SCORING — runs first, updates UI immediately when done ──
-  // Awaited directly so runAnalysis doesn't return until scores are painted.
   let computedDone = false;
   try {
     await new Promise(r => setTimeout(r, 50)); // Let initial reset paint
     await runAllComputed(ticker);
+    console.log('runAnalysis: runAllComputed returned OK');
     runLevelsComputed(ticker);
     renderOrientationChart(ticker);
     computedDone = true;
+    console.log('runAnalysis: about to reapply vals to DOM. vals=', JSON.stringify(vals));
 
-    // ── CRITICAL: yield to browser, then force all UI updates ──
-    // Without this yield, the browser may batch the reset-to-50 and score-set
-    // into a single paint frame, causing the reset to win visually.
-    await new Promise(r => setTimeout(r, 0));
-
-    // Re-apply ALL slider values, labels, and backgrounds from vals
+    // Re-apply ALL slider values, labels, and backgrounds from vals — synchronous
     [...INDS.high,...INDS.med].forEach(i => {
       const v = vals[i.id] ?? 50;
       const sl = document.getElementById('sl-'+i.id);
       if(sl){
         sl.value = v;
-        sl.setAttribute('value', String(v)); // attribute AND property
+        sl.setAttribute('value', String(v));
         sl.style.background = sbg(v);
       }
       const lb = document.getElementById('lb-'+i.id);
       if(lb){ const s = getSig(v); lb.className = 'slbl '+s.cls; lb.textContent = s.txt; }
     });
     recalc();
+    console.log('runAnalysis: recalc done. gauge score=', Math.round(bScore('high')*customBW.high + bScore('med')*customBW.med));
+
+    // DOM verification — check that slider DOM actually reflects vals
+    const domCheck = {};
+    [...INDS.high,...INDS.med].forEach(i => {
+      const sl = document.getElementById('sl-'+i.id);
+      const lb = document.getElementById('lb-'+i.id);
+      domCheck[i.id] = { val: vals[i.id], slProp: sl?.value, slAttr: sl?.getAttribute('value'), lbText: lb?.textContent };
+    });
+    console.log('runAnalysis: DOM check:', JSON.stringify(domCheck));
 
     // Update status bar with computed scores
     const _sc = Math.round(bScore('high')*customBW.high + bScore('med')*customBW.med);
@@ -3929,15 +3935,7 @@ async function runAnalysis(){
     st.innerHTML=`<span class="sticker">${ticker}</span>${_cnc} — <span style="color:${_cc};font-weight:600">${_vc} (${_sc})</span> · ${priceC} · OHLC scored · ${nowStamp()}`;
     so.textContent='Waiting for AI (divNote + fundamentals)…';
     btn.disabled=false;btn.classList.remove('loading');
-    console.log('runAnalysis: OHLC scoring done. Score:', _sc, 'vals:', JSON.stringify(vals));
-    // DOM verification — check that slider DOM actually reflects vals
-    const domCheck = {};
-    [...INDS.high,...INDS.med].forEach(i => {
-      const sl = document.getElementById('sl-'+i.id);
-      const lb = document.getElementById('lb-'+i.id);
-      domCheck[i.id] = { val: vals[i.id], slValue: sl?.value, slAttr: sl?.getAttribute('value'), lbText: lb?.textContent };
-    });
-    console.log('runAnalysis: DOM verification:', JSON.stringify(domCheck));
+    console.log('runAnalysis: ALL DONE. Score:', _sc);
   } catch(e) {
     console.error('OHLC scoring failed:', e);
     dot.className='sdot error';st.className='stext';st.style.color='';st.style.animation='';
