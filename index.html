@@ -517,7 +517,7 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
   </div>
   <!-- Controls row: ticker, asset class, price, analyze -->
   <div class="hdr-controls" style="justify-content:center;">
-    <input id="ticker-input" type="text" value="MU" placeholder="TICKER" maxlength="10" oninput="this.value=this.value.toUpperCase()" onfocus="this.select()">
+    <input id="ticker-input" type="text" value="" placeholder="TICKER" maxlength="10" oninput="this.value=this.value.toUpperCase()" onfocus="this.select()" onclick="this.select()">
     <div class="sdiv"></div>
     <select class="asel" id="asset-class" onchange="onACChange()">
       <option value="equity">Equity</option>
@@ -4513,6 +4513,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     loadFromUrl();
   } else {
     loadPreset(MU_PRELOAD);
+    document.getElementById('ticker-input').value = 'MU';
   }
   drawFGA(null);
   onACChange();
