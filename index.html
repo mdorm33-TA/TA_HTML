@@ -2490,6 +2490,9 @@ async function runAllComputed(ticker){
     if(!ohlc || !ohlc.daily || ohlc.daily.length < 30) throw new Error('Insufficient bars ('+((ohlc?.daily?.length)||0)+')');
     console.log('runAllComputed: OHLC OK —', ohlc.daily.length, 'daily bars');
 
+    // ── Auto-detect asset class from Yahoo quoteType ──
+    autoDetectAssetClass(ticker);
+
     const daily = ohlc.daily;
     const weekly = (ohlc.weekly && ohlc.weekly.length > 0) ? ohlc.weekly : null;
     // Cap bars for scoring — 504 (2yr) is plenty for all indicators (SMA200 needs 200+buffer).
@@ -3101,6 +3104,8 @@ async function fetchOHLCForCharts(ticker){
     if(meta0 && (meta0.longName || meta0.shortName) && !window._lastSymbolName) {
       window._lastSymbolName = meta0.longName || meta0.shortName || '';
     }
+    // Capture quoteType for asset class auto-detection
+    if(meta0 && meta0.quoteType) window._lastQuoteType = meta0.quoteType;
     const ts = r.timestamps || r.timestamp;
     const q  = r.indicators?.quote?.[0];
     const out = [];
@@ -3842,6 +3847,31 @@ function updWB(){
 }
 
 // ═══ ASSET CLASS ═══
+
+function autoDetectAssetClass(ticker){
+  const qt = (window._lastQuoteType || '').toUpperCase();
+  const sel = document.getElementById('asset-class');
+  if(!qt || !sel) return;
+  const prev = sel.value;
+  let detected = null;
+
+  if(qt === 'CRYPTOCURRENCY') {
+    detected = 'crypto';
+  } else if(qt === 'FUTURE') {
+    detected = 'gold'; // Gold / Commodity covers all futures
+  } else {
+    // EQUITY, ETF, MUTUALFUND, INDEX — default equity
+    // Bond/MLP stays manual since Yahoo classifies bond ETFs as ETF
+    detected = 'equity';
+  }
+
+  if(detected && detected !== prev){
+    sel.value = detected;
+    onACChange();
+    console.log(`autoDetectAssetClass: ${ticker} quoteType="${qt}" → ${detected} (was ${prev})`);
+  }
+}
+
 function onACChange(){
   const ac=getAC();
   document.getElementById('fg-src-lbl').textContent=FG_SRC[ac].lbl;
@@ -4193,6 +4223,7 @@ async function runAnalysis(){
   if(!ticker){alert('Enter a ticker symbol.');return;}
   const btn=document.getElementById('run-btn'),dot=document.getElementById('sdot'),st=document.getElementById('stext'),so=document.getElementById('sstream');
   window._lastSymbolName='';
+  window._lastQuoteType='';
   btn.disabled=true;btn.classList.add('loading');dot.className='sdot loading';st.className='stext';st.style.color='var(--bear)';st.style.animation='blink 0.7s step-end infinite';st.textContent=`Analyzing ${ticker}…`;so.textContent='';
   // Apply timeframe preset on every new Analyze run
   applyTFPreset(getTF());
