@@ -82,23 +82,28 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:18
 .sc-jaw-upper{transform-origin:30px 0;animation:scJawUp 3.5s ease-in-out infinite .8s;will-change:transform;animation-play-state:running!important}
 .sc-jaw-lower{transform-origin:30px 0;animation:scJawDown 3.5s ease-in-out infinite .8s;will-change:transform;animation-play-state:running!important}
 .sc-mouth-inside{animation:scMouthShow 3.5s ease-in-out infinite .8s;will-change:opacity;animation-play-state:running!important}
-@keyframes scSwim1{0%{transform:translate(55px,268px) scale(.58);opacity:.3}100%{transform:translate(185px,192px) scale(.76);opacity:1}}
-@keyframes scSwim2{0%{transform:translate(98px,228px) scale(.76);opacity:.45}100%{transform:translate(230px,148px) scale(.90) rotate(-5deg);opacity:1}}
-@keyframes scSwim3{0%{transform:translate(148px,190px) scale(.92);opacity:.55}70%{transform:translate(235px,125px) scale(1.05);opacity:.9}100%{transform:translate(255px,82px) scale(1.10) rotate(-20deg);opacity:1}}
+@keyframes scSwim1{0%{transform:translate(55px,268px) scale(.58);opacity:.3}100%{transform:translate(200px,192px) scale(.76);opacity:1}}
+@keyframes scSwim2{0%{transform:translate(98px,228px) scale(.76);opacity:.45}100%{transform:translate(258px,145px) scale(.90) rotate(-8deg);opacity:1}}
+@keyframes scSwim3{0%{transform:translate(148px,190px) scale(.92);opacity:.55}70%{transform:translate(268px,112px) scale(1.05);opacity:.9}100%{transform:translate(298px,76px) scale(1.10) rotate(-20deg);opacity:1}}
 .sc-f1{animation:scSwim1 4.5s ease-in-out infinite;will-change:transform,opacity;animation-play-state:running!important}
 .sc-f2{animation:scSwim2 4.0s ease-in-out infinite .4s;will-change:transform,opacity;animation-play-state:running!important}
 .sc-f3{animation:scSwim3 3.5s ease-in-out infinite .8s;will-change:transform,opacity;animation-play-state:running!important}
+@keyframes scSwim4{0%{transform:translate(200px,240px) scale(.52);opacity:.25}100%{transform:translate(250px,200px) scale(.68);opacity:.8}}
+.sc-f4{animation:scSwim4 4.8s ease-in-out infinite .2s;will-change:transform,opacity;animation-play-state:running!important}
 @keyframes scBub1{0%{transform:translate(0,0);opacity:.6}100%{transform:translate(-8px,-40px);opacity:0}}
 @keyframes scBub2{0%{transform:translate(0,0);opacity:.5}100%{transform:translate(5px,-35px);opacity:0}}
 @keyframes scBub3{0%{transform:translate(0,0);opacity:.4}100%{transform:translate(-3px,-45px);opacity:0}}
 .sc-b1{animation:scBub1 2.5s ease-out infinite;will-change:transform,opacity;animation-play-state:running!important}.sc-b2{animation:scBub2 3s ease-out infinite .8s;will-change:transform,opacity;animation-play-state:running!important}
 .sc-b3{animation:scBub3 2.8s ease-out infinite 1.6s;will-change:transform,opacity;animation-play-state:running!important}.sc-b4{animation:scBub1 3.2s ease-out infinite 2s;will-change:transform,opacity;animation-play-state:running!important}
 .sc-b5{animation:scBub2 2.6s ease-out infinite 1.2s;will-change:transform,opacity;animation-play-state:running!important}
+.sc-b6{animation:scBub3 2.9s ease-out infinite 0.5s;will-change:transform,opacity;animation-play-state:running!important}
 .sc-hook-path{fill:none;stroke:#d4d8dc;stroke-width:3;stroke-linecap:round}
 .sc-hook-barb{fill:none;stroke:#d4d8dc;stroke-width:2.5;stroke-linecap:round}
 .sc-hook-text{fill:#ffd700;font-size:38px;font-weight:900;font-family:var(--mono);filter:drop-shadow(0 0 8px rgba(255,215,0,0.7)) drop-shadow(0 0 16px rgba(255,215,0,0.4))}
 @keyframes scSway{0%,100%{transform:rotate(-1.5deg)}50%{transform:rotate(3deg)}}
-.sc-hook-g{transform-origin:385px 48px;animation:scSway 3s ease-in-out infinite;will-change:transform;animation-play-state:running!important}
+.sc-hook-g{transform-origin:420px 42px;animation:scSway 3s ease-in-out infinite;will-change:transform;animation-play-state:running!important}
+@keyframes scBaitDangle{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg)}}
+.sc-bait-dangle{transform-origin:410px 75px;animation:scBaitDangle 2s ease-in-out infinite;will-change:transform;animation-play-state:running!important}
 .sc-line{fill:none;stroke:rgba(255,80,80,0.55);stroke-width:1.8}
 .sc-rod-shaft{fill:none;stroke:#8B6914;stroke-width:7;stroke-linecap:round}
 .sc-rod-tip{fill:none;stroke:#6B4F12;stroke-width:4;stroke-linecap:round}
@@ -602,7 +607,6 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
             <feGaussianBlur stdDeviation="2" result="blur"/>
             <feComposite in="SourceGraphic" in2="blur" operator="over"/>
           </filter>
-          <!-- Fish with closed mouth (fish 1 & 2) -->
           <symbol id="salmonSym" viewBox="-40 -30 100 60">
             <g>
               <g class="sc-tail-g">
@@ -619,7 +623,6 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
               <circle cx="47.2" cy="-3.2" r="1.8" fill="white"/>
             </g>
           </symbol>
-          <!-- Fish with opening mouth (lead fish 3) -->
           <symbol id="salmonBite" viewBox="-40 -30 100 60">
             <g>
               <g class="sc-tail-g">
@@ -627,7 +630,6 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
               </g>
               <path d="M12,-11 L26,-28 L36,-11 Z" fill="#dce3ea" stroke="rgba(255,255,255,0.8)" stroke-width="0.5"/>
               <path d="M4,9 L16,22 L26,11 Z" fill="#dce3ea" stroke="rgba(255,255,255,0.8)" stroke-width="0.5"/>
-              <!-- Upper jaw (rotates up) -->
               <g class="sc-jaw-upper">
                 <path d="M-8,0 Q8,-21 32,-15 Q52,-6 57,0 L30,0 Q10,-2 -8,0 Z" fill="#e8ecf2" stroke="rgba(255,255,255,0.9)" stroke-width="0.6"/>
                 <circle cx="46" cy="-2.5" r="3.8" fill="#2a3a4e"/>
@@ -635,12 +637,10 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
                 <circle cx="20" cy="-4" r="1.8" fill="rgba(255,255,255,0.15)"/>
                 <circle cx="28" cy="-2" r="1.4" fill="rgba(255,255,255,0.15)"/>
               </g>
-              <!-- Lower jaw (rotates down) -->
               <g class="sc-jaw-lower">
                 <path d="M-8,0 Q8,21 32,17 Q52,10 57,0 L30,0 Q10,2 -8,0 Z" fill="#dce3ea" stroke="rgba(255,255,255,0.8)" stroke-width="0.5"/>
                 <path d="M0,2 Q15,12 35,10 Q50,5 55,1 L30,0 Q10,2 0,2 Z" fill="rgba(255,255,255,0.35)"/>
               </g>
-              <!-- Mouth interior (visible when open) -->
               <ellipse cx="42" cy="0" rx="8" ry="3" fill="#c0392b" opacity="0.6" class="sc-mouth-inside"/>
             </g>
           </symbol>
@@ -648,85 +648,51 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
         <!-- Water surface -->
         <path d="M0 18 Q80 12 160 18 Q240 24 320 18 Q400 12 480 18 Q560 24 640 18 Q680 15 720 18" class="sc-water"/>
         <path d="M0 28 Q90 22 180 28 Q270 34 360 28 Q450 22 540 28 Q630 34 720 28" class="sc-water" style="opacity:.08"/>
-        <!-- Chart card -->
-        <rect x="32" y="38" width="445" height="275" rx="16" class="sc-chart-card"/>
-        <!-- Candlestick chart (ascending trend) -->
-        <!-- Candle 1: bull, low -->
-        <g class="sc-candle-g sc-bull">
-          <line x1="72" y1="258" x2="72" y2="282"/>
-          <rect x="64" y="262" width="16" height="16"/>
-        </g>
-        <!-- Candle 2: bear, dip -->
-        <g class="sc-candle-g sc-bear">
-          <line x1="100" y1="255" x2="100" y2="280"/>
-          <rect x="92" y="258" width="16" height="14"/>
-        </g>
-        <!-- Candle 3: bull, higher -->
-        <g class="sc-candle-g sc-bull">
-          <line x1="128" y1="228" x2="128" y2="260"/>
-          <rect x="120" y="235" width="16" height="20"/>
-        </g>
-        <!-- Candle 4: bull, continues -->
-        <g class="sc-candle-g sc-bull">
-          <line x1="156" y1="210" x2="156" y2="242"/>
-          <rect x="148" y="216" width="16" height="20"/>
-        </g>
-        <!-- Candle 5: bear, pullback -->
-        <g class="sc-candle-g sc-bear">
-          <line x1="184" y1="208" x2="184" y2="238"/>
-          <rect x="176" y="212" width="16" height="18"/>
-        </g>
-        <!-- Candle 6: bull, breakout -->
-        <g class="sc-candle-g sc-bull">
-          <line x1="212" y1="172" x2="212" y2="210"/>
-          <rect x="204" y="178" width="16" height="26"/>
-        </g>
-        <!-- Candle 7: bull, strong -->
-        <g class="sc-candle-g sc-bull">
-          <line x1="240" y1="142" x2="240" y2="178"/>
-          <rect x="232" y="148" width="16" height="24"/>
-        </g>
-        <!-- Candle 8: bear, pause -->
-        <g class="sc-candle-g sc-bear">
-          <line x1="268" y1="140" x2="268" y2="168"/>
-          <rect x="260" y="144" width="16" height="16"/>
-        </g>
-        <!-- Candle 9: bull, push higher -->
-        <g class="sc-candle-g sc-bull">
-          <line x1="296" y1="108" x2="296" y2="148"/>
-          <rect x="288" y="114" width="16" height="28"/>
-        </g>
-        <!-- Candle 10: bull, near the hook -->
-        <g class="sc-candle-g sc-bull">
-          <line x1="324" y1="78" x2="324" y2="118"/>
-          <rect x="316" y="84" width="16" height="28"/>
-        </g>
+        <!-- Chart card (wider) -->
+        <rect x="32" y="38" width="530" height="275" rx="16" class="sc-chart-card"/>
+        <!-- Candlestick chart (13 candles) -->
+        <g class="sc-candle-g sc-bull"><line x1="72" y1="258" x2="72" y2="282"/><rect x="64" y="262" width="16" height="16"/></g>
+        <g class="sc-candle-g sc-bear"><line x1="100" y1="255" x2="100" y2="280"/><rect x="92" y="258" width="16" height="14"/></g>
+        <g class="sc-candle-g sc-bull"><line x1="128" y1="228" x2="128" y2="260"/><rect x="120" y="235" width="16" height="20"/></g>
+        <g class="sc-candle-g sc-bull"><line x1="156" y1="210" x2="156" y2="242"/><rect x="148" y="216" width="16" height="20"/></g>
+        <g class="sc-candle-g sc-bear"><line x1="184" y1="208" x2="184" y2="238"/><rect x="176" y="212" width="16" height="18"/></g>
+        <g class="sc-candle-g sc-bull"><line x1="212" y1="172" x2="212" y2="210"/><rect x="204" y="178" width="16" height="26"/></g>
+        <g class="sc-candle-g sc-bull"><line x1="240" y1="142" x2="240" y2="178"/><rect x="232" y="148" width="16" height="24"/></g>
+        <g class="sc-candle-g sc-bear"><line x1="268" y1="140" x2="268" y2="168"/><rect x="260" y="144" width="16" height="16"/></g>
+        <g class="sc-candle-g sc-bull"><line x1="296" y1="108" x2="296" y2="148"/><rect x="288" y="114" width="16" height="28"/></g>
+        <g class="sc-candle-g sc-bull"><line x1="324" y1="78" x2="324" y2="118"/><rect x="316" y="84" width="16" height="28"/></g>
+        <g class="sc-candle-g sc-bear"><line x1="352" y1="75" x2="352" y2="102"/><rect x="344" y="78" width="16" height="16"/></g>
+        <g class="sc-candle-g sc-bull"><line x1="380" y1="58" x2="380" y2="92"/><rect x="372" y="62" width="16" height="24"/></g>
+        <g class="sc-candle-g sc-bull"><line x1="408" y1="42" x2="408" y2="78"/><rect x="400" y="46" width="16" height="26"/></g>
         <!-- Bubbles -->
         <circle cx="175" cy="210" r="3" fill="rgba(77,163,255,0.25)" class="sc-b1"/>
         <circle cx="230" cy="170" r="2.5" fill="rgba(77,163,255,0.2)" class="sc-b2"/>
         <circle cx="270" cy="130" r="2" fill="rgba(77,163,255,0.2)" class="sc-b3"/>
         <circle cx="140" cy="250" r="2" fill="rgba(77,163,255,0.15)" class="sc-b4"/>
         <circle cx="305" cy="95" r="3" fill="rgba(77,163,255,0.25)" class="sc-b5"/>
+        <circle cx="370" cy="68" r="2" fill="rgba(77,163,255,0.2)" class="sc-b6"/>
         <!-- Fish -->
         <use href="#salmonSym" class="sc-fish sc-f1" width="110" height="66" filter="url(#fishGlow)"/>
         <use href="#salmonSym" class="sc-fish sc-f2" width="110" height="66" filter="url(#fishGlow)"/>
         <use href="#salmonBite" class="sc-fish sc-f3" width="110" height="66" filter="url(#fishGlow)"/>
-        <!-- Fishing rod -->
-        <path d="M648 380 L638 345" class="sc-rod-grip"/>
-        <ellipse cx="636" cy="338" rx="16" ry="11" class="sc-reel-body"/>
-        <line x1="636" y1="332" x2="636" y2="344" stroke="#444" stroke-width="1"/>
-        <circle cx="652" cy="335" r="4.5" class="sc-reel-handle"/>
-        <path d="M636 338 Q600 260 540 195" class="sc-rod-shaft"/>
-        <path d="M540 195 Q510 160 490 138" class="sc-rod-tip"/>
-        <circle cx="488" cy="136" r="3" fill="none" stroke="#555" stroke-width="1.5"/>
+        <use href="#salmonSym" class="sc-fish sc-f4" width="95" height="57" filter="url(#fishGlow)"/>
+        <!-- Fishing rod — realistic ~55° angle from lower-right -->
+        <path d="M710 430 L698 405" class="sc-rod-grip"/>
+        <ellipse cx="695" cy="398" rx="14" ry="10" class="sc-reel-body"/>
+        <line x1="695" y1="392" x2="695" y2="404" stroke="#444" stroke-width="1"/>
+        <circle cx="709" cy="395" r="4" class="sc-reel-handle"/>
+        <path d="M695 398 Q640 290 570 200" class="sc-rod-shaft"/>
+        <path d="M570 200 Q540 155 505 115" class="sc-rod-tip"/>
+        <circle cx="503" cy="112" r="2.5" fill="none" stroke="#555" stroke-width="1.5"/>
         <!-- Fishing line -->
-        <path d="M488 136 Q460 95 430 72 Q410 58 385 48" class="sc-line"/>
-        <!-- Hook -->
+        <path d="M503 112 Q478 78 450 58 Q435 48 420 42" class="sc-line"/>
+        <!-- Hook with dangling $ bait -->
         <g class="sc-hook-g">
-          <path d="M385 48 L385 68" class="sc-hook-path"/>
-          <path d="M385 68 Q385 86 372 86 Q359 86 359 74" class="sc-hook-path"/>
-          <path d="M359 74 L363 68" class="sc-hook-barb"/>
-          <text x="373" y="90" text-anchor="middle" class="sc-hook-text">$</text>
+          <path d="M420 42 L420 58" class="sc-hook-path"/>
+          <path d="M420 58 Q420 72 410 72 Q400 72 400 62" class="sc-hook-path"/>
+          <path d="M400 62 L403 57" class="sc-hook-barb"/>
+          <line x1="410" y1="72" x2="410" y2="75" stroke="rgba(255,80,80,0.4)" stroke-width="1"/>
+          <text x="410" y="90" text-anchor="middle" class="sc-hook-text sc-bait-dangle">$</text>
         </g>
         <!-- Branding -->
         <text x="300" y="366" text-anchor="middle">
