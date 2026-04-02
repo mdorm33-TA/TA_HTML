@@ -4001,10 +4001,9 @@ async function runAnalysis(){
   }
 
   // ── FORCE BROWSER PAINT before starting AI call ──
-  // setTimeout(0) isn't enough — browser may not paint between microtasks.
-  // Double-rAF guarantees we wait for an actual paint frame.
-  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-  console.log('runAnalysis: paint frame yielded');
+  // Use setTimeout(16) instead of rAF — rAF doesn't fire in backgrounded tabs
+  await new Promise(r => setTimeout(r, 16));
+  console.log('runAnalysis: paint yield done');
 
   // ── Merged AI call: divNote + fundamentals in one call, no web search ──
   const ac = getAC();
