@@ -3998,16 +3998,14 @@ async function runAnalysis(){
     so.textContent=e.message;
   }
 
-  // ── FORCE BROWSER PAINT before starting AI call ──
-  // Use setTimeout(16) instead of rAF — rAF doesn't fire in backgrounded tabs
-  await new Promise(r => setTimeout(r, 16));
-  console.log('runAnalysis: paint yield done');
-
-  // ── Deferred: chart + levels + AI (after scores are painted) ──
-  // These are fire-and-forget — they don't modify scored vals.
-  // CRITICAL: must be AFTER the yield so Chart.js rendering doesn't block the paint.
-  runLevelsComputed(ticker);
-  renderOrientationChart(ticker);
+  // ── Deferred: chart + levels (must not block the paint) ──
+  // Use setTimeout to ensure they run AFTER the browser paints the scores.
+  // renderOrientationChart uses Chart.js which is synchronous and CPU-heavy.
+  const _deferredTicker = ticker;
+  setTimeout(() => {
+    runLevelsComputed(_deferredTicker);
+    renderOrientationChart(_deferredTicker);
+  }, 100);
 
   // ── Merged AI call: divNote + fundamentals in one call, no web search ──
   const ac = getAC();
