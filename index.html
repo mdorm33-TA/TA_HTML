@@ -144,10 +144,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:18
 .sstream{color:var(--text3);font-size:10px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:italic;}
 
 /* ── MOBILE TABS ── */
-.mob-tabs{display:none;border-bottom:none;background:var(--surface);gap:4px;padding:4px 8px 0;}
-.mob-tab{flex:1;padding:12px;text-align:center;font-family:var(--mono);font-size:15px;font-weight:700;cursor:pointer;border:none;background:none;transition:all .15s;letter-spacing:0.3px;border-radius:8px 8px 0 0;}
-.mob-tab.active{color:var(--bg);background:var(--accent);border-bottom:none;}
-.mob-tab:not(.active){color:var(--accent);border:2px solid var(--accent);border-bottom:2px solid var(--accent);background:transparent;}
+.mob-tabs{display:none;border-bottom:1px solid var(--border);background:var(--surface);}
+.mob-tab{flex:1;padding:10px;text-align:center;font-family:var(--mono);font-size:13px;font-weight:600;cursor:pointer;color:var(--text3);border:none;background:none;border-bottom:2px solid transparent;transition:all .15s;}
+.mob-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
 
 /* ── LAYOUT ── */
 .layout{display:grid;grid-template-columns:2fr 1fr;min-height:calc(100vh - 110px);background:var(--bg);}
@@ -353,8 +352,7 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
 .orient-sub{font-family:var(--mono);font-size:10px;color:var(--text3);}
 .chart-help-btn{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;border:1.5px solid var(--accent);color:var(--accent);font-family:var(--mono);font-size:11px;font-weight:800;cursor:pointer;transition:all .2s;flex-shrink:0;user-select:none;}
 .chart-help-btn:hover,.chart-help-btn.active{background:var(--accent);color:var(--bg);}
-.chart-help-panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:6px;animation:fadeIn .2s ease;}
-@keyframes fadeIn{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:translateY(0);}}
+.chart-help-panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:6px;}
 .orient-status{font-family:var(--mono);font-size:10px;color:var(--text3);margin-left:auto;}
 .orient-rsi-lbl{font-family:var(--mono);font-size:9px;color:var(--text3);margin-bottom:2px;}
 
@@ -528,7 +526,10 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
 .fund-cmp.na{background:var(--surface3);color:var(--text3);}
 .fund-footnote{font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:9px;font-style:italic;line-height:1.5;}
 @media(max-width:800px){
-  .mob-tabs{display:flex;}
+  .mob-tabs{display:flex;gap:4px;padding:4px 8px 0;}
+  .mob-tab{font-size:15px;font-weight:700;padding:12px;letter-spacing:0.3px;border-radius:8px 8px 0 0;}
+  .mob-tab.active{color:var(--bg);background:var(--accent);border-bottom:none;}
+  .mob-tab:not(.active){color:var(--accent);border:2px solid var(--accent);background:transparent;}
   .layout{grid-template-columns:1fr;}
   .ind-panel{border-right:none;display:none;}
   .score-panel{position:static;height:auto;display:none;}
@@ -795,19 +796,18 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
         <div id="orient-status" class="orient-status">Enter a ticker and click Analyze</div>
       </div>
       <div id="chart-help-panel" class="chart-help-panel" style="display:none;">
-        <div class="chart-help-content">
+        <div style="font-size:11px;line-height:1.45;">
           <strong style="color:var(--accent);font-size:12px;">📊 Chart Guide</strong>
-          <div style="margin-top:6px;display:grid;gap:5px;font-size:11px;line-height:1.45;">
-            <div><span style="color:#f0b429;">━━</span> <strong>SMA 50</strong> — 50-day moving average. Short-term trend direction. Price above = bullish momentum.</div>
-            <div><span style="color:#a855f7;">━━</span> <strong>SMA 200</strong> — 200-day moving average. Long-term trend. Price above = bull market; below = bear market.</div>
-            <div><span style="color:#3b82f6;">〰</span> <strong>RSI(14)</strong> — Relative Strength Index. Below 30 = oversold (bullish contrarian); above 70 = overbought (bearish contrarian).</div>
+          <div style="margin-top:6px;display:grid;gap:5px;">
+            <div><span style="color:#f0b429;">━━</span> <strong>SMA 50</strong> — 50-day moving avg. Short-term trend.</div>
+            <div><span style="color:#a855f7;">━━</span> <strong>SMA 200</strong> — 200-day moving avg. Long-term trend.</div>
+            <div><span style="color:#3b82f6;">〰</span> <strong>RSI(14)</strong> — Below 30 = oversold (bullish); above 70 = overbought (bearish).</div>
             <div style="margin-top:3px;border-top:1px solid var(--border);padding-top:5px;">
-              <strong style="color:var(--bear);">┈ VAH</strong> — Volume Area High. Top of the 70% volume zone — acts as resistance.<br>
-              <strong style="color:var(--text2);">┈ POC</strong> — Point of Control. Price with most traded volume — acts as a magnet.<br>
-              <strong style="color:var(--bull);">┈ VAL</strong> — Volume Area Low. Bottom of the 70% volume zone — acts as support.
+              <strong style="color:var(--bear);">┈ VAH</strong> — Volume Area High (resistance)<br>
+              <strong style="color:var(--text2);">┈ POC</strong> — Point of Control (volume magnet)<br>
+              <strong style="color:var(--bull);">┈ VAL</strong> — Volume Area Low (support)
             </div>
           </div>
-          <div style="margin-top:6px;font-size:10px;color:var(--text3);font-style:italic;">Tap ? again to close</div>
         </div>
       </div>
       <div id="orient-price-wrap" style="display:none;">
@@ -3877,30 +3877,25 @@ function autoDetectAssetClass(ticker){
   const prev = sel.value;
   let detected = null;
 
-  // ── Primary: use Yahoo quoteType when available ──
   if(qt === 'CRYPTOCURRENCY') {
     detected = 'crypto';
   } else if(qt === 'FUTURE') {
-    detected = 'gold'; // Gold / Commodity covers all futures
+    detected = 'gold';
   } else if(qt) {
-    // EQUITY, ETF, MUTUALFUND, INDEX — default equity
-    // Bond/MLP stays manual since Yahoo classifies bond ETFs as ETF
     detected = 'equity';
   }
 
-  // ── Fallback: ticker-pattern detection when quoteType missing ──
+  // Fallback: ticker-pattern detection when quoteType missing
   if(!detected && ticker){
     const t = ticker.toUpperCase();
-    const cryptoPatterns = /^(BTC|ETH|SOL|XRP|ADA|DOGE|DOT|AVAX|MATIC|LINK|SHIB|UNI|LTC|ATOM|NEAR|APT|ARB|OP|SUI|FTM|ALGO|XLM|AAVE|CRV|MKR|COMP|SNX|MANA|SAND|AXS|PEPE|BONK|WIF|RENDER)-USD$/;
-    const futurePatterns = /^(GC|SI|CL|NG|HG|PL|PA|ZW|ZC|ZS|KC|SB|CT|CC)=F$/;
-    if(cryptoPatterns.test(t) || t.endsWith('-USD')){
+    if(/^(BTC|ETH|SOL|XRP|ADA|DOGE|DOT|AVAX|MATIC|LINK|SHIB|UNI|LTC|ATOM|NEAR|APT|ARB|OP|SUI|FTM|ALGO|XLM|AAVE|CRV|MKR|COMP|SNX|MANA|SAND|AXS|PEPE|BONK|WIF|RENDER)-USD$/.test(t) || t.endsWith('-USD')){
       detected = 'crypto';
-    } else if(futurePatterns.test(t)){
+    } else if(/^(GC|SI|CL|NG|HG|PL|PA|ZW|ZC|ZS|KC|SB|CT|CC)=F$/.test(t)){
       detected = 'gold';
     } else {
-      detected = 'equity'; // Default: if no quoteType and not crypto/futures pattern, assume equity
+      detected = 'equity';
     }
-    if(detected) console.log(`autoDetectAssetClass: ticker-pattern fallback for ${t} → ${detected}`);
+    console.log(`autoDetectAssetClass: ticker-pattern fallback for ${t} → ${detected}`);
   }
 
   if(detected && detected !== prev){
@@ -4565,12 +4560,8 @@ function sharePermalink(){
 
 // ═══ MOBILE TABS ═══
 function toggleChartHelp(){
-  const panel = document.getElementById('chart-help-panel');
-  const btn = document.getElementById('chart-help-btn');
-  if(!panel) return;
-  const show = panel.style.display === 'none';
-  panel.style.display = show ? 'block' : 'none';
-  btn.classList.toggle('active', show);
+  const p=document.getElementById('chart-help-panel'),b=document.getElementById('chart-help-btn');
+  if(!p)return;const show=p.style.display==='none';p.style.display=show?'block':'none';b.classList.toggle('active',show);
 }
 
 function mobTab(tab){
