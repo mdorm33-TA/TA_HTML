@@ -4588,6 +4588,8 @@ async function toggleSPYCompare(){
     // Restore annotation visibility
     const ann = chart.options.plugins?.annotation?.annotations;
     if(ann) Object.values(ann).forEach(a => { if(a._wasHidden !== undefined){ a.display = true; delete a._wasHidden; }});
+    // Restore RSI chart
+    document.getElementById('orient-rsi-wrap').style.display = 'block';
     chart.update();
     btn.style.background = '';
     btn.style.color = '';
@@ -4648,6 +4650,9 @@ async function toggleSPYCompare(){
 
     // Hide price Y-axis
     chart.options.scales.y.display = false;
+
+    // Hide RSI chart
+    document.getElementById('orient-rsi-wrap').style.display = 'none';
 
     // Add return datasets on dedicated Y-axis
     const ticker = document.getElementById('orient-ticker-lbl')?.textContent || 'Symbol';
