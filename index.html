@@ -2929,6 +2929,7 @@ async function renderOrientationChart(ticker){
     const allCloses = allBars.map(b => b.c);
     const displayCount = Math.min(allBars.length, 756); // ~3yr daily bars
     const bars = allBars.slice(-displayCount);
+    window._orientBars = bars; // store for SPY compare
     const labels = bars.map(b => b.t); // b.t is already formatted 'Mon DD'
     const closes = bars.map(b => b.c);
 
@@ -3099,6 +3100,7 @@ async function fetchOHLCForCharts(ticker){
     for(let i=0;i<ts.length;i++){
       if(q.close[i]!=null) out.push({
         t: (function(d){const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return mo[d.getMonth()]+' '+d.getDate();})(new Date(ts[i]*1000)),
+        ts: ts[i],
         o:q.open[i], h:q.high[i], l:q.low[i], c:q.close[i], v:q.volume[i]||0
       });
     }
@@ -4559,7 +4561,7 @@ async function fetchSPYData(){
         if(q.close[i]!=null){
           const d=new Date(ts[i]*1000);
           const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-          out.push({ t: mo[d.getMonth()]+' '+d.getDate(), c: q.close[i] });
+          out.push({ t: mo[d.getMonth()]+' '+d.getDate(), ts: ts[i], c: q.close[i] });
         }
       }
       spyCacheData = out;
@@ -4594,31 +4596,37 @@ async function toggleSPYCompare(){
     const spyBars = await fetchSPYData();
     if(!spyBars || spyBars.length < 50){ btn.textContent = 'S&P 500'; alert('Could not fetch SPY data'); return; }
 
-    // Get current chart labels and symbol closes
-    const labels = chart.data.labels;
-    const symCloses = chart.data.datasets[0].data; // Price dataset
-    const chartLen = labels.length;
+    // Get current chart symbol bars (with timestamps)
+    const symBars = window._orientBars;
+    if(!symBars || !symBars.length){ btn.textContent = 'S&P 500'; return; }
 
-    // Index-based alignment: both are 3yr daily data, trim SPY to match chart length from the end
-    const spyCloses = spyBars.map(b => b.c);
-    const spyTrimmed = spyCloses.length >= chartLen
-      ? spyCloses.slice(spyCloses.length - chartLen)
-      : [...Array(chartLen - spyCloses.length).fill(null), ...spyCloses];
+    // Build SPY lookup by date string (YYYY-MM-DD) from unix timestamp
+    const toDateKey = ts => { const d=new Date(ts*1000); return d.getFullYear()+'-'+(d.getMonth()+1).toString().padStart(2,'0')+'-'+d.getDate().toString().padStart(2,'0'); };
+    const spyMap = new Map();
+    spyBars.forEach(b => spyMap.set(toDateKey(b.ts), b.c));
 
-    // Find first valid index
+    // Match SPY close to each symbol bar by date
+    const chartLen = symBars.length;
+    const symCloses = chart.data.datasets[0].data;
+    const spyAligned = symBars.map(b => {
+      const key = toDateKey(b.ts);
+      return spyMap.get(key) || null;
+    });
+
+    // Find first valid index where both have data
     let startIdx = 0;
-    while(startIdx < chartLen && (!symCloses[startIdx] || !spyTrimmed[startIdx])) startIdx++;
-    if(startIdx >= chartLen){ btn.textContent = 'S&P 500'; alert('No overlapping data'); return; }
+    while(startIdx < chartLen && (!symCloses[startIdx] || !spyAligned[startIdx])) startIdx++;
+    if(startIdx >= chartLen){ btn.textContent = 'S&P 500'; alert('No overlapping dates'); return; }
 
     const symBase = symCloses[startIdx];
-    const spyBase = spyTrimmed[startIdx];
+    const spyBase = spyAligned[startIdx];
 
     // Compute % total return from start for both
     const symReturn = symCloses.map((c,i) => {
       if(i < startIdx || !c) return null;
       return ((c / symBase) - 1) * 100;
     });
-    const spyReturn = spyTrimmed.map((c,i) => {
+    const spyReturn = spyAligned.map((c,i) => {
       if(i < startIdx || !c) return null;
       return ((c / spyBase) - 1) * 100;
     });
