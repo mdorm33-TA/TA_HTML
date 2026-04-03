@@ -3770,7 +3770,7 @@ function drawGauge(score, dispersion){
   const v=verd(score);
   document.getElementById('gscore').textContent=Math.round(score);document.getElementById('gscore').style.color=sCol(score);
   document.getElementById('gverdict').textContent=v.l;document.getElementById('gverdict').style.color=v.col;
-  document.getElementById('gconf').textContent=v.c;
+  const gconfEl=document.getElementById('gconf'); if(gconfEl) gconfEl.textContent=v.c;
   // Dispersion display
   if(dispersion!==undefined){
     const d=dispersion;
