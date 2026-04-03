@@ -759,6 +759,7 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
         <span class="orient-title">📈 <span id="orient-ticker-lbl">—</span> · 3-Year Price Chart</span>
         <span class="orient-sub">SMA 50 · SMA 200 · RSI(14)</span>
         <span id="chart-help-btn" class="chart-help-btn" title="Click for chart help" onclick="toggleChartHelp()">?</span>
+        <button id="spy-compare-btn" class="chart-help-btn" title="Toggle S&P 500 (SPY) return comparison" onclick="toggleSPYCompare()" style="font-size:10px;width:auto;padding:0 6px;letter-spacing:.02em;font-family:var(--mono);">S&P 500</button>
         <div id="orient-status" class="orient-status">Enter a ticker and click Analyze</div>
       </div>
       <div id="chart-help-panel" class="chart-help-panel" style="display:none;">
@@ -772,6 +773,9 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
               <strong style="color:var(--bear);">┈ VAH</strong> — Volume Area High (resistance)<br>
               <strong style="color:var(--text2);">┈ POC</strong> — Point of Control (volume magnet)<br>
               <strong style="color:var(--bull);">┈ VAL</strong> — Volume Area Low (support)
+            </div>
+            <div style="margin-top:3px;border-top:1px solid var(--border);padding-top:5px;">
+              <strong style="color:var(--accent);">S&P 500</strong> — Toggle to overlay SPY total return % vs the symbol's return over the chart period. Dashed green = symbol, dashed gray = SPY. Right axis shows %.
             </div>
           </div>
         </div>
@@ -2906,6 +2910,11 @@ function chartColors(){
 }
 
 async function renderOrientationChart(ticker){
+  // Reset SPY compare state
+  spyCompareActive = false;
+  const spyBtn = document.getElementById('spy-compare-btn');
+  if(spyBtn){ spyBtn.style.background=''; spyBtn.style.color=''; spyBtn.style.borderColor=''; spyBtn.textContent='S&P 500'; }
+
   const status = document.getElementById('orient-status');
   const lbl    = document.getElementById('orient-ticker-lbl');
   if(lbl) lbl.textContent = ticker;
@@ -4518,6 +4527,145 @@ function sharePermalink(){
 function toggleChartHelp(){
   const p=document.getElementById('chart-help-panel'),b=document.getElementById('chart-help-btn');
   if(!p)return;const show=p.style.display==='none';p.style.display=show?'block':'none';b.classList.toggle('active',show);
+}
+
+// ═══ S&P 500 (SPY) RETURN COMPARISON ═══
+let spyCompareActive = false;
+let spyCacheData = null; // { labels:[], closes:[] }
+
+async function fetchSPYData(){
+  if(spyCacheData) return spyCacheData;
+  const WORKER_BASE = 'https://ta-alerts.mdorm33.workers.dev';
+  const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/SPY?interval=1d&range=3y`;
+  const proxies = [
+    `${WORKER_BASE}/ohlc?ticker=SPY&interval=1d&range=3y`,
+    `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`,
+  ];
+  for(const url of proxies){
+    try{
+      const ctrl = new AbortController();
+      const tid = setTimeout(()=>ctrl.abort(), 12000);
+      const res = await fetch(url, {signal:ctrl.signal});
+      clearTimeout(tid);
+      if(!res.ok) continue;
+      const data = await res.json();
+      const r = data?.chart?.result?.[0];
+      if(!r) continue;
+      const ts = r.timestamps || r.timestamp;
+      const q = r.indicators?.quote?.[0];
+      const out = [];
+      for(let i=0;i<ts.length;i++){
+        if(q.close[i]!=null){
+          const d=new Date(ts[i]*1000);
+          const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+          out.push({ t: mo[d.getMonth()]+' '+d.getDate(), c: q.close[i] });
+        }
+      }
+      spyCacheData = out;
+      return out;
+    }catch(e){ continue; }
+  }
+  return null;
+}
+
+async function toggleSPYCompare(){
+  const btn = document.getElementById('spy-compare-btn');
+  const chart = orientCharts.price;
+  if(!chart) return;
+
+  if(spyCompareActive){
+    // Remove SPY datasets (return comparison + SPY line)
+    chart.data.datasets = chart.data.datasets.filter(ds => ds._spyCompare !== true);
+    // Remove right Y-axis
+    delete chart.options.scales.yReturn;
+    // Restore left axis to auto
+    chart.options.scales.y.display = true;
+    chart.update();
+    btn.style.background = '';
+    btn.style.color = '';
+    btn.style.borderColor = '';
+    spyCompareActive = false;
+    return;
+  }
+
+  btn.textContent = 'Loading…';
+  try{
+    const spyBars = await fetchSPYData();
+    if(!spyBars || spyBars.length < 50){ btn.textContent = 'S&P 500'; alert('Could not fetch SPY data'); return; }
+
+    // Build lookup: date label → close for SPY
+    const spyMap = new Map();
+    spyBars.forEach(b => spyMap.set(b.t, b.c));
+
+    // Get current chart labels and symbol closes
+    const labels = chart.data.labels;
+    const symCloses = chart.data.datasets[0].data; // Price dataset
+
+    // Find first index where both have data
+    let startIdx = 0;
+    while(startIdx < labels.length && (!symCloses[startIdx] || !spyMap.has(labels[startIdx]))) startIdx++;
+    if(startIdx >= labels.length){ btn.textContent = 'S&P 500'; alert('No overlapping dates'); return; }
+
+    const symBase = symCloses[startIdx];
+    const spyBase = spyMap.get(labels[startIdx]);
+
+    // Compute % total return from start for both
+    const symReturn = labels.map((lbl,i) => {
+      if(i < startIdx || !symCloses[i]) return null;
+      return ((symCloses[i] / symBase) - 1) * 100;
+    });
+    const spyReturn = labels.map((lbl,i) => {
+      if(i < startIdx) return null;
+      const spyC = spyMap.get(lbl);
+      if(!spyC) return null;
+      return ((spyC / spyBase) - 1) * 100;
+    });
+
+    // Add return datasets
+    chart.data.datasets.push({
+      label: 'Symbol Return %',
+      data: symReturn,
+      borderColor: '#00d97e',
+      borderWidth: 2,
+      pointRadius: 0,
+      fill: false,
+      tension: 0.1,
+      borderDash: [5,3],
+      yAxisID: 'yReturn',
+      _spyCompare: true
+    });
+    chart.data.datasets.push({
+      label: 'SPY Return %',
+      data: spyReturn,
+      borderColor: '#6b7280',
+      borderWidth: 2,
+      pointRadius: 0,
+      fill: false,
+      tension: 0.1,
+      borderDash: [3,3],
+      yAxisID: 'yReturn',
+      _spyCompare: true
+    });
+
+    // Add right Y-axis for % return
+    chart.options.scales.yReturn = {
+      position: 'right',
+      grid: { drawOnChartArea: false },
+      ticks: { font:{size:9}, color:'#6b7280', callback: v => v.toFixed(0)+'%' },
+      title: { display: true, text: 'Total Return %', font:{size:9}, color:'#6b7280' }
+    };
+
+    chart.update();
+    btn.style.background = 'var(--accent)';
+    btn.style.color = '#000';
+    btn.style.borderColor = 'var(--accent)';
+    spyCompareActive = true;
+  }catch(e){
+    console.error('SPY compare error:', e);
+    alert('Error loading SPY comparison');
+  }
+  btn.textContent = 'S&P 500';
 }
 
 function mobTab(tab){
