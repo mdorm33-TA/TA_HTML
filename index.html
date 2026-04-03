@@ -811,7 +811,7 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
     <div class="adx-overlay-card" id="adx-overlay-card" style="background:linear-gradient(145deg,var(--surface) 0%,var(--surface2) 100%);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:10px;font-family:var(--mono);display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:relative;">
       <span style="font-size:11px;font-weight:700;color:var(--neu);">⚡ ADX Regime Overlay</span>
       <span id="adx-overlay-badge" style="font-size:11px;color:var(--text2);flex:1;">Awaiting OHLC data…</span>
-      <span class="tip-wrap"><button class="tip-icon" style="width:22px;height:22px;font-size:13px;border:1.5px solid var(--border2);border-radius:50%;background:var(--surface3);color:var(--text3);cursor:pointer;">?</button><div class="tip-box"><div class="tp-name">ADX Regime Overlay</div><div class="tp-desc">ADX is <strong>not</strong> a scored indicator — it acts as a <strong>regime overlay</strong> that multiplies the weights of trend-following indicators (SMA 200, Ichimoku, MA Cross, MACD Weekly).<br><br><strong>How it works:</strong><br>• ADX ≥ 40: Very Strong Trend → weights boosted 1.20×<br>• ADX ≥ 30: Strong Trend → weights boosted 1.12×<br>• ADX ≥ 25: Trending → weights boosted 1.06×<br>• ADX ≥ 20: Transitional → weights neutral (1.00×)<br>• ADX &lt; 20: Choppy → weights dampened 0.85×<br><br>This implements the insight that trend-following indicators are unreliable in trendless conditions. +DI vs -DI shows the direction of the trend.</div></div></span>
+      <span class="tip-wrap"><button class="tip-icon" style="width:22px;height:22px;font-size:13px;border:1.5px solid var(--border2);border-radius:50%;background:var(--surface3);color:var(--text3);cursor:pointer;">?</button><div class="tip-box"><div class="tp-name">ADX Regime Overlay</div><div class="tp-desc"><strong>What is ADX?</strong> The Average Directional Index measures how strongly a stock is trending, regardless of direction. It ranges from 0–100; higher = stronger trend. It does NOT tell you if the trend is up or down — +DI vs -DI shows direction.<br><br>ADX is <strong>not</strong> a scored indicator — it acts as a <strong>regime overlay</strong> that multiplies the weights of trend-following indicators (SMA 200, Ichimoku, MA Cross, MACD Weekly).<br><br><strong>How it works:</strong><br>• ADX ≥ 40: Very Strong Trend → weights boosted 1.20×<br>• ADX ≥ 30: Strong Trend → weights boosted 1.12×<br>• ADX ≥ 25: Trending → weights boosted 1.06×<br>• ADX ≥ 20: Transitional → weights neutral (1.00×)<br>• ADX &lt; 20: Choppy → weights dampened 0.85×</div></div></span>
     </div>
 
     <!-- FALLING KNIFE ALERT -->
@@ -827,6 +827,12 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
       </div>
     </div>
 
+    <!-- SIGNAL COMMENTARY -->
+    <div class="commentary-card" id="commentary-card">
+      <div class="stitle" style="color:#f0b429">📋 Signal Summary</div>
+      <div id="commentary-list"></div>
+    </div>
+
     <!-- CONFLICT DETECTOR -->
     <div class="conflict-card" id="conflict-card">
       <div class="stitle" style="color:var(--conflict)">⚠ Indicator Conflicts Detected</div>
@@ -837,12 +843,6 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
     <div class="confluence-card" id="confluence-card">
       <div class="stitle" style="color:var(--bull)">🔒 Indicator Confluence Confirmed</div>
       <div id="confluence-list"></div>
-    </div>
-
-    <!-- SIGNAL COMMENTARY -->
-    <div class="commentary-card" id="commentary-card">
-      <div class="stitle" style="color:#f0b429">📋 Signal Summary</div>
-      <div id="commentary-list"></div>
     </div>
 
     <!-- WEIGHT EDITOR PANEL -->
@@ -887,8 +887,7 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
           <div class="gcenter"><div class="gscore" id="gscore">—</div><div class="gunit">/ 100</div></div>
         </div>
         <div class="gverdict" id="gverdict">LOADING…</div>
-        <div class="gconf">Confidence: <span id="gconf">—</span></div>
-        <div class="gdisp">Agreement: <span id="gdisp-lbl">—</span></div>
+        <div class="gdisp">Indicator Agreement: <span id="gdisp-lbl">—</span></div>
       </div>
 
 
@@ -1712,7 +1711,7 @@ const TIPS = {
   sma_cross:    {name:'MA Cross 50/200',   desc:'Golden Cross (SMA50 crosses above SMA200) = bullish structural signal; Death Cross = bearish. Scored by recency — fresh cross (within 60 bars) scores 72–90/10–28. No recent cross is graded by SMA spread: wider gap = stronger trend. Computed from real OHLC data with 120-bar lookback.'},
   rsi_extreme:  {name:'RSI Extreme',       desc:'CONTRARIAN indicator. RSI <30 = oversold → scored BULLISH (potential reversal up, sellers exhausted). RSI >70 = overbought → scored BEARISH (potential reversal down, buyers exhausted). RSI 40–60 = neutral (no extreme signal). In strong trends RSI can remain extreme for extended periods — check trend context.'},
   demark_seq:   {name:'DeMark Sequential', desc:'TD Sequential counts 9 consecutive closes vs close[4] bars ago to identify price exhaustion. A completed Setup 9 — especially "perfected" — is a high-conviction reversal signal. Countdown 13 is the strongest signal. Computed from real OHLC data.'},
-  macd_weekly:  {name:'MACD (Weekly)',     desc:'Weekly MACD (12,26,9) removes daily noise. A bullish crossover (MACD line above signal line) with a positive histogram is a strong intermediate-term buy signal. Weekly MACD has significantly more predictive value than daily. Computed from real OHLC data.'},
+  macd_weekly:  {name:'MACD (Weekly)',     desc:'<strong>What is MACD?</strong> Moving Average Convergence/Divergence tracks the relationship between two moving averages of price. When the faster average crosses above the slower one, it signals building bullish momentum (and vice versa). The histogram shows the gap between the MACD line and its signal line.<br><br>Weekly MACD (12,26,9) removes daily noise. A bullish crossover (MACD line above signal line) with a positive histogram is a strong intermediate-term buy signal. Weekly MACD has significantly more predictive value than daily. Computed from real OHLC data.'},
   ichimoku:     {name:'Ichimoku Cloud', desc:'A complete system: price above the cloud is bullish, below is bearish. The Kumo (cloud) acts as dynamic support/resistance. Tenkan-Sen crossing above Kijun-Sen = buy signal. Scored from 4 weighted components: price vs cloud (35%), cloud color (20%), TK cross (25%), Chikou confirmation (20%). Computed from real OHLC data.'},
   fibonacci:    {name:'Fibonacci Levels ⚠ AI Estimate', desc:'Retracement levels (23.6%, 38.2%, 50%, 61.8%) identify where pullbacks often pause. The 38.2–61.8% zone is the "golden zone." Requires identifying the correct swing high and low — inherently subjective. Scored by AI estimate.'},
   bollinger:    {name:'Bollinger Bands',   desc:'CONTRARIAN scoring: %B near 0 (at lower band) → bullish reversal signal; %B near 1 (at upper band) → bearish reversal signal. Band squeeze (bandwidth <4%) → neutral with breakout pending. In strong trends price can walk the band — check trend context. Computed from real OHLC data (20-period, 2σ).'},
@@ -2570,8 +2569,8 @@ async function runAllComputed(ticker){
     const cross = I.cross;
     let maDetail;
     const spreadPct = cross.sma50 && cross.sma200 ? Math.abs(cross.sma50 - cross.sma200) / cross.sma200 * 100 : 0;
-    if(cross.type === 'golden')     maDetail = `Golden Cross · ${cross.barsAgo}b ago`;
-    else if(cross.type === 'death') maDetail = `Death Cross · ${cross.barsAgo}b ago`;
+    if(cross.type === 'golden')     maDetail = `Golden Cross · ${cross.barsAgo} days ago`;
+    else if(cross.type === 'death') maDetail = `Death Cross · ${cross.barsAgo} days ago`;
     else if(cross.sma50 > cross.sma200) maDetail = `SMA50 > SMA200 · spread ${spreadPct.toFixed(1)}%`;
     else                                maDetail = `SMA50 < SMA200 · spread ${spreadPct.toFixed(1)}%`;
     const maSub = document.getElementById('sub-sma_cross');
@@ -2732,9 +2731,9 @@ async function runAllComputed(ticker){
     const dm = I.demark;
     let dmDetail;
     if(dm.lastCd && dm.barsSinceCd !== null && dm.barsSinceCd <= 15)
-      dmDetail = `CD13 ${dm.lastCd.toUpperCase()} · ${dm.barsSinceCd}b ago`;
+      dmDetail = `CD13 ${dm.lastCd.toUpperCase()} · ${dm.barsSinceCd} days ago`;
     else if(dm.lastSetup && dm.barsSince !== null && dm.barsSince <= 20)
-      dmDetail = `Setup9 ${dm.lastSetup.toUpperCase()}${dm.perfect ? ' ★' : ''} · ${dm.barsSince}b ago`;
+      dmDetail = `Setup9 ${dm.lastSetup.toUpperCase()}${dm.perfect ? ' ★' : ''} · ${dm.barsSince} days ago`;
     else if(dm.activeBuy >= 5)  dmDetail = `Active BUY setup ${dm.activeBuy}/9`;
     else if(dm.activeSell >= 5) dmDetail = `Active SELL setup ${dm.activeSell}/9`;
     else if(dm.activeBuy > 0)   dmDetail = `BUY setup counting: ${dm.activeBuy}/9`;
@@ -3507,7 +3506,7 @@ function detectConfluences(){
     const d = document.createElement('div'); d.className = 'confluence-item';
     const sigLabels = cf.names.map((n,i) => `<strong>${n}</strong> (${getSig(cf.scores[i]).txt})`).join(', ');
     d.innerHTML = `<div class="confl-icon">${cf.direction==='bull'?'🟢':'🔴'}</div>
-      <div class="confl-text">${cf.msg}<br><span style="color:var(--text3);font-size:10px">${sigLabels} — avg: ${cf.avgScore}</span></div>
+      <div class="confl-text">${cf.msg}</div>
       <div class="confl-strength ${cf.strength}">${cf.strength.toUpperCase()}</div>`;
     list.appendChild(d);
   });
