@@ -759,7 +759,7 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
         <span class="orient-title">📈 <span id="orient-ticker-lbl">—</span> · 3-Year Price Chart</span>
         <span class="orient-sub">SMA 50 · SMA 200 · RSI(14)</span>
         <span id="chart-help-btn" class="chart-help-btn" title="Click for chart help" onclick="toggleChartHelp()">?</span>
-        <button id="spy-compare-btn" class="chart-help-btn" title="Toggle S&P 500 (SPY) return comparison" onclick="toggleSPYCompare()" style="font-size:10px;width:auto;padding:0 6px;letter-spacing:.02em;font-family:var(--mono);">S&P 500</button>
+        <button id="spy-compare-btn" class="chart-help-btn" title="Toggle S&P 500 (SPY) return comparison" onclick="toggleSPYCompare()" style="font-size:10px;width:auto;padding:0 6px;letter-spacing:.02em;font-family:var(--mono);">S&P 500 Compare</button>
         <div id="orient-status" class="orient-status">Enter a ticker and click Analyze</div>
       </div>
       <div id="chart-help-panel" class="chart-help-panel" style="display:none;">
@@ -2913,7 +2913,7 @@ async function renderOrientationChart(ticker){
   // Reset SPY compare state
   spyCompareActive = false;
   const spyBtn = document.getElementById('spy-compare-btn');
-  if(spyBtn){ spyBtn.style.background=''; spyBtn.style.color=''; spyBtn.style.borderColor=''; spyBtn.textContent='S&P 500'; }
+  if(spyBtn){ spyBtn.style.background=''; spyBtn.style.color=''; spyBtn.style.borderColor=''; spyBtn.textContent='S&P 500 Compare'; }
 
   const status = document.getElementById('orient-status');
   const lbl    = document.getElementById('orient-ticker-lbl');
@@ -4577,12 +4577,15 @@ async function toggleSPYCompare(){
   if(!chart) return;
 
   if(spyCompareActive){
-    // Remove SPY datasets (return comparison + SPY line)
-    chart.data.datasets = chart.data.datasets.filter(ds => ds._spyCompare !== true);
-    // Remove right Y-axis
+    // Restore original datasets, remove return datasets
+    chart.data.datasets = chart.data.datasets.filter(ds => !ds._spyCompare);
+    chart.data.datasets.forEach(ds => { ds.hidden = false; });
+    // Remove return Y-axis, restore price Y-axis
     delete chart.options.scales.yReturn;
-    // Restore left axis to auto
     chart.options.scales.y.display = true;
+    // Restore annotation visibility
+    const ann = chart.options.plugins?.annotation?.annotations;
+    if(ann) Object.values(ann).forEach(a => { if(a._wasHidden !== undefined){ a.display = true; delete a._wasHidden; }});
     chart.update();
     btn.style.background = '';
     btn.style.color = '';
@@ -4594,11 +4597,11 @@ async function toggleSPYCompare(){
   btn.textContent = 'Loading…';
   try{
     const spyBars = await fetchSPYData();
-    if(!spyBars || spyBars.length < 50){ btn.textContent = 'S&P 500'; alert('Could not fetch SPY data'); return; }
+    if(!spyBars || spyBars.length < 50){ btn.textContent = 'S&P 500 Compare'; alert('Could not fetch SPY data'); return; }
 
     // Get current chart symbol bars (with timestamps)
     const symBars = window._orientBars;
-    if(!symBars || !symBars.length){ btn.textContent = 'S&P 500'; return; }
+    if(!symBars || !symBars.length){ btn.textContent = 'S&P 500 Compare'; return; }
 
     // Build SPY lookup by date string (YYYY-MM-DD) from unix timestamp
     const toDateKey = ts => { const d=new Date(ts*1000); return d.getFullYear()+'-'+(d.getMonth()+1).toString().padStart(2,'0')+'-'+d.getDate().toString().padStart(2,'0'); };
@@ -4616,7 +4619,7 @@ async function toggleSPYCompare(){
     // Find first valid index where both have data
     let startIdx = 0;
     while(startIdx < chartLen && (!symCloses[startIdx] || !spyAligned[startIdx])) startIdx++;
-    if(startIdx >= chartLen){ btn.textContent = 'S&P 500'; alert('No overlapping dates'); return; }
+    if(startIdx >= chartLen){ btn.textContent = 'S&P 500 Compare'; alert('No overlapping dates'); return; }
 
     const symBase = symCloses[startIdx];
     const spyBase = spyAligned[startIdx];
@@ -4631,16 +4634,26 @@ async function toggleSPYCompare(){
       return ((c / spyBase) - 1) * 100;
     });
 
-    // Add return datasets
+    // Hide original datasets (Price, SMA50, SMA200)
+    chart.data.datasets.forEach(ds => { ds.hidden = true; });
+
+    // Hide annotations (VAH, VAL, POC)
+    const ann = chart.options.plugins?.annotation?.annotations;
+    if(ann) Object.values(ann).forEach(a => { a._wasHidden = true; a.display = false; });
+
+    // Hide price Y-axis
+    chart.options.scales.y.display = false;
+
+    // Add return datasets on dedicated Y-axis
+    const ticker = document.getElementById('orient-ticker-lbl')?.textContent || 'Symbol';
     chart.data.datasets.push({
-      label: (document.getElementById('orient-ticker-lbl')?.textContent || 'Symbol') + ' Return %',
+      label: ticker + ' Return %',
       data: symReturn,
       borderColor: '#00d97e',
       borderWidth: 2,
       pointRadius: 0,
       fill: false,
       tension: 0.1,
-      borderDash: [5,3],
       yAxisID: 'yReturn',
       _spyCompare: true
     });
@@ -4652,17 +4665,15 @@ async function toggleSPYCompare(){
       pointRadius: 0,
       fill: false,
       tension: 0.1,
-      borderDash: [3,3],
       yAxisID: 'yReturn',
       _spyCompare: true
     });
 
-    // Add right Y-axis for % return
+    // Single Y-axis for % return (left side)
     chart.options.scales.yReturn = {
-      position: 'right',
-      grid: { drawOnChartArea: false },
+      position: 'left',
+      grid: { color: 'rgba(255,255,255,0.06)' },
       ticks: { font:{size:9}, color:'#6b7280', callback: v => v.toFixed(0)+'%' },
-      title: { display: true, text: 'Total Return %', font:{size:9}, color:'#6b7280' }
     };
 
     chart.update();
@@ -4674,7 +4685,7 @@ async function toggleSPYCompare(){
     console.error('SPY compare error:', e);
     alert('Error loading SPY comparison');
   }
-  btn.textContent = 'S&P 500';
+  btn.textContent = 'S&P 500 Compare';
 }
 
 function mobTab(tab){
