@@ -775,7 +775,7 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
               <strong style="color:var(--bull);">┈ VAL</strong> — Volume Area Low (support)
             </div>
             <div style="margin-top:3px;border-top:1px solid var(--border);padding-top:5px;">
-              <strong style="color:var(--accent);">S&P 500</strong> — Toggle to overlay SPY total return % vs the symbol's return over the chart period. <span style="color:#00d97e;">Dashed green</span> = symbol, <span style="color:#cc2840;">dashed red</span> = SPY. Right axis shows %.
+              <strong style="color:var(--accent);">S&P 500</strong> — Toggle to overlay SPY total return % vs the symbol's return over the chart period. <span style="color:#00d97e;">Dashed green</span> = symbol, <span style="color:#1a6fd4;">dashed blue</span> = SPY. Right axis shows %.
             </div>
           </div>
         </div>
@@ -4647,7 +4647,7 @@ async function toggleSPYCompare(){
     chart.data.datasets.push({
       label: 'SPY Return %',
       data: spyReturn,
-      borderColor: '#cc2840',
+      borderColor: '#1a6fd4',
       borderWidth: 2,
       pointRadius: 0,
       fill: false,
