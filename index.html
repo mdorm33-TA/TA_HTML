@@ -373,6 +373,14 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
 .lvl-info-btn:hover{background:var(--high-dim);border-color:var(--accent);color:var(--accent);transform:scale(1.1);}
 .lvl-info-popup{display:none;background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:12px 14px;margin-bottom:8px;box-shadow:0 4px 20px rgba(0,0,0,.18);font-family:var(--sans);font-size:13px;color:var(--text2);line-height:1.7;}
 .lvl-info-popup.visible{display:block;}
+.scoring-info-btn{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:6px;background:var(--surface3);border:1.5px solid var(--border2);font-size:12px;color:var(--text3);font-family:var(--mono);font-weight:600;cursor:pointer;transition:all .15s;user-select:none;letter-spacing:.04em;}
+.scoring-info-btn:hover{background:var(--high-dim);border-color:var(--accent);color:var(--accent);transform:scale(1.03);}
+.scoring-info-popup{display:none;background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:14px 16px;margin-top:10px;box-shadow:0 4px 20px rgba(0,0,0,.22);font-family:var(--sans);font-size:12.5px;color:var(--text2);line-height:1.7;text-align:left;max-height:420px;overflow-y:auto;}
+.scoring-info-popup.visible{display:block;}
+.scoring-info-popup h4{margin:0 0 6px;font-family:var(--mono);font-size:13px;color:var(--text);letter-spacing:.06em;}
+.scoring-info-popup .si-band{display:flex;align-items:center;gap:8px;padding:2px 0;}
+.scoring-info-popup .si-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.scoring-info-popup .si-section{margin-top:10px;padding-top:8px;border-top:1px solid var(--border);}
 .lvl-info-title{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--accent);margin-bottom:6px;letter-spacing:.06em;text-transform:uppercase;}
 .lvl-info-body strong{font-weight:600;color:var(--text);}
 
@@ -389,8 +397,6 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
 .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
 .btn.primary:hover{background:#3a7de0;}
 .btn.danger:hover{border-color:var(--bear);color:var(--bear);}
-.exp-out{background:var(--surface3);border:1px solid var(--border);border-radius:5px;padding:8px;font-family:var(--mono);font-size:10px;color:var(--text2);white-space:pre-wrap;line-height:1.6;display:none;max-height:130px;overflow-y:auto;margin-top:5px;}
-.exp-out.open{display:block;}
 
 /* ── VERDICT SUMMARY BAR ── */
 .verdict-bar{padding:8px 18px;display:flex;align-items:center;gap:12px;border-bottom:2px solid var(--border);background:var(--surface);box-shadow:0 2px 8px rgba(0,0,0,.06);}
@@ -892,6 +898,36 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
         </div>
         <div class="gverdict" id="gverdict">LOADING…</div>
         <div class="gdisp">Indicator Agreement: <span id="gdisp-lbl">—</span></div>
+        <div style="margin-top:8px;text-align:center;">
+          <span class="scoring-info-btn" onclick="document.getElementById('scoring-info-popup').classList.toggle('visible')" title="How the score is calculated">Scoring Info</span>
+        </div>
+        <div class="scoring-info-popup" id="scoring-info-popup">
+          <h4>How the Score Works</h4>
+          10 technical indicators are scored 0–100 individually, then combined using weighted averages across two confidence buckets:<br><br>
+          <strong style="color:#4c8ef7">HIGH confidence (60%)</strong> — Volume Profile, SMA 200, MA Cross 50/200, RSI Extreme, OBV Trend<br>
+          <strong style="color:#a78bfa">MED confidence (40%)</strong> — MACD Weekly, Ichimoku Cloud, Bollinger Bands, DeMark Sequential, Candlestick Signal<br>
+          <div class="si-section">
+            <h4>ADX Trend Overlay</h4>
+            ADX (Average Directional Index) measures trend strength and adjusts the weights of trend-following indicators (SMA 200, Ichimoku, MA Cross, MACD Weekly). In strong trends these indicators get boosted; in choppy markets they get dampened.
+          </div>
+          <div class="si-section">
+            <h4>Confluence &amp; Conflicts</h4>
+            When related indicators align (e.g. Triple Trend: SMA200 + Ichimoku + MA Cross), the score gets a confidence boost. When they diverge (e.g. trend vs. exhaustion), conflicts are flagged — reducing certainty.
+          </div>
+          <div class="si-section">
+            <h4>Score Bands</h4>
+            <div class="si-band"><div class="si-dot" style="background:#00d97e"></div><strong>72–100</strong> &nbsp;Strongly Bullish (~70–80% prob.)</div>
+            <div class="si-band"><div class="si-dot" style="background:#4dd9a0"></div><strong>62–71</strong> &nbsp;Bullish (~60–70%)</div>
+            <div class="si-band"><div class="si-dot" style="background:#a0cfb8"></div><strong>55–61</strong> &nbsp;Cautiously Bullish (~55–60%)</div>
+            <div class="si-band"><div class="si-dot" style="background:#f0b429"></div><strong>45–54</strong> &nbsp;Neutral (~45–55%)</div>
+            <div class="si-band"><div class="si-dot" style="background:#ff9a7c"></div><strong>38–44</strong> &nbsp;Cautiously Bearish (~55–60%)</div>
+            <div class="si-band"><div class="si-dot" style="background:#ff7c8a"></div><strong>28–37</strong> &nbsp;Bearish (~60–70%)</div>
+            <div class="si-band"><div class="si-dot" style="background:#ff4560"></div><strong>0–27</strong> &nbsp;Strongly Bearish (~70–80%)</div>
+          </div>
+          <div class="si-section" style="color:var(--text3);font-size:11.5px;">
+            <strong>Note:</strong> Scores reflect technical indicator alignment, not a guarantee. RSI Extreme is contrarian (oversold = bullish). Only deterministically computable metrics are used — no subjective indicators.
+          </div>
+        </div>
       </div>
 
 
@@ -997,14 +1033,12 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
 
     <div class="act-row">
       <div class="btn danger" onclick="resetAll()">Reset</div>
-      <div class="btn" onclick="toggleExp()">JSON</div>
       <div class="btn" onclick="sharePermalink()">🔗 Share</div>
     </div>
     <div class="act-row" style="margin-top:5px;">
       <div class="btn" onclick="copyReport()">Copy Report</div>
       <div class="btn primary" onclick="exportPDF()">⬇ PDF</div>
     </div>
-    <div class="exp-out" id="exp-out"></div>
 
     <!-- DEPOE BAY TIDE PANEL -->
     <div class="tide-panel">
@@ -2786,7 +2820,7 @@ async function runAllComputed(ticker){
     const dot2=document.getElementById('sdot'), st2=document.getElementById('stext'), so2=document.getElementById('sstream');
     const btn2=document.getElementById('run-btn');
     dot2.className='sdot active'; st2.className='stext active'; st2.style.animation=''; st2.style.color='';
-    st2.innerHTML=`<span class="sticker">${ticker}</span>${_fcn} — <span style="color:${_fcc};font-weight:600">${_fvc} (${_fsc})</span> · ${_fpr} · OHLC scored · ${new Date().toLocaleString()}`;
+    st2.innerHTML=`<span class="sticker">${ticker}</span>${_fcn} — <span style="color:${_fcc};font-weight:600">${_fvc}</span> · ${_fpr} · OHLC scored · ${new Date().toLocaleString()}`;
     so2.textContent='Waiting for AI…';
     btn2.disabled=false; btn2.classList.remove('loading');
     console.log('runAllComputed: UI force-updated. Score:', _fsc);
@@ -4317,7 +4351,7 @@ async function runAnalysis(){
     const _cnc = window._lastSymbolName ? ` · ${window._lastSymbolName}` : '';
     const priceC = document.getElementById('price-val').textContent || '';
     dot.className='sdot active';st.className='stext active';st.style.animation='';st.style.color='';
-    st.innerHTML=`<span class="sticker">${ticker}</span>${_cnc} — <span style="color:${_cc};font-weight:600">${_vc} (${_sc})</span> · ${priceC} · OHLC scored · ${nowStamp()}`;
+    st.innerHTML=`<span class="sticker">${ticker}</span>${_cnc} — <span style="color:${_cc};font-weight:600">${_vc}</span> · ${priceC} · OHLC scored · ${nowStamp()}`;
     so.textContent='Waiting for AI (divNote + fundamentals)…';
     btn.disabled=false;btn.classList.remove('loading');
     console.log('runAnalysis: ALL DONE. Score:', _sc);
@@ -4348,7 +4382,7 @@ async function runAnalysis(){
       document.getElementById('sdot').className='sdot active';
       const st3 = document.getElementById('stext');
       st3.className='stext active'; st3.style.animation=''; st3.style.color='';
-      st3.innerHTML=`<span class="sticker">${_savedTicker}</span>${cn2} — <span style="color:${cc2};font-weight:600">${vc2} (${sc2})</span> · ${pr2} · OHLC scored · ${nowStamp()}`;
+      st3.innerHTML=`<span class="sticker">${_savedTicker}</span>${cn2} — <span style="color:${cc2};font-weight:600">${vc2}</span> · ${pr2} · OHLC scored · ${nowStamp()}`;
       document.getElementById('sstream').textContent='Waiting for AI…';
       document.getElementById('run-btn').disabled=false;
       document.getElementById('run-btn').classList.remove('loading');
@@ -4448,7 +4482,7 @@ All values plain text only — no HTML, no citations. N/A if unknown.`;
       const _aiScore = Math.round(bScore('high')*customBW.high + bScore('med')*customBW.med);
       const _aiVerdict = verd(_aiScore).l, _aiCol = sCol(_aiScore);
       dot.className='sdot active';st.className='stext active';st.style.animation='';st.style.color='';
-      st.innerHTML=`<span class="sticker">${parsed.ticker||ticker}</span>${_cname} — <span style="color:${_aiCol};font-weight:600">${_aiVerdict} (${_aiScore})</span> · ${priceText} · ${nowStamp()}`;
+      st.innerHTML=`<span class="sticker">${parsed.ticker||ticker}</span>${_cname} — <span style="color:${_aiCol};font-weight:600">${_aiVerdict}</span> · ${priceText} · ${nowStamp()}`;
       console.log('AI call complete for', ticker, '— divNote + fundamentals loaded');
       // If name arrived late, do another status bar update
       if(!window._lastSymbolName){
@@ -4459,7 +4493,7 @@ All values plain text only — no HTML, no citations. N/A if unknown.`;
               const _s2 = Math.round(bScore('high')*customBW.high + bScore('med')*customBW.med);
               const _v2 = verd(_s2).l, _c2 = sCol(_s2);
               const priceNow = document.getElementById('price-val').textContent || '';
-              cur.innerHTML=`<span class="sticker">${ticker}</span> · ${window._lastSymbolName} — <span style="color:${_c2};font-weight:600">${_v2} (${_s2})</span> · ${priceNow} · ${nowStamp()}`;
+              cur.innerHTML=`<span class="sticker">${ticker}</span> · ${window._lastSymbolName} — <span style="color:${_c2};font-weight:600">${_v2}</span> · ${priceNow} · ${nowStamp()}`;
             }
           }
         }, 3000);
@@ -4721,7 +4755,7 @@ function resetAll(){
     const sub=document.getElementById('sub-'+i.id);if(sub)sub.textContent=i.sub;
   });
   ['r1','r2','s1','s2','stop','target'].forEach(k=>{const el=document.getElementById(k);if(el)el.value='';});
-  document.getElementById('div-note').value='';document.getElementById('exp-out').classList.remove('open');
+  document.getElementById('div-note').value='';
   fgVal=null;document.getElementById('fg-num').textContent='—';document.getElementById('fg-num').style.color='';
   document.getElementById('fg-sent').textContent='not loaded';document.getElementById('fg-sent').style.color='';
   document.getElementById('fg-manual').value='';drawFGA(null);document.getElementById('price-val').textContent='—';
@@ -4777,11 +4811,12 @@ function buildRpt(){
     keyLevels:{r1:document.getElementById('r1').value,r2:document.getElementById('r2').value,s1:document.getElementById('s1').value,s2:document.getElementById('s2').value,stop:document.getElementById('stop').value,target:document.getElementById('target').value},
     fearGreed:fgVal!==null?{value:fgVal,sentiment:fgLbl(fgVal).t}:null,
     dividendNote:document.getElementById('div-note').value,
+    macroRegime:(()=>{const ids=['reg-spy','reg-vix','reg-tlt','reg-gold','reg-uso','reg-levsent'];const labels=['S&P 500','VIX','10-Yr Yield','Gold','Oil WTI','Lev. ETF Sentiment'];const lines=[];ids.forEach((id,i)=>{const el=document.getElementById(id);if(el&&el.textContent&&el.textContent!=='—')lines.push(labels[i]+': '+el.textContent.trim());});return lines.length?lines:null;})(),
+    newsAnalysis:(()=>{const el=document.getElementById('news-content');if(!el||!el.textContent.trim())return null;return el.textContent.trim();})(),
     permalink:window.location.href.split('#')[0]+stateToUrl()
   };
 }
 
-function toggleExp(){const el=document.getElementById('exp-out');if(el.classList.contains('open')){el.classList.remove('open');return;}el.textContent=JSON.stringify(buildRpt(),null,2);el.classList.add('open');}
 
 function copyReport(){
   const d=buildRpt();
@@ -4797,6 +4832,8 @@ function copyReport(){
     ...d.indicators.map(i=>{const ln=`[${i.bucket.padEnd(4)}] ${i.name.padEnd(22)} ${i.label.padEnd(16)} (${i.signal}/100)`;return i.notes?ln+`\n         ↳ ${i.notes}`:ln;}),
     '','KEY LEVELS',`  Resistance 1 : ${d.keyLevels.r1||'—'}`,`  Resistance 2 : ${d.keyLevels.r2||'—'}`,`  Support 1    : ${d.keyLevels.s1||'—'}`,`  Support 2    : ${d.keyLevels.s2||'—'}`,`  Stop         : ${d.keyLevels.stop||'—'}`,`  Target       : ${d.keyLevels.target||'—'}`,'');
   if(d.dividendNote){lines.push('DIVIDEND / TOTAL RETURN','  '+d.dividendNote,'');}
+  if(d.macroRegime){lines.push('MACRO REGIME / PRICE SUMMARY','────────────────────────────────────────',...d.macroRegime.map(l=>'  '+l),'');}
+  if(d.newsAnalysis){lines.push('AI NEWS ANALYSIS','────────────────────────────────────────','  '+d.newsAnalysis.replace(/\n/g,'\n  '),'');}
   lines.push(`Permalink  : ${d.permalink}`,'Generated  : '+d.meta.generated,'════════════════════════════════════════');
   navigator.clipboard.writeText(lines.join('\n')).then(()=>showToast('✓ Report copied to clipboard'));
 }
@@ -4901,11 +4938,40 @@ async function exportPDF(){
       dnLines.forEach(l=>{if(y>270){doc.addPage();y=margin;}doc.text(l,margin+2,y);y+=4;});
     }
 
-    // Footer
-    doc.setFillColor(26,109,212); doc.rect(0,285,W,12,'F');
-    doc.setTextColor(68,82,106); doc.setFontSize(7); doc.setFont('courier','normal');
-    doc.text('TA·WEIGHT v5 · Generated: '+d.meta.generated,margin,292);
-    doc.text('Page 1',W-margin,292,{align:'right'});
+    // Macro Regime / Price Summary
+    if(d.macroRegime){
+      y+=4; if(y>260){doc.addPage();y=margin;}
+      doc.setTextColor(68,82,106); doc.setFontSize(8); doc.setFont('courier','bold');
+      doc.text('MACRO REGIME / PRICE SUMMARY',margin,y); y+=5;
+      doc.setTextColor(30,45,70); doc.setFontSize(7); doc.setFont('courier','normal');
+      d.macroRegime.forEach(line=>{
+        if(y>270){doc.addPage();y=margin;}
+        const wrapped=doc.splitTextToSize(line,176);
+        wrapped.forEach(l=>{doc.text(l,margin+2,y);y+=4;});
+      });
+      y+=2;
+    }
+
+    // AI News Analysis
+    if(d.newsAnalysis){
+      y+=4; if(y>260){doc.addPage();y=margin;}
+      doc.setTextColor(245,158,11); doc.setFontSize(8); doc.setFont('courier','bold');
+      doc.text('AI NEWS ANALYSIS',margin,y); y+=5;
+      doc.setTextColor(30,45,70); doc.setFontSize(7); doc.setFont('courier','normal');
+      const newsLines=doc.splitTextToSize(d.newsAnalysis,176);
+      newsLines.forEach(l=>{if(y>270){doc.addPage();y=margin;}doc.text(l,margin+2,y);y+=4;});
+      y+=2;
+    }
+
+    // Footer on all pages
+    const totalPages=doc.internal.getNumberOfPages();
+    for(let p=1;p<=totalPages;p++){
+      doc.setPage(p);
+      doc.setFillColor(26,109,212); doc.rect(0,285,W,12,'F');
+      doc.setTextColor(68,82,106); doc.setFontSize(7); doc.setFont('courier','normal');
+      doc.text('TA·WEIGHT v5 · Generated: '+d.meta.generated,margin,292);
+      doc.text(`Page ${p} of ${totalPages}`,W-margin,292,{align:'right'});
+    }
 
     doc.save(`TA_${d.meta.ticker}_${new Date().toISOString().slice(0,10)}.pdf`);
     showToast('⬇ PDF saved');
@@ -5022,6 +5088,9 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.addEventListener('touchstart', e=>{
     if(!e.target.classList.contains('tip-icon')){
       document.querySelectorAll('.tip-box.visible').forEach(b=>b.classList.remove('visible'));
+    }
+    if(!e.target.closest('.scoring-info-btn') && !e.target.closest('.scoring-info-popup')){
+      const sip=document.getElementById('scoring-info-popup');if(sip)sip.classList.remove('visible');
     }
   });
   // Initialize mouseenter/touch for ALL static tip-wrap tooltip buttons (ADX, Lev Sentiment, etc.)
