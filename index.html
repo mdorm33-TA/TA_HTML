@@ -42,8 +42,15 @@ body.dark-mode .run-btn{box-shadow:0 2px 8px rgba(88,166,255,.2);}
 body.dark-mode .tide-tbl thead tr:nth-child(2) th{background:#58a6ff22;color:var(--accent);}
 body.dark-mode .tide-tbl thead tr:nth-child(2) th:nth-child(3),body.dark-mode .tide-tbl thead tr:nth-child(2) th:nth-child(4){background:#f8514915;color:#f85149;}
 body.dark-mode .coast-card{background:var(--surface);box-shadow:var(--card-shadow);}
-body.dark-mode .coast-hdr{background:linear-gradient(135deg,#0d2640,#163d60);}
-body.dark-mode .coast-wx-pill{background:var(--surface3);border-color:var(--border);color:var(--text2);}
+body.dark-mode .coast-hdr{background:linear-gradient(135deg,#142e4a,#1e5280);}
+body.dark-mode .coast-wx-pill{background:var(--surface3);border-color:var(--border2);color:var(--text);}
+body.dark-mode .coast-tide-status{color:var(--text);}
+body.dark-mode .coast-tide-status strong{color:#58a6ff;}
+body.dark-mode .coast-hdr-badge{color:rgba(255,255,255,.9);}
+body.dark-mode .tide-tbl-date{color:var(--text);}
+body.dark-mode .tide-high,.dark-mode .tide-high-ft{color:#58a6ff;}
+body.dark-mode .tide-low,.dark-mode .tide-low-ft{color:#f85149;}
+body.dark-mode .coast-links a{color:#58a6ff;}
 /* Dark mode toggle button */
 .dark-toggle{padding:5px 10px;background:var(--surface3);border:1px solid var(--border2);border-radius:6px;font-family:var(--mono);font-size:13px;color:var(--text2);cursor:pointer;transition:all .15s;white-space:nowrap;flex-shrink:0;line-height:1.3;}
 .dark-toggle:hover{border-color:var(--accent);color:var(--accent);}
@@ -596,22 +603,22 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
 .coast-card{background:var(--surface);border-radius:10px;box-shadow:var(--card-shadow);overflow:hidden;margin-top:10px;}
 .coast-hdr{background:linear-gradient(135deg,#1a4d80,#2a6da8);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;cursor:pointer;}
 .coast-hdr-left{display:flex;align-items:center;gap:10px;}
-.coast-hdr-title{font-family:var(--sans);font-size:14px;font-weight:500;color:#fff;}
-.coast-hdr-badge{font-family:var(--mono);font-size:11px;color:rgba(255,255,255,.75);}
-.coast-hdr-wx{display:flex;align-items:center;gap:12px;font-family:var(--mono);font-size:12px;color:rgba(255,255,255,.9);}
-.coast-hdr-temp{font-size:20px;font-weight:600;color:#fff;}
+.coast-hdr-title{font-family:var(--sans);font-size:15px;font-weight:500;color:#fff;}
+.coast-hdr-badge{font-family:var(--mono);font-size:12px;color:rgba(255,255,255,.85);}
+.coast-hdr-wx{display:flex;align-items:center;gap:12px;font-family:var(--mono);font-size:13px;color:#fff;}
+.coast-hdr-temp{font-size:22px;font-weight:600;color:#fff;}
 .coast-chevron{color:rgba(255,255,255,.7);font-size:14px;transition:transform .2s;}
 .coast-chevron.open{transform:rotate(180deg);}
 .coast-body{max-height:0;overflow:hidden;transition:max-height .3s ease;}
 .coast-body.open{max-height:800px;}
 .coast-content{padding:12px 14px;}
 .coast-wx-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
-.coast-wx-pill{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-family:var(--mono);font-size:11px;color:var(--text2);display:flex;align-items:center;gap:4px;}
-.coast-tide-status{font-family:var(--mono);font-size:12px;color:var(--text2);margin-bottom:8px;}
-.coast-tide-status strong{color:var(--text);}
+.coast-wx-pill{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-family:var(--mono);font-size:12px;color:var(--text);display:flex;align-items:center;gap:4px;}
+.coast-tide-status{font-family:var(--mono);font-size:13px;color:var(--text);margin-bottom:8px;}
+.coast-tide-status strong{color:var(--accent);}
 .coast-chart-wrap{position:relative;width:100%;height:160px;margin:6px 0 10px;}
-.tide-tbl{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;margin:6px 0 4px;}
-.tide-tbl-date{text-align:center;font-size:10px;font-weight:600;color:var(--text2);padding:4px 0 6px;letter-spacing:.04em;}
+.tide-tbl{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:13px;margin:6px 0 4px;}
+.tide-tbl-date{text-align:center;font-size:12px;font-weight:600;color:var(--text);padding:4px 0 6px;letter-spacing:.04em;}
 .tide-tbl thead tr:nth-child(2) th{background:#1a6fd422;color:var(--accent);font-size:10px;padding:5px 8px;font-weight:600;}
 .tide-tbl thead tr:nth-child(2) th:nth-child(3),.tide-tbl thead tr:nth-child(2) th:nth-child(4){background:#cc284015;color:#cc3344;}
 .tide-tbl-sub th{font-size:9px;color:var(--text3);font-weight:500;padding:3px 8px;border-bottom:1px solid var(--border);}
@@ -624,8 +631,8 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
 .tide-low{color:#cc3344;font-weight:600;}
 .tide-low-ft{color:#cc3344;text-align:right;font-weight:700;}
 .tide-meta{font-family:var(--mono);font-size:11px;color:var(--text2);padding:2px 0 4px;}
-.coast-links{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:11px;}
-.coast-links a{color:var(--accent);text-decoration:none;font-family:var(--mono);}
+.coast-links{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;font-size:12px;}
+.coast-links a{color:var(--accent);text-decoration:none;font-family:var(--mono);font-weight:500;}
 .coast-links a:hover{text-decoration:underline;}
 </style>
 </head>
@@ -949,7 +956,8 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
     <div id="printable-scorecard">
 
       <div class="gauge-card" style="border-top:3px solid var(--accent);border-radius:12px;">
-        <div class="stitle">Weighted Probability Score</div>
+        <div class="stitle">Weighted Technical Score</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.04em;margin-top:2px;">No Fundamentals — Just The Price Action</div>
         <div class="gcw">
           <canvas id="gaugeCanvas" width="180" height="108"></canvas>
           <div class="gcenter"><div class="gscore" id="gscore">—</div><div class="gunit">/ 100</div></div>
@@ -984,6 +992,10 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
           </div>
           <div class="si-section" style="color:var(--text3);font-size:11.5px;">
             <strong>Note:</strong> Scores reflect technical indicator alignment, not a guarantee. RSI (Relative Strength Index) Extreme is contrarian — oversold = bullish, overbought = bearish. Only deterministically computable metrics are used — no subjective indicators.
+          </div>
+          <div class="si-section" style="font-size:11.5px;">
+            <strong style="color:var(--accent);">💡 Customize Your Weights</strong><br>
+            Don't agree with the default weighting? Use the <strong>Weight Editor</strong> below the indicators panel to adjust how much each indicator contributes to the final score. Your custom weights are preserved in shared links and PDF exports.
           </div>
         </div>
       </div>
@@ -5275,17 +5287,17 @@ function renderTideChart(curve, hilos){
   const hiloTimes = new Set(hilos.map(h => h.t));
   const pointRadii = sampled.map(p => hiloTimes.has(p.t) ? 4 : 0);
   const pointBg = sampled.map(p => hiloTimes.has(p.t) ? '#fff' : 'transparent');
-  const pointBorder = sampled.map(p => hiloTimes.has(p.t) ? '#1a4d80' : 'transparent');
+  const pointBorder = sampled.map(p => hiloTimes.has(p.t) ? (isDark ? '#58a6ff' : '#1a4d80') : 'transparent');
 
   const isDark = document.body.classList.contains('dark-mode');
-  const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
-  const textColor = isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)';
+  const gridColor = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.06)';
+  const textColor = isDark ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.4)';
 
   coastChart = new Chart(canvas, {
     type: 'line',
     data: { labels, datasets: [{
-      data, borderColor: '#1a4d80', backgroundColor: 'rgba(26,77,128,0.10)',
-      borderWidth: 2, fill: true, tension: 0.4,
+      data, borderColor: isDark ? '#58a6ff' : '#1a4d80', backgroundColor: isDark ? 'rgba(88,166,255,0.12)' : 'rgba(26,77,128,0.10)',
+      borderWidth: 2.5, fill: true, tension: 0.4,
       pointRadius: pointRadii, pointBackgroundColor: pointBg,
       pointBorderColor: pointBorder, pointBorderWidth: 2
     }]},
