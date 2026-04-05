@@ -41,6 +41,9 @@ body.dark-mode .fund-panel{border-color:var(--accent);}
 body.dark-mode .run-btn{box-shadow:0 2px 8px rgba(88,166,255,.2);}
 body.dark-mode .tide-tbl thead tr:nth-child(2) th{background:#58a6ff22;color:var(--accent);}
 body.dark-mode .tide-tbl thead tr:nth-child(2) th:nth-child(3),body.dark-mode .tide-tbl thead tr:nth-child(2) th:nth-child(4){background:#f8514915;color:#f85149;}
+body.dark-mode .coast-card{background:var(--surface);box-shadow:var(--card-shadow);}
+body.dark-mode .coast-hdr{background:linear-gradient(135deg,#0d2640,#163d60);}
+body.dark-mode .coast-wx-pill{background:var(--surface3);border-color:var(--border);color:var(--text2);}
 /* Dark mode toggle button */
 .dark-toggle{padding:5px 10px;background:var(--surface3);border:1px solid var(--border2);border-radius:6px;font-family:var(--mono);font-size:13px;color:var(--text2);cursor:pointer;transition:all .15s;white-space:nowrap;flex-shrink:0;line-height:1.3;}
 .dark-toggle:hover{border-color:var(--accent);color:var(--accent);}
@@ -589,7 +592,24 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
   .asel{font-size:12px;}
 }
 
-/* ── TIDE TABLE ── */
+/* ── COASTAL CONDITIONS ── */
+.coast-card{background:var(--surface);border-radius:10px;box-shadow:var(--card-shadow);overflow:hidden;margin-top:10px;}
+.coast-hdr{background:linear-gradient(135deg,#1a4d80,#2a6da8);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;cursor:pointer;}
+.coast-hdr-left{display:flex;align-items:center;gap:10px;}
+.coast-hdr-title{font-family:var(--sans);font-size:14px;font-weight:500;color:#fff;}
+.coast-hdr-badge{font-family:var(--mono);font-size:11px;color:rgba(255,255,255,.75);}
+.coast-hdr-wx{display:flex;align-items:center;gap:12px;font-family:var(--mono);font-size:12px;color:rgba(255,255,255,.9);}
+.coast-hdr-temp{font-size:20px;font-weight:600;color:#fff;}
+.coast-chevron{color:rgba(255,255,255,.7);font-size:14px;transition:transform .2s;}
+.coast-chevron.open{transform:rotate(180deg);}
+.coast-body{max-height:0;overflow:hidden;transition:max-height .3s ease;}
+.coast-body.open{max-height:800px;}
+.coast-content{padding:12px 14px;}
+.coast-wx-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+.coast-wx-pill{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-family:var(--mono);font-size:11px;color:var(--text2);display:flex;align-items:center;gap:4px;}
+.coast-tide-status{font-family:var(--mono);font-size:12px;color:var(--text2);margin-bottom:8px;}
+.coast-tide-status strong{color:var(--text);}
+.coast-chart-wrap{position:relative;width:100%;height:160px;margin:6px 0 10px;}
 .tide-tbl{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;margin:6px 0 4px;}
 .tide-tbl-date{text-align:center;font-size:10px;font-weight:600;color:var(--text2);padding:4px 0 6px;letter-spacing:.04em;}
 .tide-tbl thead tr:nth-child(2) th{background:#1a6fd422;color:var(--accent);font-size:10px;padding:5px 8px;font-weight:600;}
@@ -604,6 +624,9 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
 .tide-low{color:#cc3344;font-weight:600;}
 .tide-low-ft{color:#cc3344;text-align:right;font-weight:700;}
 .tide-meta{font-family:var(--mono);font-size:11px;color:var(--text2);padding:2px 0 4px;}
+.coast-links{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:11px;}
+.coast-links a{color:var(--accent);text-decoration:none;font-family:var(--mono);}
+.coast-links a:hover{text-decoration:underline;}
 </style>
 </head>
 <body>
@@ -1075,22 +1098,34 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
       <div class="btn primary" onclick="exportPDF()">⬇ PDF</div>
     </div>
 
-    <!-- DEPOE BAY TIDE PANEL -->
-    <div class="tide-panel">
-      <div class="tide-panel-hdr" onclick="toggleTidePanel()">
-        <div class="tide-panel-title">
-          🌊 Depoe Bay Tides
-          <span id="tide-badge" style="font-weight:400;color:var(--text3);font-size:10px;">— click to load</span>
-        </div>
-        <span class="tide-chevron" id="tide-chevron">▼</span>
+    <!-- COASTAL CONDITIONS moved outside layout -->
+
+  </div>
+</div>
+
+<!-- DEPOE BAY COASTAL CONDITIONS — full width below layout -->
+<div style="padding:0 12px 20px;background:var(--bg);">
+  <div class="coast-card">
+    <div class="coast-hdr" onclick="toggleCoastPanel()">
+      <div class="coast-hdr-left">
+        <span class="coast-hdr-title">🌊 Depoe Bay Coastal Conditions</span>
+        <span class="coast-hdr-badge" id="coast-badge">loading…</span>
       </div>
-      <div class="tide-panel-body" id="tide-body">
-        <div class="tide-meta" id="tide-meta">Loading tide data…</div>
-        <div id="tide-table-wrap"></div>
-        <a href="https://www.usharbors.com/harbor/oregon/depoe-bay-or/tides/" target="_blank" class="tide-link">📍 Full tide chart at USHarbors.com →</a>
+      <div class="coast-hdr-wx" id="coast-wx-hdr"></div>
+      <span class="coast-chevron" id="coast-chevron">▼</span>
+    </div>
+    <div class="coast-body" id="coast-body">
+      <div class="coast-content">
+        <div class="coast-wx-row" id="coast-wx-pills"></div>
+        <div class="coast-tide-status" id="coast-tide-status"></div>
+        <div class="coast-chart-wrap"><canvas id="coastTideChart"></canvas></div>
+        <div id="coast-tide-table"></div>
+        <div class="coast-links">
+          <a href="https://www.usharbors.com/harbor/oregon/depoe-bay-or/tides/" target="_blank">📍 Full tides at USHarbors →</a>
+          <a href="https://www.ndbc.noaa.gov/station_page.php?station=46050" target="_blank">🌊 Buoy 46050 swell data →</a>
+        </div>
       </div>
     </div>
-
   </div>
 </div>
 
@@ -5049,104 +5084,243 @@ async function exportPDF(){
 }
 
 // ═══ INIT ═══
-// ═══ DEPOE BAY TIDE PANEL ═══
-let tideChart = null;
-let tideLoaded = false;
+// ═══ DEPOE BAY COASTAL CONDITIONS ═══
+let coastChart = null;
+let coastLoaded = false;
 
-function toggleTidePanel(){
-  const body = document.getElementById('tide-body');
-  const chev = document.getElementById('tide-chevron');
+function toggleCoastPanel(){
+  const body = document.getElementById('coast-body');
+  const chev = document.getElementById('coast-chevron');
   body.classList.toggle('open');
   chev.classList.toggle('open');
-  if(body.classList.contains('open') && !tideLoaded) fetchTides();
+  if(body.classList.contains('open') && !coastLoaded) loadCoastalConditions();
 }
 
-async function fetchTides(){
-  const badge = document.getElementById('tide-badge');
-  const meta  = document.getElementById('tide-meta');
-  const wrap  = document.getElementById('tide-table-wrap');
-  badge.textContent = '— loading…';
-  meta.textContent = '';
+async function loadCoastalConditions(){
+  const badge = document.getElementById('coast-badge');
+  const wxHdr = document.getElementById('coast-wx-hdr');
+  const wxPills = document.getElementById('coast-wx-pills');
+  const statusEl = document.getElementById('coast-tide-status');
+  const tableWrap = document.getElementById('coast-tide-table');
 
   try{
-    const station = '9435827'; // NOAA Depoe Bay OR
-    const today = new Date();
-    const fmt = d => `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+    // ── Fetch tides and weather in parallel ──
+    const [tideResult, wxResult] = await Promise.allSettled([
+      fetchTideData(),
+      fetchWeatherData()
+    ]);
 
-    // Fetch hi/lo predictions for today
-    const hiloUrl = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?station=${station}&product=predictions&datum=MLLW&time_zone=lst_ldt&interval=hilo&units=english&application=web_services&format=json&begin_date=${fmt(today)}&end_date=${fmt(today)}`;
-    const hiloRes = await fetch(hiloUrl);
-    const hiloData = await hiloRes.json();
-    const hilos = hiloData.predictions || [];
-    if(!hilos.length) throw new Error('No hi/lo tide data');
+    const tide = tideResult.status === 'fulfilled' ? tideResult.value : null;
+    const wx   = wxResult.status === 'fulfilled' ? wxResult.value : null;
 
-    // Current tide level (hourly)
-    const tomorrow = new Date(today); tomorrow.setDate(today.getDate()+1);
-    const hourUrl = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?station=${station}&product=predictions&datum=MLLW&time_zone=lst_ldt&interval=h&units=english&application=web_services&format=json&begin_date=${fmt(today)}&end_date=${fmt(today)}`;
-    const hourRes = await fetch(hourUrl);
-    const hourData = await hourRes.json();
-    const preds = hourData.predictions || [];
-    const nowHr = String(today.getHours()).padStart(2,'0') + ':00';
-    const todayYMD = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-    const nowEntry = preds.find(p => p.t === `${todayYMD} ${nowHr}`);
-    const prevEntry = preds.find(p => p.t === `${todayYMD} ${String(today.getHours()-1).padStart(2,'0')}:00`);
-    const currentFt = nowEntry ? parseFloat(nowEntry.v).toFixed(1) : '—';
-    const rising = nowEntry && prevEntry ? parseFloat(nowEntry.v) > parseFloat(prevEntry.v) : null;
-
-    // Format time helper
-    const fmtTime = t => {
-      const [,time] = t.split(' ');
-      const [h,m] = time.split(':').map(Number);
-      const ap = h < 12 ? 'AM' : 'PM';
-      const hr = h === 0 ? 12 : h > 12 ? h-12 : h;
-      return `${hr}:${String(m).padStart(2,'0')} ${ap}`;
-    };
-
-    // Build table
-    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const dateLabel = `${monthNames[today.getMonth()]} ${today.getDate()}, ${today.getFullYear()}`;
-
-    // Separate H and L events
-    const highs = hilos.filter(h => h.type === 'H');
-    const lows  = hilos.filter(h => h.type === 'L');
-    const rows = Math.max(highs.length, lows.length);
-
-    let tableHtml = `
-<table class="tide-tbl">
-  <thead>
-    <tr><th colspan="4" class="tide-tbl-date">Depoe Bay, OR — ${dateLabel}</th></tr>
-    <tr>
-      <th colspan="2">🔼 High Tide</th>
-      <th colspan="2">🔽 Low Tide</th>
-    </tr>
-    <tr class="tide-tbl-sub">
-      <th>Time</th><th>ft</th><th>Time</th><th>ft</th>
-    </tr>
-  </thead>
-  <tbody>`;
-
-    for(let i=0;i<rows;i++){
-      const h = highs[i], l = lows[i];
-      tableHtml += `<tr>
-      <td class="tide-high">${h ? fmtTime(h.t) : '—'}</td>
-      <td class="tide-high-ft">${h ? parseFloat(h.v).toFixed(1) : '—'}</td>
-      <td class="tide-low">${l ? fmtTime(l.t) : '—'}</td>
-      <td class="tide-low-ft">${l ? parseFloat(l.v).toFixed(1) : '—'}</td>
-    </tr>`;
+    // ── Weather header & pills ──
+    if(wx){
+      wxHdr.innerHTML = `<span class="coast-hdr-temp">${wx.temp}°</span><span>${wx.shortForecast}</span>`;
+      wxPills.innerHTML = [
+        `<span class="coast-wx-pill">🌡 H ${wx.high}° / L ${wx.low}°</span>`,
+        wx.wind ? `<span class="coast-wx-pill">💨 ${wx.wind}</span>` : '',
+        `<span class="coast-wx-pill">${wx.shortForecast}</span>`,
+      ].filter(Boolean).join('');
+    } else {
+      wxHdr.innerHTML = '';
+      wxPills.innerHTML = '<span class="coast-wx-pill">⚠ Weather unavailable</span>';
     }
-    tableHtml += `</tbody></table>`;
 
-    wrap.innerHTML = tableHtml;
-    const arrowStr = rising === null ? '' : rising ? ' ↑' : ' ↓';
-    meta.innerHTML = `<span style="font-weight:600">Now: ${currentFt} ft${arrowStr}</span>`;
-    badge.textContent = `— ${currentFt} ft${arrowStr}`;
-    tideLoaded = true;
+    // ── Tide data ──
+    if(tide){
+      // Status line
+      const arrowStr = tide.rising === null ? '' : tide.rising ? '↑ rising' : '↓ falling';
+      statusEl.innerHTML = `<strong>Now: ${tide.currentFt} ft ${arrowStr}</strong> · Depoe Bay, OR · ${tide.dateLabel}`;
+      badge.textContent = `${tide.currentFt} ft ${tide.rising === null ? '' : tide.rising ? '↑' : '↓'}`;
 
+      // Tide curve chart
+      renderTideChart(tide.curve, tide.hilos);
+
+      // Hi/Lo table
+      const highs = tide.hilos.filter(h => h.type === 'H');
+      const lows  = tide.hilos.filter(h => h.type === 'L');
+      const rows  = Math.max(highs.length, lows.length);
+      let tableHtml = `<table class="tide-tbl"><thead>
+        <tr><th colspan="4" class="tide-tbl-date">Depoe Bay, OR — ${tide.dateLabel}</th></tr>
+        <tr><th colspan="2">🔼 High Tide</th><th colspan="2">🔽 Low Tide</th></tr>
+        <tr class="tide-tbl-sub"><th>Time</th><th>ft</th><th>Time</th><th>ft</th></tr>
+      </thead><tbody>`;
+      for(let i=0;i<rows;i++){
+        const h = highs[i], l = lows[i];
+        tableHtml += `<tr>
+          <td class="tide-high">${h ? fmtTideTime(h.t) : '—'}</td>
+          <td class="tide-high-ft">${h ? parseFloat(h.v).toFixed(1) : '—'}</td>
+          <td class="tide-low">${l ? fmtTideTime(l.t) : '—'}</td>
+          <td class="tide-low-ft">${l ? parseFloat(l.v).toFixed(1) : '—'}</td>
+        </tr>`;
+      }
+      tableHtml += '</tbody></table>';
+      tableWrap.innerHTML = tableHtml;
+    } else {
+      statusEl.innerHTML = '⚠ Tide data unavailable';
+      badge.textContent = 'unavailable';
+    }
+
+    coastLoaded = true;
   } catch(err){
-    meta.textContent = '⚠ Tide data unavailable — check USHarbors.com';
-    badge.textContent = '— unavailable';
-    console.warn('Tide fetch error:', err.message);
+    badge.textContent = 'error';
+    statusEl.innerHTML = '⚠ Coastal data unavailable — check USHarbors.com';
+    console.warn('Coastal conditions error:', err.message);
   }
+}
+
+function fmtTideTime(t){
+  const [,time] = t.split(' ');
+  const [h,m] = time.split(':').map(Number);
+  const ap = h < 12 ? 'AM' : 'PM';
+  const hr = h === 0 ? 12 : h > 12 ? h-12 : h;
+  return `${hr}:${String(m).padStart(2,'0')} ${ap}`;
+}
+
+async function fetchTideData(){
+  const station = '9435827';
+  const today = new Date();
+  const fmt = d => `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const dateLabel = `${monthNames[today.getMonth()]} ${today.getDate()}, ${today.getFullYear()}`;
+
+  // Fetch hi/lo and 6-minute curve in parallel
+  const hiloUrl = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?station=${station}&product=predictions&datum=MLLW&time_zone=lst_ldt&interval=hilo&units=english&application=SignalCatcher&format=json&begin_date=${fmt(today)}&end_date=${fmt(today)}`;
+  const curveUrl = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?station=${station}&product=predictions&datum=MLLW&time_zone=lst_ldt&interval=6&units=english&application=SignalCatcher&format=json&begin_date=${fmt(today)}&end_date=${fmt(today)}`;
+
+  const [hiloRes, curveRes] = await Promise.all([fetch(hiloUrl), fetch(curveUrl)]);
+  const hiloData = await hiloRes.json();
+  const curveData = await curveRes.json();
+
+  const hilos = hiloData.predictions || [];
+  const curve = curveData.predictions || [];
+  if(!hilos.length) throw new Error('No hi/lo tide data');
+
+  // Current level from curve data
+  const nowHr = today.getHours();
+  const nowMin = today.getMinutes();
+  const nowBucket = `${String(nowHr).padStart(2,'0')}:${String(Math.floor(nowMin/6)*6).padStart(2,'0')}`;
+  const todayYMD = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  const nowEntry = curve.find(p => p.t >= `${todayYMD} ${nowBucket}`);
+  const prevIdx = nowEntry ? curve.indexOf(nowEntry) - 1 : -1;
+  const prevEntry = prevIdx >= 0 ? curve[prevIdx] : null;
+  const currentFt = nowEntry ? parseFloat(nowEntry.v).toFixed(1) : '—';
+  const rising = nowEntry && prevEntry ? parseFloat(nowEntry.v) > parseFloat(prevEntry.v) : null;
+
+  return { hilos, curve, currentFt, rising, dateLabel };
+}
+
+async function fetchWeatherData(){
+  // NWS API: first get the forecast URL for Depoe Bay coordinates
+  const pointRes = await fetch('https://api.weather.gov/points/44.81,-124.058', {
+    headers: { 'User-Agent': 'SignalCatcher/1.0 (mdorm33@gmail.com)' }
+  });
+  const pointData = await pointRes.json();
+  const forecastUrl = pointData.properties?.forecast;
+  if(!forecastUrl) throw new Error('No forecast URL');
+
+  const fcRes = await fetch(forecastUrl, {
+    headers: { 'User-Agent': 'SignalCatcher/1.0 (mdorm33@gmail.com)' }
+  });
+  const fcData = await fcRes.json();
+  const periods = fcData.properties?.periods || [];
+  if(!periods.length) throw new Error('No forecast periods');
+
+  // First period is current
+  const now = periods[0];
+  const tonight = periods.find(p => p.name.toLowerCase().includes('tonight') || p.name.toLowerCase().includes('night'));
+  const tomorrow = periods.find(p => p.name.toLowerCase().includes('monday') || p.name.toLowerCase().includes('tuesday') || p.name.toLowerCase().includes('wednesday') || p.name.toLowerCase().includes('thursday') || p.name.toLowerCase().includes('friday') || p.name.toLowerCase().includes('saturday') || p.name.toLowerCase().includes('sunday'));
+
+  return {
+    temp: now.temperature,
+    high: now.isDaytime ? now.temperature : (tomorrow ? tomorrow.temperature : now.temperature),
+    low: tonight ? tonight.temperature : (now.isDaytime ? '—' : now.temperature),
+    wind: now.windSpeed + ' ' + now.windDirection,
+    shortForecast: now.shortForecast
+  };
+}
+
+function renderTideChart(curve, hilos){
+  const canvas = document.getElementById('coastTideChart');
+  if(!canvas) return;
+  if(coastChart){ coastChart.destroy(); coastChart = null; }
+
+  // Sample curve to ~80 points for performance (every 3rd point from 240)
+  const step = Math.max(1, Math.floor(curve.length / 80));
+  const sampled = curve.filter((_,i) => i % step === 0);
+
+  const labelsSeen = new Set();
+  const labels = sampled.map(p => {
+    const time = p.t.split(' ')[1];
+    const [h, m] = time.split(':').map(Number);
+    if(h % 3 === 0 && m < step * 6 && !labelsSeen.has(h)){
+      labelsSeen.add(h);
+      return h === 0 ? '12AM' : h < 12 ? h + 'AM' : h === 12 ? '12PM' : (h-12) + 'PM';
+    }
+    return '';
+  });
+  const data = sampled.map(p => parseFloat(p.v));
+
+  // Find "now" index
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  let nowIdx = 0, minDist = 99999;
+  sampled.forEach((p, i) => {
+    const [h,m] = p.t.split(' ')[1].split(':').map(Number);
+    const dist = Math.abs((h*60+m) - nowMinutes);
+    if(dist < minDist){ minDist = dist; nowIdx = i; }
+  });
+
+  // Mark hi/lo points
+  const hiloTimes = new Set(hilos.map(h => h.t));
+  const pointRadii = sampled.map(p => hiloTimes.has(p.t) ? 4 : 0);
+  const pointBg = sampled.map(p => hiloTimes.has(p.t) ? '#fff' : 'transparent');
+  const pointBorder = sampled.map(p => hiloTimes.has(p.t) ? '#1a4d80' : 'transparent');
+
+  const isDark = document.body.classList.contains('dark-mode');
+  const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+  const textColor = isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)';
+
+  coastChart = new Chart(canvas, {
+    type: 'line',
+    data: { labels, datasets: [{
+      data, borderColor: '#1a4d80', backgroundColor: 'rgba(26,77,128,0.10)',
+      borderWidth: 2, fill: true, tension: 0.4,
+      pointRadius: pointRadii, pointBackgroundColor: pointBg,
+      pointBorderColor: pointBorder, pointBorderWidth: 2
+    }]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false },
+        tooltip: { backgroundColor: isDark?'#222':'#fff', titleColor: isDark?'#eee':'#333',
+          bodyColor: isDark?'#ccc':'#666', borderColor: isDark?'rgba(255,255,255,.2)':'rgba(0,0,0,.1)', borderWidth: 1,
+          callbacks: { title: items => { const p = sampled[items[0].dataIndex]; return fmtTideTime(p.t); },
+            label: item => item.raw.toFixed(1) + ' ft' }}},
+      scales: {
+        x: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 10 }, maxRotation: 0, autoSkip: false,
+          callback: function(v,i){ return labels[i] || ''; }}},
+        y: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 10 }, stepSize: 2,
+          callback: v => v + ' ft' }}
+      },
+      layout: { padding: { top: 8, right: 6 } }
+    },
+    plugins: [{
+      afterDraw: function(ch){
+        const xs = ch.scales.x, ys = ch.scales.y, ctx = ch.ctx;
+        const xp = xs.getPixelForValue(nowIdx);
+        ctx.save();
+        ctx.strokeStyle = '#c0392b'; ctx.lineWidth = 1.5;
+        ctx.setLineDash([4,3]); ctx.beginPath();
+        ctx.moveTo(xp, ys.top); ctx.lineTo(xp, ys.bottom); ctx.stroke();
+        ctx.setLineDash([]);
+        // Time label
+        const nowLabel = new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
+        ctx.fillStyle = '#c0392b'; ctx.font = '500 9px IBM Plex Mono,monospace'; ctx.textAlign = 'center';
+        ctx.fillText(nowLabel, xp, ys.top - 2);
+        ctx.restore();
+      }
+    }]
+  });
 }
 
 document.addEventListener('DOMContentLoaded',()=>{
@@ -5181,11 +5355,11 @@ document.addEventListener('DOMContentLoaded',()=>{
     btn.addEventListener('mouseleave', () => box.classList.remove('visible'));
     btn.addEventListener('touchstart', e => { e.preventDefault(); positionTip(); });
   });
-  // Auto-open and load tide panel
+  // Auto-open and load coastal conditions panel
   (function(){
-    const body=document.getElementById('tide-body');
-    const chev=document.getElementById('tide-chevron');
-    if(body){body.classList.add('open');if(chev)chev.classList.add('open');fetchTides();}
+    const body=document.getElementById('coast-body');
+    const chev=document.getElementById('coast-chevron');
+    if(body){body.classList.add('open');if(chev)chev.classList.add('open');loadCoastalConditions();}
   })();
   // Load from URL hash first, else load MU preload
   if(window.location.hash&&window.location.hash.length>3){
