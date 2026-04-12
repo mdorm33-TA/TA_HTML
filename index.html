@@ -306,6 +306,15 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
 .ci-severity.high{background:#ff456022;color:var(--bear);}
 .ci-severity.med{background:#f0b42922;color:var(--neu);}
 
+/* ── CONFLICT REGIME TIERS ── */
+.conflict-card.regime-elevated{border-color:var(--conflict);box-shadow:0 1px 6px rgba(200,80,0,.12);}
+.conflict-card.regime-transition{border-color:#ff4560;border-width:2px;box-shadow:0 2px 10px rgba(255,69,96,.18);}
+body.dark-mode .conflict-card.regime-transition{background:linear-gradient(145deg,#2a141580,#2a141550);border-color:#ff456088;}
+.conflict-item.backbone{background:rgba(200,80,0,.04);border-radius:4px;padding:6px 5px;margin:2px -5px;}
+body.dark-mode .conflict-item.backbone{background:rgba(255,160,80,.06);}
+.ci-backbone-tag{font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:1px 4px;border-radius:2px;background:#c8500018;color:var(--conflict);border:1px solid var(--conflict)44;margin-left:4px;vertical-align:middle;}
+body.dark-mode .ci-backbone-tag{background:#f0883e18;color:#f0883e;border-color:#f0883e44;}
+
 /* ── SCORE PANEL CARDS ── */
 .stitle{font-family:var(--mono);font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;font-weight:600;padding-bottom:4px;border-bottom:1px solid var(--border);}
 .gauge-card{background:linear-gradient(145deg,var(--surface) 0%,var(--surface2) 100%);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center;box-shadow:var(--card-shadow);}
@@ -320,6 +329,9 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
 .gdisp-bar{height:4px;border-radius:2px;background:var(--border);margin-top:2px;margin-bottom:1px;overflow:hidden;}
 .gdisp-fill{height:100%;border-radius:2px;transition:width .4s;}
 .gdisp-legend{font-size:12px;color:var(--text3);margin-top:4px;display:flex;flex-wrap:wrap;gap:6px;line-height:1.6;}
+.gregime-badge{font-family:var(--mono);font-size:11px;text-align:center;margin-top:5px;padding:3px 8px;border-radius:4px;letter-spacing:.04em;}
+.gregime-badge.elevated{background:#f0883e18;color:var(--conflict);border:1px solid var(--conflict)44;}
+.gregime-badge.transition{background:#ff456018;color:#ff4560;border:1px solid #ff456044;font-weight:600;}
 .iw{font-family:var(--mono);font-size:12px;font-weight:600;padding:1px 5px;border-radius:3px;cursor:default;white-space:nowrap;}
 .iw.eff-hi{background:#00d97e18;color:#00d97e;}
 .iw.eff-med{background:#4c8ef718;color:var(--accent);}
@@ -891,7 +903,7 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
 
     <!-- CONFLICT DETECTOR -->
     <div class="conflict-card" id="conflict-card">
-      <div class="stitle" style="color:var(--conflict)">⚠ Indicator Conflicts Detected</div>
+      <div class="stitle" id="conflict-header" style="color:var(--conflict)">⚠ Indicator Conflicts Detected</div>
       <div id="conflict-list"></div>
     </div>
 
@@ -980,6 +992,7 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
         </div>
         <div class="gverdict" id="gverdict">LOADING…</div>
         <div class="gdisp">Indicator Agreement: <span id="gdisp-lbl">—</span></div>
+        <div class="gregime-badge" id="gregime-badge" style="display:none;"></div>
         <div style="margin-top:8px;text-align:center;">
           <span class="scoring-info-btn" onclick="document.getElementById('scoring-info-popup').classList.toggle('visible')" title="How the score is calculated">Scoring Methodology</span>
         </div>
@@ -994,7 +1007,11 @@ body:not(.dark-mode) .commentary-item.structural{background:#1a6fd410;border-lef
           </div>
           <div class="si-section">
             <h4>Confluence &amp; Conflicts</h4>
-            When related indicators align (e.g. Triple Trend: SMA200 + Ichimoku + MA Cross), the score gets a confidence boost. When they diverge (e.g. trend vs. exhaustion), conflicts are flagged — reducing certainty.
+            When related indicators align (e.g. Triple Trend: SMA200 + Ichimoku + MA Cross), the score gets a confidence boost. When they diverge (e.g. trend vs. exhaustion), conflicts are flagged.<br><br>
+            <strong>Conflict Regime Tiers:</strong> Three "backbone" conflict pairs (SMA 200 vs RSI, DeMark vs SMA 200, OBV vs SMA 200) represent the deepest trend-vs-exhaustion tensions.<br>
+            • <strong>Clear</strong> — 0–1 conflicts, 0 backbone: normal scoring<br>
+            • <strong>Elevated</strong> — 2–3 conflicts OR 1 backbone: conviction reduced, warning shown<br>
+            • <strong>Transition</strong> — 4+ conflicts OR 2+ backbone: score capped toward neutral (65 bull / 35 bear); the conflict pattern itself is the primary signal
           </div>
           <div class="si-section">
             <h4>Score Bands</h4>
@@ -1893,16 +1910,17 @@ const INDS={
   ],
 };
 
-// Conflict pairs: [id1, id2, description template]
+// Conflict pairs: [id1, id2, description, tier]
+// tier: 'backbone' = deepest philosophical tensions; 'standard' = meaningful but less critical.
 const CONFLICT_PAIRS = [
-  ['sma_200',    'rsi_extreme', 'Trend vs. Exhaustion: SMA200 trend and RSI contrarian signal disagree — trend says one direction, RSI says the move may be overdone. This is the classic trend-follower vs. mean-reversion tension.'],
-  ['ichimoku',   'mfi',         'Ichimoku trend and MFI money flow conflict — trend says one direction but volume-weighted momentum says the other.'],
-  ['obv',        'bollinger',   'OBV volume flow and Bollinger price position conflict — volume tells a different story than price bands.'],
-  ['demark_seq', 'sma_200',     'Exhaustion vs. Trend: DeMark signals a reversal while SMA200 confirms the current trend. If DeMark is perfected AND RSI confirms, the reversal signal gains credibility.'],
-  ['mfi',        'rsi_extreme', 'Volume-weighted vs. Price-only: MFI and RSI disagree — money flow tells a different story than price momentum alone.'],
-  ['sma_cross',  'ichimoku',    'MA Cross and Ichimoku trend direction conflict — both are trend systems, so this disagreement suggests a trend transition in progress.'],
-  ['obv',        'sma_200',     'Volume flow (OBV) and price trend (SMA200) diverging — smart money may be accumulating/distributing against the visible price trend.'],
-  ['mfi',        'obv',         'MFI overbought/oversold vs OBV trend diverging — volume oscillator and cumulative volume flow tell different stories.'],
+  ['sma_200',    'rsi_extreme', 'Trend vs. Exhaustion: SMA200 trend and RSI contrarian signal disagree — trend says one direction, RSI says the move may be overdone. This is the classic trend-follower vs. mean-reversion tension.', 'backbone'],
+  ['ichimoku',   'mfi',         'Ichimoku trend and MFI money flow conflict — trend says one direction but volume-weighted momentum says the other.', 'standard'],
+  ['obv',        'bollinger',   'OBV volume flow and Bollinger price position conflict — volume tells a different story than price bands.', 'standard'],
+  ['demark_seq', 'sma_200',     'Exhaustion vs. Trend: DeMark signals a reversal while SMA200 confirms the current trend. If DeMark is perfected AND RSI confirms, the reversal signal gains credibility.', 'backbone'],
+  ['mfi',        'rsi_extreme', 'Volume-weighted vs. Price-only: MFI and RSI disagree — money flow tells a different story than price momentum alone.', 'standard'],
+  ['sma_cross',  'ichimoku',    'MA Cross and Ichimoku trend direction conflict — both are trend systems, so this disagreement suggests a trend transition in progress.', 'standard'],
+  ['obv',        'sma_200',     'Volume flow (OBV) and price trend (SMA200) diverging — smart money may be accumulating/distributing against the visible price trend.', 'backbone'],
+  ['mfi',        'obv',         'MFI overbought/oversold vs OBV trend diverging — volume oscillator and cumulative volume flow tell different stories.', 'standard'],
 ];
 const CONFLICT_THRESH = 40; // abs difference to flag
 
@@ -3585,14 +3603,18 @@ function recalc(){
   // Detect confluences first (populates confluenceMultipliers for bScore)
   detectConfluences();
   const bs={high:bScore('high'),med:bScore('med')};
-  const t=bs.high*customBW.high+bs.med*customBW.med;
+  const rawT=bs.high*customBW.high+bs.med*customBW.med;
   // Compute dispersion: std dev of all active indicator scores
   const allInds=[...INDS.high,...INDS.med];
   const scores=allInds.map(i=>vals[i.id]??50);
   const mean=scores.reduce((s,v)=>s+v,0)/scores.length;
   const variance=scores.reduce((s,v)=>s+(v-mean)**2,0)/scores.length;
   const dispersion=Math.sqrt(variance); // 0=perfect agreement, ~25=typical, ~35=high conflict
-  drawGauge(t,dispersion); updBD(bs,t); updWB(); detectConflicts(); detectFallingKnife(); detectDualSignalCommentary();
+  // Detect conflicts BEFORE gauge so regime classification is available
+  detectConflicts();
+  // Apply conflict regime score cap (Transition clamps toward neutral)
+  const t=applyConflictCap(rawT,currentConflictRegime);
+  drawGauge(t,dispersion,rawT); updBD(bs,t); updWB(); detectFallingKnife(); detectDualSignalCommentary();
 }
 function sCol(s){if(s>=70)return'#00d97e';if(s>=60)return'#4dd9a0';if(s>=55)return'#a0cfb8';if(s>=45)return'#f0b429';if(s>=40)return'#ff9a7c';if(s>=30)return'#ff7c8a';return'#ff4560';}
 function verd(s){
@@ -3605,20 +3627,36 @@ function verd(s){
   return       {l:'STRONGLY BEARISH',  c:'~70–80% bearish probability',col:'#ff4560'};
 }
 
+// ═══ CONFLICT REGIME CLASSIFIER ═══
+// Pure logic — mirrors ta-scoring-engine.js classifyConflictRegime()
+function classifyConflictRegime(conflicts){
+  const conflictCount=conflicts.length;
+  const backboneCount=conflicts.filter(c=>c.tier==='backbone').length;
+  if(conflictCount>=4||backboneCount>=2) return {regime:'transition',conflictCount,backboneCount,label:'Transition Regime',scoreCap:{bullMax:65,bearMin:35}};
+  if(conflictCount>=2||backboneCount>=1) return {regime:'elevated',conflictCount,backboneCount,label:'Elevated Conflict',scoreCap:null};
+  return {regime:'clear',conflictCount,backboneCount,label:'',scoreCap:null};
+}
+function applyConflictCap(rawScore,regime){
+  if(!regime||!regime.scoreCap) return rawScore;
+  const {bullMax,bearMin}=regime.scoreCap;
+  if(rawScore>bullMax) return bullMax;
+  if(rawScore<bearMin) return bearMin;
+  return rawScore;
+}
+
 // ═══ CONFLICT DETECTOR ═══
+let currentConflictRegime={regime:'clear',conflictCount:0,backboneCount:0,label:'',scoreCap:null};
 function detectConflicts(){
   const conflicts=[];
-  CONFLICT_PAIRS.forEach(([a,b,desc])=>{
+  CONFLICT_PAIRS.forEach(([a,b,desc,tier])=>{
     const va=vals[a]??50, vb=vals[b]??50;
     const diff=Math.abs(va-vb);
     if(diff>=CONFLICT_THRESH){
-      // Determine which is more bullish
       const aName=INDS.high.concat(INDS.med).find(i=>i.id===a)?.name||a;
       const bName=INDS.high.concat(INDS.med).find(i=>i.id===b)?.name||b;
       const aSig=getSig(va), bSig=getSig(vb);
       const severity=diff>=60?'high':'med';
-      conflicts.push({aName,bName,aSig,bSig,diff,desc,severity});
-      // Flag rows
+      conflicts.push({aName,bName,aSig,bSig,diff,desc,tier,severity});
       document.getElementById('row-'+a)?.classList.add('conflict-flag');
       document.getElementById('row-'+b)?.classList.add('conflict-flag');
     } else {
@@ -3627,15 +3665,41 @@ function detectConflicts(){
     }
   });
 
+  // Classify conflict regime
+  currentConflictRegime=classifyConflictRegime(conflicts);
+
   const card=document.getElementById('conflict-card');
   const list=document.getElementById('conflict-list');
+  const hdr=document.getElementById('conflict-header');
   list.innerHTML='';
-  if(conflicts.length===0){card.classList.remove('has-conflicts');return;}
+
+  // Remove all regime classes
+  card.classList.remove('has-conflicts','regime-elevated','regime-transition');
+
+  if(conflicts.length===0){return;}
   card.classList.add('has-conflicts');
+
+  // Apply regime class for styling
+  if(currentConflictRegime.regime==='transition') card.classList.add('regime-transition');
+  else if(currentConflictRegime.regime==='elevated') card.classList.add('regime-elevated');
+
+  // Update header text based on regime
+  if(hdr){
+    if(currentConflictRegime.regime==='transition'){
+      hdr.innerHTML='🔴 Transition Regime — '+currentConflictRegime.conflictCount+' conflicts ('+currentConflictRegime.backboneCount+' backbone) · Score capped';
+    } else if(currentConflictRegime.regime==='elevated'){
+      hdr.innerHTML='⚠ Elevated Conflict — '+currentConflictRegime.conflictCount+' conflicts ('+currentConflictRegime.backboneCount+' backbone)';
+    } else {
+      hdr.innerHTML='⚠ Indicator Conflicts Detected';
+    }
+  }
+
   conflicts.forEach(cf=>{
-    const d=document.createElement('div'); d.className='conflict-item';
-    d.innerHTML=`<div class="ci-icon">⚡</div>
-      <div class="ci-text"><strong>${cf.aName}</strong> (${cf.aSig.txt}) vs <strong>${cf.bName}</strong> (${cf.bSig.txt})<br><span style="color:var(--text3);font-size:10px">${cf.desc} — gap: ${cf.diff} pts. These are the most meaningful divergences to investigate.</span></div>
+    const icon=cf.tier==='backbone'?'🔑':'⚡';
+    const tierLabel=cf.tier==='backbone'?' <span class="ci-backbone-tag">BACKBONE</span>':'';
+    const d=document.createElement('div'); d.className='conflict-item'+(cf.tier==='backbone'?' backbone':'');
+    d.innerHTML=`<div class="ci-icon">${icon}</div>
+      <div class="ci-text"><strong>${cf.aName}</strong> (${cf.aSig.txt}) vs <strong>${cf.bName}</strong> (${cf.bSig.txt})${tierLabel}<br><span style="color:var(--text3);font-size:10px">${cf.desc} — gap: ${cf.diff} pts.</span></div>
       <div class="ci-severity ${cf.severity}">${cf.severity.toUpperCase()}</div>`;
     list.appendChild(d);
   });
@@ -3716,28 +3780,29 @@ function detectFallingKnife(){
   const boll     = vals.bollinger ?? 50;
   const maCross  = vals.sma_cross ?? 50;
 
-  // ── FALLING KNIFE (capitulation buy setup) ──
-  // Exhaustion indicators fire bullish WHILE candlestick is bearish (the capitulation candle)
-  // AND trend confirms we're in a downtrend
+  // ── FALLING KNIFE (capitulation bottom — reversal candle confirms buyers stepping in) ──
+  // Exhaustion indicators fire bullish AND a bullish reversal candle (hammer/bottoming tail)
+  // shows buyers have stepped in at the bottom. Trend confirms we're in a downtrend.
   const rsiBullish       = rsi >= 65;          // RSI oversold → contrarian buy
   const demarkBullish    = demark >= 62;       // DeMark exhaustion buy
-  const candleBearish    = candle <= 40;       // Bearish candle = the capitulation event
+  const candleReversal   = candle >= 60;       // Bullish candle = hammer/bottoming tail, buyers stepped in
   const trendBearish     = sma200 <= 40 || maCross <= 35;   // Confirmed downtrend
   const bollingerBullish = boll >= 60;         // Near/below lower band
 
-  // ── BLOW-OFF TOP (euphoria sell setup) ──
-  // Exhaustion indicators fire bearish WHILE candlestick is bullish (blow-off candle)
+  // ── BLOW-OFF TOP (euphoria top — reversal candle confirms sellers stepping in) ──
+  // Exhaustion indicators fire bearish AND a bearish reversal candle (topping tail/shooting star)
+  // shows sellers have stepped in at the top.
   const rsiBearish       = rsi <= 35;
   const demarkBearish    = demark <= 38;
-  const candleBullish    = candle >= 60;
+  const candleRejection  = candle <= 40;       // Bearish candle = topping tail/shooting star, sellers stepped in
   const trendBullish     = sma200 >= 60 || maCross >= 65;
   const bollingerBearish = boll <= 40;
 
   let alertType = null; // 'knife' | 'blowoff'
   let strength = 0;     // count of confirming signals
 
-  // Falling Knife: need RSI + DeMark + bearish candle + bearish trend
-  if(rsiBullish && demarkBullish && candleBearish && trendBearish){
+  // Falling Knife: RSI + DeMark + bullish reversal candle + bearish trend
+  if(rsiBullish && demarkBullish && candleReversal && trendBearish){
     alertType = 'knife';
     strength = 2; // base: RSI + DeMark
     if(bollingerBullish) strength++;  // Bollinger confirms oversold
@@ -3745,8 +3810,8 @@ function detectFallingKnife(){
     if(obv >= 60) strength++;  // OBV bullish divergence (accumulation into selloff)
   }
 
-  // Blow-Off Top: mirror
-  if(rsiBearish && demarkBearish && candleBullish && trendBullish){
+  // Blow-Off Top: RSI + DeMark + bearish reversal candle + bullish trend
+  if(rsiBearish && demarkBearish && candleRejection && trendBullish){
     alertType = 'blowoff';
     strength = 2;
     if(bollingerBearish) strength++;
@@ -3766,8 +3831,8 @@ function detectFallingKnife(){
 
   // Build description
   desc.innerHTML = isKnife
-    ? `<strong>Capitulation pattern detected.</strong> Multiple exhaustion indicators are firing BUY signals while a bearish candlestick pattern confirms the panic selling event. This is the signature of a potential capitulation bottom — the exact moment where sellers are most exhausted but fear is highest.`
-    : `<strong>Blow-off top pattern detected.</strong> Multiple exhaustion indicators are firing SELL signals while a bullish candlestick confirms the euphoria event. This is the signature of a potential blow-off top — the exact moment where buyers are most euphoric but the rally is exhausted.`;
+    ? `<strong>Capitulation bottom detected.</strong> Multiple exhaustion indicators are firing BUY signals and a bullish reversal candle (hammer/bottoming tail) shows buyers stepping in. This is the signature of a potential capitulation bottom — sellers are exhausted and the first sign of a turnaround has appeared.`
+    : `<strong>Blow-off top detected.</strong> Multiple exhaustion indicators are firing SELL signals and a bearish reversal candle (topping tail/shooting star) shows sellers stepping in. This is the signature of a potential blow-off top — buyers are exhausted and the first sign of rejection has appeared.`;
 
   // Build signal tags
   sigs.innerHTML = '';
@@ -3776,7 +3841,7 @@ function detectFallingKnife(){
   if(isKnife){
     addSig(`RSI Oversold (${rsi})`, 'bull');
     addSig(`DeMark BUY (${demark})`, 'bull');
-    addSig(`Bearish Candle (${candle})`, 'bear');
+    addSig(`Reversal Candle (${candle})`, 'bull');
     addSig(`Downtrend Confirmed`, 'bear');
     if(bollingerBullish) addSig(`Bollinger Oversold (${boll})`, 'bull');
     if(obv >= 60) addSig(`OBV Accumulation (${obv})`, 'bull');
@@ -3784,7 +3849,7 @@ function detectFallingKnife(){
   } else {
     addSig(`RSI Overbought (${rsi})`, 'bear');
     addSig(`DeMark SELL (${demark})`, 'bear');
-    addSig(`Bullish Candle (${candle})`, 'bull');
+    addSig(`Reversal Candle (${candle})`, 'bear');
     addSig(`Uptrend Confirmed`, 'bull');
     if(bollingerBearish) addSig(`Bollinger Overbought (${boll})`, 'bear');
     if(obv <= 40) addSig(`OBV Distribution (${obv})`, 'bear');
@@ -3913,6 +3978,14 @@ function detectDualSignalCommentary(){
     parts.push(`Indicator disagreement is elevated (dispersion: ${dispersion}) — the score of ${wScore} is an average of conflicting signals, not a consensus. The conflict between indicator families is itself the most important information here.`);
   }
 
+  // ── CONFLICT REGIME ──
+  const cr = currentConflictRegime;
+  if(cr.regime === 'transition'){
+    parts.push(`<strong>⚠ Transition Regime detected</strong> — ${cr.conflictCount} indicator conflicts are active (${cr.backboneCount} backbone pairs: the deepest trend-vs-exhaustion tensions). The composite score has been capped toward neutral because the market is in transition between regimes. The conflict pattern itself is the primary signal — these conditions often precede breakouts, reversals, or volatility spikes.`);
+  } else if(cr.regime === 'elevated'){
+    parts.push(`Conflict level is elevated — ${cr.conflictCount} indicator conflicts detected (${cr.backboneCount} backbone). Conviction is reduced but the score is not capped. The key backbone conflicts (SMA 200 vs RSI, DeMark vs SMA 200, OBV vs SMA 200) represent the deepest structural tensions in the system.`);
+  }
+
   // ── CANDLESTICK ──
   if(candle <= 25 || candle >= 75){
     const candleDir = candle >= 75 ? 'bullish' : 'bearish';
@@ -3938,7 +4011,7 @@ function detectDualSignalCommentary(){
 }
 
 // ═══ GAUGE ═══
-function drawGauge(score, dispersion){
+function drawGauge(score, dispersion, rawScore){
   const cv=document.getElementById('gaugeCanvas'),ctx=cv.getContext('2d');
   ctx.clearRect(0,0,cv.width,cv.height);
   const cx=cv.width/2,cy=cv.height-8,r=72;
@@ -3969,6 +4042,23 @@ function drawGauge(score, dispersion){
     const fill=document.getElementById('gdisp-fill');
     if(el){el.textContent=lbl+' (σ='+d.toFixed(0)+')';el.style.color=col;}
     if(fill){fill.style.width=agreement+'%';fill.style.background=col;}
+  }
+  // Conflict regime badge
+  const badge=document.getElementById('gregime-badge');
+  if(badge){
+    const cr=currentConflictRegime;
+    if(cr.regime==='transition'){
+      const rawRound=rawScore!=null?Math.round(rawScore):null;
+      badge.className='gregime-badge transition';
+      badge.textContent='🔴 TRANSITION REGIME'+(rawRound!=null&&rawRound!==Math.round(score)?' · raw score '+rawRound+' → capped to '+Math.round(score):'');
+      badge.style.display='';
+    } else if(cr.regime==='elevated'){
+      badge.className='gregime-badge elevated';
+      badge.textContent='⚠ ELEVATED CONFLICT · '+cr.backboneCount+' backbone';
+      badge.style.display='';
+    } else {
+      badge.style.display='none';
+    }
   }
   // Update verdict summary bar
   const vbs=document.getElementById('vbar-score'),vbv=document.getElementById('vbar-verdict'),vbc=document.getElementById('vbar-conf');
@@ -4908,10 +4998,12 @@ function resetAll(){
   ['high','med'].forEach(b=>INDS[b].forEach(i=>i.iW=BASELINE_IW[i.id]));
   const tfSel=document.getElementById('timeframe-sel');if(tfSel)tfSel.value='position';
   const tfBadge=document.getElementById('tf-badge');if(tfBadge){tfBadge.textContent='Timeframe: '+TF_PRESETS.position.label;}
-  document.getElementById('conflict-card').classList.remove('has-conflicts');
+  document.getElementById('conflict-card').classList.remove('has-conflicts','regime-elevated','regime-transition');
   document.getElementById('confluence-card').classList.remove('has-confluences');
   document.getElementById('knife-card').classList.remove('active');
   confluenceMultipliers = {};
+  currentConflictRegime = {regime:'clear',conflictCount:0,backboneCount:0,label:'',scoreCap:null};
+  const regBadge=document.getElementById('gregime-badge'); if(regBadge) regBadge.style.display='none';
   adxOverlay = { adx: null, plusDI: null, minusDI: null, multiplier: 1.0, label: 'N/A' };
   ['high','med'].forEach(b=>INDS[b].forEach(i=>{
     const row=document.getElementById('row-'+i.id);
@@ -4932,10 +5024,12 @@ function resetAll(){
 function buildRpt(){
   const ticker=document.getElementById('ticker-input').value.toUpperCase();
   const bs={high:bScore('high'),med:bScore('med')};
-  const t=bs.high*customBW.high+bs.med*customBW.med,v=verd(t);
+  const rawT=bs.high*customBW.high+bs.med*customBW.med;
+  const t=applyConflictCap(rawT,currentConflictRegime);
+  const v=verd(t);
   const ais=[...INDS.high.map(i=>({...i,bkt:'HIGH'})),...INDS.med.map(i=>({...i,bkt:'MED'}))];
   const conflictList=[];
-  CONFLICT_PAIRS.forEach(([a,b,desc])=>{if(Math.abs((vals[a]??50)-(vals[b]??50))>=CONFLICT_THRESH)conflictList.push(desc);});
+  CONFLICT_PAIRS.forEach(([a,b,desc,tier])=>{if(Math.abs((vals[a]??50)-(vals[b]??50))>=CONFLICT_THRESH)conflictList.push({desc,tier});});
   // Collect active confluences for report
   const confluenceList=[];
   CONFLUENCE_DEFS.forEach(def=>{
@@ -4947,7 +5041,8 @@ function buildRpt(){
   });
   return{
     meta:{ticker,price:document.getElementById('price-val').textContent,assetClass:getAC(),timeframe:TF_PRESETS[getTF()]?.label||'Position (1-3 mo)',runDate:nowStamp(),generated:new Date().toISOString()},
-    weightedScore:Math.round(t*10)/10,verdict:v.l,confidence:v.c,
+    weightedScore:Math.round(t*10)/10,rawWeightedScore:Math.round(rawT*10)/10,verdict:v.l,confidence:v.c,
+    conflictRegime:currentConflictRegime,
     bucketScores:{high:Math.round(bs.high*10)/10,med:Math.round(bs.med*10)/10},
     indicators:ais.map(i=>({id:i.id,name:i.name,bucket:i.bkt,signal:vals[i.id],label:getSig(vals[i.id]).txt,notes:(document.getElementById('nt-'+i.id)||{}).value||''})),
     conflicts:conflictList,
@@ -4968,11 +5063,12 @@ function copyReport(){
   const lines=['════════════════════════════════════════','TA WEIGHTED SCORE REPORT v5','════════════════════════════════════════',
     `Symbol     : ${d.meta.ticker}`,`Asset Class: ${d.meta.assetClass.toUpperCase()}`,`Timeframe  : ${d.meta.timeframe}`,`Price      : ${d.meta.price}`,`Run Date   : ${d.meta.runDate}`,
     `F&G Index  : ${d.fearGreed?d.fearGreed.value+'/100 ('+d.fearGreed.sentiment+')':'not loaded'}`,'',
-    `WEIGHTED SCORE : ${d.weightedScore} / 100`,`VERDICT        : ${d.verdict}`,`CONFIDENCE     : ${d.confidence}`,'',
-    'BUCKET SCORES',`  HIGH (60%) : ${d.bucketScores.high}`,`  MED  (40%) : ${d.bucketScores.med}`];
-  if(d.conflicts.length>0){lines.push('','⚠ CONFLICTS DETECTED',...d.conflicts.map(c=>`  • ${c}`));}
+    `WEIGHTED SCORE : ${d.weightedScore} / 100${d.conflictRegime.regime==='transition'?' (capped from '+d.rawWeightedScore+')':''}`,`VERDICT        : ${d.verdict}`,`CONFIDENCE     : ${d.confidence}`,
+    d.conflictRegime.regime!=='clear'?`CONFLICT REGIME: ${d.conflictRegime.label} (${d.conflictRegime.conflictCount} conflicts, ${d.conflictRegime.backboneCount} backbone)`:null,'',
+    'BUCKET SCORES',`  HIGH (60%) : ${d.bucketScores.high}`,`  MED  (40%) : ${d.bucketScores.med}`].filter(l=>l!==null);
+  if(d.conflicts.length>0){lines.push('','⚠ CONFLICTS DETECTED',...d.conflicts.map(c=>`  ${c.tier==='backbone'?'🔑':'•'} ${c.desc}`));}
   if(d.confluences.length>0){lines.push('','🔒 CONFLUENCES CONFIRMED',...d.confluences.map(c=>`  • ${c}`));}
-  if(d.fallingKnife){lines.push('',`🔪 ${d.fallingKnife} ALERT ACTIVE`,'  Multiple exhaustion indicators firing against a bearish candlestick pattern.');}
+  if(d.fallingKnife){lines.push('',`🔪 ${d.fallingKnife} ALERT ACTIVE`,'  Exhaustion indicators firing with a reversal candle confirming the turn.');}
   lines.push('','INDICATOR READINGS','────────────────────────────────────────',
     ...d.indicators.map(i=>{const ln=`[${i.bucket.padEnd(4)}] ${i.name.padEnd(22)} ${i.label.padEnd(16)} (${i.signal}/100)`;return i.notes?ln+`\n         ↳ ${i.notes}`:ln;}),
     '','KEY LEVELS',`  Resistance 1 : ${d.keyLevels.r1||'—'}`,`  Resistance 2 : ${d.keyLevels.r2||'—'}`,`  Support 1    : ${d.keyLevels.s1||'—'}`,`  Support 2    : ${d.keyLevels.s2||'—'}`,`  Stop         : ${d.keyLevels.stop||'—'}`,`  Target       : ${d.keyLevels.target||'—'}`,'');
@@ -5026,8 +5122,9 @@ async function exportPDF(){
     // Conflicts
     if(d.conflicts.length>0){
       doc.setTextColor(255,107,53); doc.setFontSize(9); doc.setFont('courier','bold');
-      doc.text('⚠ CONFLICTS DETECTED',margin,y);y+=5;
-      d.conflicts.forEach(c=>{doc.setTextColor(255,150,100);doc.setFontSize(7);doc.setFont('courier','normal');doc.text('• '+c,margin+3,y);y+=4;});
+      const regLabel=d.conflictRegime.regime!=='clear'?' — '+d.conflictRegime.label:'';
+      doc.text('⚠ CONFLICTS DETECTED'+regLabel,margin,y);y+=5;
+      d.conflicts.forEach(c=>{doc.setTextColor(255,150,100);doc.setFontSize(7);doc.setFont('courier','normal');doc.text((c.tier==='backbone'?'🔑 ':'• ')+c.desc,margin+3,y);y+=4;});
       y+=3;
     }
 
@@ -5438,10 +5535,13 @@ document.addEventListener('DOMContentLoaded',()=>{
 <h2>📖 Signal Catcher Guide</h2>
 
 <h3>What Is Signal Catcher?</h3>
-<p>Signal Catcher takes raw price, volume, and time data from Yahoo — Daily Open, High, Low, Close, Volume (OHLCV) — for any ticker symbol and instantly collapses it into a single <strong>Weighted Technical Score</strong> from 0–100.</p>
+<p>Signal Catcher takes daily price and trading volume data from Yahoo's free dataset — Open, High, Low, Close, Volume (OHLCV) — and computes 10 widely followed technical trading indicators. These technical indicators are normally viewed on a chart with price, but Signal Catcher converts chart analysis into rule-based scoring.</p>
+<p>For each stock, ten indicators evaluate price and volume data. Each applies a fixed condition (e.g., price vs. 200-day moving average, RSI above or below thresholds) and outputs a 0–100 score.</p>
+<p>Scores are combined using a weighted formula. Structural indicators (trend, volume) carry more weight than timing signals. Agreement across indicators increases the composite score. Conflicts are explicitly flagged.</p>
+<p>The result is a single 0–100 score reflecting the degree and strength of alignment in the data. Identical inputs produce identical outputs. No interpretation required.</p>
 <p>There is no AI speculation inside the scoring engine. No fundamental analysis. No subjective chart drawings or analyst opinions. Just clean, deterministic mathematics — the same input data will always produce the exact same score, no matter who computes it or when.</p>
 <div class="gd-highlight">
-<strong>🔍 Cross-AI Validated:</strong> The entire scoring logic, weighting system, confluence definitions, and conflict detection were independently audited and refined by ChatGPT, Grok, Claude, and Gemini. Each model reviewed the architecture, indicator calculator logic, and contributed ideas that made the final system stronger and more robust than any single perspective could have produced.
+<strong>🔍 Cross-AI Validated:</strong> Claude was the primary builder. The scoring logic, weighting system, confluence definitions, and conflict detection were audited and refined by running the system through ChatGPT, Grok, and Gemini. Each model reviewed the architecture and indicator calculator logic, and contributed ideas that made the final system stronger and more robust than any single perspective could have produced.
 </div>
 
 <h3>Why Add Technicals to Your Fundamental Work?</h3>
@@ -5454,7 +5554,7 @@ Together, they help you avoid the classic "great company, terrible entry" trap.
 </div>
 
 <h3>The 10 Indicators</h3>
-<p>Each indicator was chosen because it provides unique information no other indicator in the system covers. Here's what each one does and why it matters:</p>
+<p>Each indicator was chosen because it provides unique information no other indicator in the system covers, and each has a long institutional track record. Here's what each one does and why it matters:</p>
 
 <h4>Trend Direction</h4>
 <p><strong>SMA 200 Trend</strong> — The 200-day Simple Moving Average is the single most widely watched level by institutional investors worldwide. Price above it = healthy uptrend; price below = downtrend. It's the dividing line between bull and bear markets. Carries the highest intra-weight (1.4×) for a reason.</p>
@@ -5464,14 +5564,12 @@ Together, they help you avoid the classic "great company, terrible entry" trap.
 <h4>Volume &amp; Institutional Flow</h4>
 <p><strong>Volume Profile</strong> — Maps where the heaviest institutional trading occurred. The POC (Point of Control) is the price with the most volume — it acts as a magnet. VAH (Volume Area High) and VAL (Volume Area Low) bracket where 70% of volume traded. Price above POC = bullish structure.</p>
 <p><strong>OBV Trend</strong> — On-Balance Volume tracks cumulative volume flow: adds volume on up days, subtracts on down days. Rising OBV with rising price confirms smart money is accumulating. The key signal is divergence — OBV falling while price rises warns that institutions may be quietly selling.</p>
-<p><strong>MFI</strong> — Money Flow Index is a volume-weighted RSI. It combines price movement with volume to measure actual buying/selling pressure — money flowing in vs. money flowing out. Scored as a contrarian indicator: MFI below 20 = oversold (bullish); above 80 = overbought (bearish).</p>
+<p><strong>MFI</strong> — Money Flow Index is a volume-weighted RSI. It combines price movement with volume to measure actual buying/selling pressure — money flowing in vs. money flowing out. Scored as a contrarian indicator: MFI below 20 = oversold (bullish); above 80 = overbought (bearish). <em>MFI bridges both worlds — it lives in the volume family because it's volume-weighted, but uses contrarian oversold/overbought scoring like the mean-reversion indicators.</em></p>
 
 <h4>Contrarian / Mean-Reversion</h4>
 <p><strong>RSI Extreme</strong> — The Relative Strength Index measures momentum on a 0–100 scale. This is a <em>contrarian</em> indicator: RSI below 30 means sellers are exhausted → scored bullish. RSI above 70 means buyers are exhausted → scored bearish. Carries the second-highest weight (1.2×) because it sits at the opposite philosophical end from SMA 200.</p>
 <p><strong>DeMark Sequential</strong> — Tom DeMark's system counts 9 consecutive closes in the same direction to identify price exhaustion. A completed "Setup 9" — especially when "perfected" — is a high-conviction reversal signal. Countdown 13 is the strongest signal. It answers: has this move been going on too long?</p>
 <p><strong>Bollinger Bands</strong> — Plots bands at 2 standard deviations around a 20-day SMA. Scored as contrarian: price at the lower band suggests oversold (bullish reversal); price at the upper band suggests overbought (bearish reversal). A band squeeze (very narrow bands) signals a breakout is building.</p>
-
-<h4>Momentum &amp; Timing</h4>
 <p><strong>Candlestick Signal</strong> — Detects classic reversal patterns in the most recent daily bars. Topping Tails (Shooting Stars) show sellers rejecting higher prices. Bottoming Tails (Hammers) show buyers stepping in. Engulfing patterns confirm momentum shifts. Signals are stronger at key levels (VAH, VAL, SMA 200) and on elevated volume.</p>
 
 <h4>Regime Overlay (Not Scored)</h4>
@@ -5490,7 +5588,7 @@ Together, they help you avoid the classic "great company, terrible entry" trap.
 <h3 style="color:#f59e0b;">Why Not Elliott Wave, Fibonacci, or Trend Lines?</h3>
 <p>Signal Catcher has a strict design rule: <strong>every indicator must be deterministically computable from raw OHLCV data.</strong> Two independent implementations given the same data must always produce the same score. No exceptions.</p>
 <p>These popular techniques were deliberately excluded:</p>
-<p><strong>Elliott Wave</strong> — Requires subjective wave counting. Ask five analysts to label the waves on the same chart and you'll get five different answers. There is no algorithm that can deterministically identify wave counts without human interpretation.</p>
+<p><strong>Elliott Wave</strong> — Requires subjective wave counting. Ask five analysts to label the waves on the same chart and you'll get five different answers. No algorithm can deterministically identify wave counts without human interpretation.</p>
 <p><strong>Fibonacci Retracements</strong> — The levels themselves are mathematically precise, but choosing which swing high and swing low to anchor them to is entirely subjective. Different anchor points produce completely different levels.</p>
 <p><strong>Trend Lines</strong> — Drawing a trend line requires choosing which points to connect. Two analysts looking at the same chart will draw different lines. There's no objective rule for "the correct" trend line.</p>
 <p><strong>Anchored VWAP</strong> — Same problem as Fibonacci. The VWAP calculation is deterministic, but choosing the anchor date is a judgment call.</p>
@@ -5525,12 +5623,12 @@ Together, they help you avoid the classic "great company, terrible entry" trap.
 <table>
 <tr><th>Pattern</th><th>Indicators</th><th>Multiplier</th></tr>
 <tr><td>🔒 Triple Trend Confirmed</td><td>SMA 200 + Ichimoku + MA Cross</td><td>1.12×</td></tr>
-<tr><td>🔥 Triple Exhaustion</td><td>RSI + DeMark + Bollinger</td><td>1.15×</td></tr>
 <tr><td>⚡ Double Exhaustion</td><td>DeMark + Bollinger</td><td>1.10×</td></tr>
 <tr><td>📈 Dual Oscillator</td><td>MFI + RSI</td><td>1.08×</td></tr>
 <tr><td>🏦 Volume Confirms Trend</td><td>OBV + SMA 200</td><td>1.08×</td></tr>
-<tr><td>💪 Smart Money</td><td>OBV + MFI</td><td>1.10×</td></tr>
 <tr><td>🏗 Structure + Trend</td><td>Vol Profile + SMA 200</td><td>1.06×</td></tr>
+<tr><td>🔥 Triple Exhaustion</td><td>RSI + DeMark + Bollinger</td><td>1.15×</td></tr>
+<tr><td>💪 Smart Money</td><td>OBV + MFI</td><td>1.10×</td></tr>
 </table>
 
 <p><strong>8 conflict pairs</strong> surface meaningful disagreements (40+ point divergence):</p>
@@ -5547,8 +5645,8 @@ Together, they help you avoid the classic "great company, terrible entry" trap.
 </table>
 
 <h4>5. Specialized Alerts</h4>
-<p><strong>Falling Knife</strong> — four simultaneous conditions (RSI oversold + DeMark buy + bearish candlestick + confirmed downtrend) detect potential capitulation bottoms.<br>
-<strong>Blow-Off Top</strong> — the mirror image, detecting euphoria tops where exhaustion meets a confirmed uptrend.</p>
+<p><strong>Falling Knife</strong> — four simultaneous conditions (RSI oversold + DeMark buy + bullish reversal candle + confirmed downtrend) detect potential capitulation bottoms. The reversal candle (hammer/bottoming tail) confirms buyers are stepping in.<br>
+<strong>Blow-Off Top</strong> — the mirror image: RSI overbought + DeMark sell + bearish reversal candle (topping tail/shooting star) + confirmed uptrend. Sellers are stepping in at the top.</p>
 
 <h3>What You Can Do With It</h3>
 <p><strong>Avoid buying into exhaustion</strong> — A score of 28 with Triple Exhaustion active means the technicals are begging you to wait, even if the fundamentals look perfect.</p>
