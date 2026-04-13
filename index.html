@@ -3848,17 +3848,19 @@ function buildModalChart(indId, container){
   const canvas = document.createElement('canvas');
   container.innerHTML = '';
 
+  const chartBars = bars;
+
   // Date range label
-  const startDate = bars[0]?.date || '';
-  const endDate = bars[bars.length-1]?.date || '';
+  const startDate = chartBars[0]?.t || '';
+  const endDate = chartBars[chartBars.length-1]?.t || '';
   const rangeLabel = document.createElement('div');
   rangeLabel.style.cssText = 'font:500 9px/1 var(--mono);color:var(--text3);text-align:center;padding:2px 0 4px;';
-  rangeLabel.textContent = `Daily · ${startDate} — ${endDate} (${bars.length} bars)`;
+  rangeLabel.textContent = `Daily · ${startDate} — ${endDate} (${chartBars.length} bars)`;
   container.appendChild(rangeLabel);
   container.appendChild(canvas);
 
-  const labels = bars.map(b => b.date || '');
-  const closes = bars.map(b => b.c);
+  const labels = chartBars.map(b => b.t || '');
+  const closes = chartBars.map(b => b.c);
   const isDark = document.body.classList.contains('dark-mode');
   const gridColor = isDark ? '#21262d' : '#e8eaed';
   const textColor = isDark ? '#8b949e' : '#6e7681';
@@ -3921,8 +3923,8 @@ function buildModalChart(indId, container){
   if(indId === 'candle_signal'){
     const cs = CI.candle;
     const tail = bars.slice(-50);
-    const tailLabels = tail.map(b => b.date || '');
-    rangeLabel.textContent = `Daily · ${tail[0]?.date||''} — ${tail[tail.length-1]?.date||''} (last 50 bars)`;
+    const tailLabels = tail.map(b => b.t || '');
+    rangeLabel.textContent = `Daily · ${tail[0]?.t||''} — ${tail[tail.length-1]?.t||''} (last 50 bars)`;
     // Build colored bar data: each bar = [open, close], colored by direction
     const bodies = tail.map(b => [Math.min(b.o, b.c), Math.max(b.o, b.c)]);
     const colors = tail.map(b => b.c >= b.o ? '#00d97e' : '#ff4560');
@@ -3959,18 +3961,46 @@ function buildModalChart(indId, container){
   const datasets = [{ label: 'Close', data: closes, borderColor: sCol(vals[indId]??50), borderWidth: 1.5, pointRadius: 0, tension: 0.3, fill: false }];
   const annotations = {};
 
-  // SMA 200 — only 200-day line
+  // SMA 200 — compute from FULL bars, then trim to where line exists
   if(indId === 'sma_200'){
-    const sma200 = chartSMA(closes, 200);
-    datasets.push({ label: 'SMA 200', data: sma200, borderColor: '#a855f7', borderWidth: 1.5, pointRadius: 0, borderDash: [4,3] });
+    const fullCloses = bars.map(b => b.c);
+    const fullSma200 = chartSMA(fullCloses, 200);
+    const smaStart = fullSma200.findIndex(v => v !== null);
+    if(smaStart >= 0){
+      const trimLabels = bars.slice(smaStart).map(b => b.t || '');
+      const trimCloses = fullCloses.slice(smaStart);
+      const trimSma = fullSma200.slice(smaStart);
+      // Update range label
+      rangeLabel.textContent = `Daily · ${bars[smaStart]?.t||''} — ${endDate} (${trimLabels.length} bars)`;
+      datasets[0] = { label: 'Close', data: trimCloses, borderColor: sCol(vals[indId]??50), borderWidth: 1.5, pointRadius: 0, tension: 0.3, fill: false };
+      datasets.push({ label: 'SMA 200', data: trimSma, borderColor: '#a855f7', borderWidth: 1.5, pointRadius: 0, borderDash: [4,3] });
+      // Override labels for this chart
+      labels.length = 0; trimLabels.forEach(l => labels.push(l));
+    } else {
+      datasets.push({ label: 'SMA 200', data: chartSMA(closes, 200), borderColor: '#a855f7', borderWidth: 1.5, pointRadius: 0, borderDash: [4,3] });
+    }
   }
 
-  // MA Cross 50/200 — both lines
+  // MA Cross 50/200 — compute from FULL bars, trim to where 200 exists
   if(indId === 'sma_cross'){
-    const sma200 = chartSMA(closes, 200);
-    const sma50 = chartSMA(closes, 50);
-    datasets.push({ label: 'SMA 200', data: sma200, borderColor: '#a855f7', borderWidth: 1.5, pointRadius: 0, borderDash: [4,3] });
-    datasets.push({ label: 'SMA 50', data: sma50, borderColor: '#f0b429', borderWidth: 1.5, pointRadius: 0, borderDash: [4,3] });
+    const fullCloses = bars.map(b => b.c);
+    const fullSma200 = chartSMA(fullCloses, 200);
+    const fullSma50 = chartSMA(fullCloses, 50);
+    const smaStart = fullSma200.findIndex(v => v !== null);
+    if(smaStart >= 0){
+      const trimLabels = bars.slice(smaStart).map(b => b.t || '');
+      const trimCloses = fullCloses.slice(smaStart);
+      const trimSma200 = fullSma200.slice(smaStart);
+      const trimSma50 = fullSma50.slice(smaStart);
+      rangeLabel.textContent = `Daily · ${bars[smaStart]?.t||''} — ${endDate} (${trimLabels.length} bars)`;
+      datasets[0] = { label: 'Close', data: trimCloses, borderColor: sCol(vals[indId]??50), borderWidth: 1.5, pointRadius: 0, tension: 0.3, fill: false };
+      datasets.push({ label: 'SMA 200', data: trimSma200, borderColor: '#a855f7', borderWidth: 1.5, pointRadius: 0, borderDash: [4,3] });
+      datasets.push({ label: 'SMA 50', data: trimSma50, borderColor: '#f0b429', borderWidth: 1.5, pointRadius: 0, borderDash: [4,3] });
+      labels.length = 0; trimLabels.forEach(l => labels.push(l));
+    } else {
+      datasets.push({ label: 'SMA 200', data: chartSMA(closes, 200), borderColor: '#a855f7', borderWidth: 1.5, pointRadius: 0, borderDash: [4,3] });
+      datasets.push({ label: 'SMA 50', data: chartSMA(closes, 50), borderColor: '#f0b429', borderWidth: 1.5, pointRadius: 0, borderDash: [4,3] });
+    }
   }
 
   // Volume Profile — price + POC/VAH/VAL horizontal lines
