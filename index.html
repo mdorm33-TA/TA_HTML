@@ -965,6 +965,9 @@ body.dark-mode .ci-backbone-tag{background:#f0883e18;color:#f0883e;border-color:
 
     <!-- ═══ DASHBOARD 3×3 GRID (v14 dashboard) ═══ -->
     <div class="dash-grid" id="dash-grid"></div>
+    <div id="dash-hint" style="text-align:center;padding:6px 0 2px;font:500 10px/1 var(--mono);color:var(--text3);opacity:0;transition:opacity .5s;">
+      👆 Tap any gauge for indicator details and chart
+    </div>
 
     <!-- ═══ ADX TREND STRENGTH BAR ═══ -->
     <div class="adx-bar-card" id="adx-bar" style="display:none;">
@@ -3694,6 +3697,9 @@ function enableDashTiles(){
     const tile = document.getElementById('dt-'+id);
     if(tile){ tile.style.opacity = '1'; tile.style.cursor = 'pointer'; }
   });
+  // Show tap hint
+  const hint = document.getElementById('dash-hint');
+  if(hint) hint.style.opacity = '1';
 }
 
 // Generate SVG mini gauge for a dashboard tile
@@ -3754,6 +3760,9 @@ function updateDashTiles(){
 function showTileModal(id){
   const overlay = document.getElementById('dt-modal-overlay');
   if(!overlay) return;
+  // Hide tap hint after first use
+  const hint = document.getElementById('dash-hint');
+  if(hint) hint.style.opacity = '0';
   const ind = IND_BY_ID[id];
   if(!ind) return;
   const score = vals[id] ?? 50;
@@ -5665,6 +5674,8 @@ function resetAll(){
   });
   const adxBar = document.getElementById('adx-bar');
   if(adxBar) adxBar.style.display = 'none';
+  const dashHint = document.getElementById('dash-hint');
+  if(dashHint) dashHint.style.opacity = '0';
   ['high','med'].forEach(b=>INDS[b].forEach(i=>{
     const row=document.getElementById('row-'+i.id);
     if(row){ row.classList.remove('conflict-flag'); row.style.borderLeft=''; }
