@@ -3671,17 +3671,29 @@ function buildDashboard(){
     const tile = document.createElement('div');
     tile.className = 'dash-tile';
     tile.id = 'dt-' + id;
-    tile.onclick = () => showTileModal(id);
+    tile.onclick = () => {
+      if(!window._cachedDailyBars){ return; }
+      showTileModal(id);
+    };
     tile.innerHTML = `
       <div class="dt-group-dot" style="background:${grp.color}"></div>
       <div class="dt-bucket">${bkt.toUpperCase()}</div>
       <div class="dt-gauge-wrap" id="dtg-${id}">${tileGaugeSVG(50, '#f0b429', 60)}</div>
       <div class="dt-name">${ind.name}</div>
-      <div class="dt-label" id="dtl-${id}">Neutral</div>
+      <div class="dt-label" id="dtl-${id}">—</div>
     `;
+    // Dim tiles before analysis
+    tile.style.opacity = '0.4';
     grid.appendChild(tile);
   });
-  updateDashTiles();
+}
+
+// Called after analysis to enable tile interactivity
+function enableDashTiles(){
+  DASH_ORDER.forEach(id => {
+    const tile = document.getElementById('dt-'+id);
+    if(tile){ tile.style.opacity = '1'; tile.style.cursor = 'pointer'; }
+  });
 }
 
 // Generate SVG mini gauge for a dashboard tile
@@ -3713,6 +3725,8 @@ function tileGaugeSVG(score, color, size){
 }
 
 function updateDashTiles(){
+  if(!window._cachedDailyBars) return; // Don't update tiles before analysis
+  enableDashTiles();
   DASH_ORDER.forEach(id => {
     const score = vals[id] ?? 50;
     const color = sCol(score);
@@ -3827,7 +3841,7 @@ function drawTileGauge(cv, score){
 function buildModalChart(indId, container){
   if(window._dtModalChart){ window._dtModalChart.destroy(); window._dtModalChart = null; }
   if(!window._cachedDailyBars || !window._cachedDailyBars.length){
-    container.innerHTML = `<div style="padding:16px;text-align:center;color:var(--text3);font:400 11px/1.4 var(--mono);">Run analysis first to load chart data</div>`;
+    container.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text3);font:400 12px/1.5 var(--mono);">Enter a ticker and click <strong style="color:var(--accent);">Analyze</strong> to load indicator charts</div>`;
     return;
   }
   const bars = window._cachedDailyBars;
@@ -5604,6 +5618,19 @@ function resetAll(){
   currentConflictRegime = {regime:'clear',conflictCount:0,backboneCount:0,label:'',scoreCap:null};
   const regBadge=document.getElementById('gregime-badge'); if(regBadge) regBadge.style.display='none';
   adxOverlay = { adx: null, plusDI: null, minusDI: null, multiplier: 1.0, label: 'N/A' };
+  // Clear dashboard cache and dim tiles
+  window._cachedDailyBars = null;
+  window._cachedIndicators = null;
+  DASH_ORDER.forEach(id => {
+    const tile = document.getElementById('dt-'+id);
+    if(tile) tile.style.opacity = '0.4';
+    const dtl = document.getElementById('dtl-'+id);
+    if(dtl){ dtl.textContent = '—'; dtl.style.color = '#f0b429'; }
+    const dtg = document.getElementById('dtg-'+id);
+    if(dtg) dtg.innerHTML = tileGaugeSVG(50, '#f0b429', 60);
+  });
+  const adxBar = document.getElementById('adx-bar');
+  if(adxBar) adxBar.style.display = 'none';
   ['high','med'].forEach(b=>INDS[b].forEach(i=>{
     const row=document.getElementById('row-'+i.id);
     if(row){ row.classList.remove('conflict-flag'); row.style.borderLeft=''; }
