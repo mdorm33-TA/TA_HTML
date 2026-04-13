@@ -4517,6 +4517,8 @@ function detectDualSignalCommentary(){
   list.innerHTML = '';
 
   const ticker = document.getElementById('ticker-input').value.trim().toUpperCase() || '—';
+  const coName = window._lastSymbolName || '';
+  const tickerDisplay = coName ? `${coName} (${ticker})` : ticker;
 
   // Read all indicator scores
   const rsi      = vals.rsi_extreme ?? 50;
@@ -4561,15 +4563,15 @@ function detectDualSignalCommentary(){
 
   // ── TREND ASSESSMENT ──
   if(trendBullCount >= 2){
-    parts.push(`<strong>${ticker} confirmed uptrend</strong> — the 200-day Simple Moving Average (SMA 200) and Moving Average Crossover (MA Cross) are both bullish${adxOverlay.adx >= 25 ? '. The Average Directional Index (ADX) confirms trend strength' : ''}.`);
+    parts.push(`<strong>${tickerDisplay} confirmed uptrend</strong> — the 200-day Simple Moving Average (SMA 200) and Moving Average Crossover (MA Cross) are both bullish${adxOverlay.adx >= 25 ? '. The Average Directional Index (ADX) confirms trend strength' : ''}.`);
   } else if(trendBearCount >= 2){
-    parts.push(`<strong>${ticker} confirmed downtrend</strong> — the 200-day Simple Moving Average (SMA 200) and Moving Average Crossover (MA Cross) are both bearish${adxOverlay.adx >= 25 ? '. The Average Directional Index (ADX) confirms trend strength' : ''}.`);
+    parts.push(`<strong>${tickerDisplay} confirmed downtrend</strong> — the 200-day Simple Moving Average (SMA 200) and Moving Average Crossover (MA Cross) are both bearish${adxOverlay.adx >= 25 ? '. The Average Directional Index (ADX) confirms trend strength' : ''}.`);
   } else if(trendBullCount >= 1 && trendBearCount === 0){
-    parts.push(`<strong>${ticker} leans bullish</strong> — one trend indicator up, other neutral. Developing but not confirmed.`);
+    parts.push(`<strong>${tickerDisplay} leans bullish</strong> — one trend indicator up, other neutral. Developing but not confirmed.`);
   } else if(trendBearCount >= 1 && trendBullCount === 0){
-    parts.push(`<strong>${ticker} leans bearish</strong> — one trend indicator down, other neutral. Developing but not confirmed.`);
+    parts.push(`<strong>${tickerDisplay} leans bearish</strong> — one trend indicator down, other neutral. Developing but not confirmed.`);
   } else {
-    parts.push(`<strong>${ticker} no clear trend</strong> — indicators mixed or neutral${adxOverlay.adx < 20 ? '. Average Directional Index (ADX) below 20 confirms choppy conditions' : ''}. Consolidating or transitioning.`);
+    parts.push(`<strong>${tickerDisplay} no clear trend</strong> — indicators mixed or neutral${adxOverlay.adx < 20 ? '. Average Directional Index (ADX) below 20 confirms choppy conditions' : ''}. Consolidating or transitioning.`);
   }
 
   // ── EXHAUSTION / CONTRARIAN ──
@@ -4641,7 +4643,7 @@ function detectDualSignalCommentary(){
 
   // Fallback
   if(parts.length === 0){
-    parts.push(`${ticker} neutral — indicators mixed with no strong directional signal. Score of ${wScore} reflects indecision.`);
+    parts.push(`${tickerDisplay} neutral — indicators mixed with no strong directional signal. Score of ${wScore} reflects indecision.`);
   }
 
   card.classList.add('active');
