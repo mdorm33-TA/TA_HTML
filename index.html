@@ -2752,8 +2752,9 @@ async function runAllComputed(ticker){
       updateADXBar(adx);
     }
 
-    // Cache daily bars for dashboard modal charts
+    // Cache daily bars and indicator results for dashboard modal charts
     window._cachedDailyBars = scoringBars;
+    window._cachedIndicators = I;
 
     // ── Distribute all 10 scores to sliders — synchronous, no rAF wrapper ──
     Object.entries(S).forEach(([id, score]) => {
@@ -3832,6 +3833,14 @@ function buildModalChart(indId, container){
   const bars = window._cachedDailyBars;
   const canvas = document.createElement('canvas');
   container.innerHTML = '';
+
+  // Date range label
+  const startDate = bars[0]?.date || '';
+  const endDate = bars[bars.length-1]?.date || '';
+  const rangeLabel = document.createElement('div');
+  rangeLabel.style.cssText = 'font:500 9px/1 var(--mono);color:var(--text3);text-align:center;padding:2px 0 4px;';
+  rangeLabel.textContent = `Daily · ${startDate} — ${endDate} (${bars.length} bars)`;
+  container.appendChild(rangeLabel);
   container.appendChild(canvas);
 
   const labels = bars.map(b => b.date || '');
@@ -3839,32 +3848,27 @@ function buildModalChart(indId, container){
   const isDark = document.body.classList.contains('dark-mode');
   const gridColor = isDark ? '#21262d' : '#e8eaed';
   const textColor = isDark ? '#8b949e' : '#6e7681';
+  const CI = window._cachedIndicators || {};
+  const hasAnnotation = Chart.registry?.plugins?.get('annotation');
 
-  // Oscillator indicators get their own chart (0–100 scale)
-  const isOscillator = (indId === 'rsi_extreme' || indId === 'mfi');
-
-  if(isOscillator){
+  // ── Oscillator charts (RSI, MFI) — 0–100 scale with thresholds ──
+  if(indId === 'rsi_extreme' || indId === 'mfi'){
     const series = indId === 'rsi_extreme' ? chartRSI(closes, 14) : chartMFI(bars, 14);
     const overbought = indId === 'rsi_extreme' ? 70 : 80;
     const oversold = indId === 'rsi_extreme' ? 30 : 20;
     const lineColor = indId === 'rsi_extreme' ? '#3b82f6' : '#a78bfa';
-    const datasets = [
-      { label: indId === 'rsi_extreme' ? 'RSI(14)' : 'MFI(14)', data: series, borderColor: lineColor, borderWidth: 1.5, pointRadius: 0, tension: 0.3, fill: false },
-    ];
     window._dtModalChart = new Chart(canvas, {
       type: 'line',
-      data: { labels, datasets },
+      data: { labels, datasets: [{ label: indId === 'rsi_extreme' ? 'RSI(14)' : 'MFI(14)', data: series, borderColor: lineColor, borderWidth: 1.5, pointRadius: 0, tension: 0.3, fill: false }] },
       options: {
         responsive: true, maintainAspectRatio: false,
         plugins: {
           legend: { display: false },
-          annotation: (typeof ChartAnnotation !== 'undefined' || Chart.registry?.plugins?.get('annotation')) ? {
-            annotations: {
-              ob: { type: 'line', yMin: overbought, yMax: overbought, borderColor: '#ff456080', borderWidth: 1, borderDash: [4,3], label: { content: 'Overbought', display: true, position: 'end', font: { size: 8 }, color: '#ff4560' } },
-              os: { type: 'line', yMin: oversold, yMax: oversold, borderColor: '#00d97e80', borderWidth: 1, borderDash: [4,3], label: { content: 'Oversold', display: true, position: 'end', font: { size: 8 }, color: '#00d97e' } },
-              mid: { type: 'line', yMin: 50, yMax: 50, borderColor: gridColor, borderWidth: 1, borderDash: [2,4] },
-            }
-          } : {},
+          annotation: hasAnnotation ? { annotations: {
+            ob: { type: 'line', yMin: overbought, yMax: overbought, borderColor: '#ff456080', borderWidth: 1, borderDash: [4,3], label: { content: 'Overbought', display: true, position: 'end', font: { size: 8 }, color: '#ff4560' } },
+            os: { type: 'line', yMin: oversold, yMax: oversold, borderColor: '#00d97e80', borderWidth: 1, borderDash: [4,3], label: { content: 'Oversold', display: true, position: 'end', font: { size: 8 }, color: '#00d97e' } },
+            mid: { type: 'line', yMin: 50, yMax: 50, borderColor: gridColor, borderWidth: 1, borderDash: [2,4] },
+          }} : {},
         },
         scales: {
           x: { display: true, grid: { color: gridColor }, ticks: { color: textColor, font: { size: 9 }, maxTicksLimit: 6 } },
@@ -3876,17 +3880,16 @@ function buildModalChart(indId, container){
     return;
   }
 
-  // OBV gets its own scale (cumulative volume)
+  // ── OBV — cumulative volume with SMA overlay ──
   if(indId === 'obv'){
     const obvSeries = chartOBV(bars);
     const obvSMA = chartSMA(obvSeries, 20);
-    const datasets = [
-      { label: 'OBV', data: obvSeries, borderColor: '#a78bfa', borderWidth: 1.5, pointRadius: 0, tension: 0.3, fill: false },
-      { label: 'OBV SMA(20)', data: obvSMA, borderColor: '#f0b429', borderWidth: 1, pointRadius: 0, borderDash: [4,3] },
-    ];
     window._dtModalChart = new Chart(canvas, {
       type: 'line',
-      data: { labels, datasets },
+      data: { labels, datasets: [
+        { label: 'OBV', data: obvSeries, borderColor: '#a78bfa', borderWidth: 1.5, pointRadius: 0, tension: 0.3, fill: false },
+        { label: 'OBV SMA(20)', data: obvSMA, borderColor: '#f0b429', borderWidth: 1, pointRadius: 0, borderDash: [4,3] },
+      ]},
       options: {
         responsive: true, maintainAspectRatio: false,
         plugins: { legend: { display: false } },
@@ -3900,15 +3903,89 @@ function buildModalChart(indId, container){
     return;
   }
 
-  // Price-based charts (SMA, MA Cross, Bollinger, Volume Profile, DeMark, Candle)
-  const datasets = [{ label: 'Close', data: closes, borderColor: sCol(vals[indId]??50), borderWidth: 1.5, pointRadius: 0, tension: 0.3, fill: false }];
+  // ── Candlestick — OHLC bars for last 50 bars when pattern detected ──
+  if(indId === 'candle_signal'){
+    const cs = CI.candle;
+    const tail = bars.slice(-50);
+    const tailLabels = tail.map(b => b.date || '');
+    rangeLabel.textContent = `Daily · ${tail[0]?.date||''} — ${tail[tail.length-1]?.date||''} (last 50 bars)`;
+    // Build colored bar data: each bar = [open, close], colored by direction
+    const bodies = tail.map(b => [Math.min(b.o, b.c), Math.max(b.o, b.c)]);
+    const colors = tail.map(b => b.c >= b.o ? '#00d97e' : '#ff4560');
+    const highs = tail.map(b => b.h);
+    const lows = tail.map(b => b.l);
+    const datasets = [
+      { label: 'Body', data: bodies, backgroundColor: colors, borderColor: colors, borderWidth: 1, type: 'bar', barPercentage: 0.6, categoryPercentage: 0.8, borderSkipped: false },
+      { label: 'High', data: highs, borderColor: isDark ? '#484f5860' : '#b0bac860', borderWidth: 0.5, pointRadius: 0, type: 'line', fill: false },
+      { label: 'Low', data: lows, borderColor: isDark ? '#484f5860' : '#b0bac860', borderWidth: 0.5, pointRadius: 0, type: 'line', fill: false },
+    ];
+    // Mark the pattern bar if detected
+    const annotations = {};
+    if(cs && cs.barsAgo != null && cs.barsAgo < 50){
+      const patIdx = tail.length - 1 - cs.barsAgo;
+      annotations.pat = { type: 'line', xMin: patIdx, xMax: patIdx, borderColor: '#f0b429', borderWidth: 2, label: { content: cs.type, display: true, position: 'start', font: { size: 9, weight: 'bold' }, color: '#f0b429', backgroundColor: '#f0b42920' } };
+    }
+    window._dtModalChart = new Chart(canvas, {
+      type: 'bar',
+      data: { labels: tailLabels, datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, annotation: hasAnnotation ? { annotations } : {} },
+        scales: {
+          x: { display: true, grid: { color: gridColor }, ticks: { color: textColor, font: { size: 8 }, maxTicksLimit: 6 } },
+          y: { display: true, grid: { color: gridColor }, ticks: { color: textColor, font: { size: 9 }, maxTicksLimit: 5 } }
+        },
+        interaction: { intersect: false, mode: 'index' },
+      }
+    });
+    return;
+  }
 
-  if(indId === 'sma_200' || indId === 'sma_cross'){
+  // ── Price-based charts ──
+  const datasets = [{ label: 'Close', data: closes, borderColor: sCol(vals[indId]??50), borderWidth: 1.5, pointRadius: 0, tension: 0.3, fill: false }];
+  const annotations = {};
+
+  // SMA 200 — only 200-day line
+  if(indId === 'sma_200'){
+    const sma200 = chartSMA(closes, 200);
+    datasets.push({ label: 'SMA 200', data: sma200, borderColor: '#a855f7', borderWidth: 1.5, pointRadius: 0, borderDash: [4,3] });
+  }
+
+  // MA Cross 50/200 — both lines
+  if(indId === 'sma_cross'){
     const sma200 = chartSMA(closes, 200);
     const sma50 = chartSMA(closes, 50);
-    datasets.push({ label: 'SMA 200', data: sma200, borderColor: '#a855f7', borderWidth: 1, pointRadius: 0, borderDash: [4,3] });
-    datasets.push({ label: 'SMA 50', data: sma50, borderColor: '#f0b429', borderWidth: 1, pointRadius: 0, borderDash: [4,3] });
+    datasets.push({ label: 'SMA 200', data: sma200, borderColor: '#a855f7', borderWidth: 1.5, pointRadius: 0, borderDash: [4,3] });
+    datasets.push({ label: 'SMA 50', data: sma50, borderColor: '#f0b429', borderWidth: 1.5, pointRadius: 0, borderDash: [4,3] });
   }
+
+  // Volume Profile — price + POC/VAH/VAL horizontal lines
+  if(indId === 'vol_profile' && CI.volProf && hasAnnotation){
+    const vp = CI.volProf;
+    if(vp.poc) annotations.poc = { type: 'line', yMin: vp.poc, yMax: vp.poc, borderColor: '#f0b429', borderWidth: 1.5, borderDash: [6,3], label: { content: `POC $${vp.poc.toFixed(2)}`, display: true, position: 'start', font: { size: 8 }, color: '#f0b429', backgroundColor: '#f0b42920' } };
+    if(vp.vah) annotations.vah = { type: 'line', yMin: vp.vah, yMax: vp.vah, borderColor: '#ff456090', borderWidth: 1, borderDash: [4,3], label: { content: `VAH $${vp.vah.toFixed(2)}`, display: true, position: 'start', font: { size: 8 }, color: '#ff4560' } };
+    if(vp.val) annotations.val = { type: 'line', yMin: vp.val, yMax: vp.val, borderColor: '#00d97e90', borderWidth: 1, borderDash: [4,3], label: { content: `VAL $${vp.val.toFixed(2)}`, display: true, position: 'start', font: { size: 8 }, color: '#00d97e' } };
+  }
+
+  // DeMark — price chart + setup count marker
+  if(indId === 'demark_seq' && CI.demark){
+    const dm = CI.demark;
+    // Mark the setup completion or current count position
+    if(dm.setupCount > 0 && dm.barsSinceSetup != null && dm.barsSinceSetup < bars.length){
+      const setupIdx = bars.length - 1 - (dm.barsSinceSetup || 0);
+      const countLabel = dm.setupCount >= 9 ? `${dm.lastSetup?.toUpperCase()||'?'} 9 ✓` : `${(dm.lastSetup||'?').toUpperCase()} ${dm.setupCount}/9`;
+      if(hasAnnotation) annotations.setup = { type: 'point', xValue: setupIdx, yValue: closes[setupIdx], backgroundColor: dm.lastSetup === 'buy' ? '#00d97e' : '#ff4560', radius: 6, borderColor: '#fff', borderWidth: 1.5 };
+      if(hasAnnotation) annotations.setupLbl = { type: 'label', xValue: setupIdx, yValue: closes[setupIdx], content: countLabel, font: { size: 9, weight: 'bold' }, color: dm.lastSetup === 'buy' ? '#00d97e' : '#ff4560', yAdjust: -16 };
+    }
+    // Also mark countdown 13 if present
+    if(dm.lastCd && dm.barsSinceCd != null && dm.barsSinceCd < bars.length && hasAnnotation){
+      const cdIdx = bars.length - 1 - dm.barsSinceCd;
+      annotations.cd13 = { type: 'point', xValue: cdIdx, yValue: closes[cdIdx], backgroundColor: '#f0b429', radius: 7, borderColor: '#fff', borderWidth: 2 };
+      annotations.cd13Lbl = { type: 'label', xValue: cdIdx, yValue: closes[cdIdx], content: `CD13 ${dm.lastCd.toUpperCase()}`, font: { size: 9, weight: 'bold' }, color: '#f0b429', yAdjust: -18 };
+    }
+  }
+
+  // Bollinger Bands — price + upper/middle/lower
   if(indId === 'bollinger'){
     const bb = chartBollinger(closes, 20, 2);
     datasets.push({ label: 'Upper', data: bb.upper, borderColor: '#ff4560', borderWidth: 1, pointRadius: 0, borderDash: [3,3] });
@@ -3921,7 +3998,7 @@ function buildModalChart(indId, container){
     data: { labels, datasets },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      plugins: { legend: { display: false }, annotation: hasAnnotation ? { annotations } : {} },
       scales: {
         x: { display: true, grid: { color: gridColor }, ticks: { color: textColor, font: { size: 9 }, maxTicksLimit: 6 } },
         y: { display: true, grid: { color: gridColor }, ticks: { color: textColor, font: { size: 9 }, maxTicksLimit: 5 } }
@@ -4440,22 +4517,22 @@ function detectDualSignalCommentary(){
 
   // ── TREND ASSESSMENT ──
   if(trendBullCount >= 2){
-    parts.push(`<strong>${ticker} confirmed uptrend</strong> — SMA 200 + MA Cross both bullish${adxOverlay.adx >= 25 ? ', ADX confirms trend strength' : ''}.`);
+    parts.push(`<strong>${ticker} confirmed uptrend</strong> — the 200-day Simple Moving Average (SMA 200) and Moving Average Crossover (MA Cross) are both bullish${adxOverlay.adx >= 25 ? '. The Average Directional Index (ADX) confirms trend strength' : ''}.`);
   } else if(trendBearCount >= 2){
-    parts.push(`<strong>${ticker} confirmed downtrend</strong> — SMA 200 + MA Cross both bearish${adxOverlay.adx >= 25 ? ', ADX confirms trend strength' : ''}.`);
+    parts.push(`<strong>${ticker} confirmed downtrend</strong> — the 200-day Simple Moving Average (SMA 200) and Moving Average Crossover (MA Cross) are both bearish${adxOverlay.adx >= 25 ? '. The Average Directional Index (ADX) confirms trend strength' : ''}.`);
   } else if(trendBullCount >= 1 && trendBearCount === 0){
     parts.push(`<strong>${ticker} leans bullish</strong> — one trend indicator up, other neutral. Developing but not confirmed.`);
   } else if(trendBearCount >= 1 && trendBullCount === 0){
     parts.push(`<strong>${ticker} leans bearish</strong> — one trend indicator down, other neutral. Developing but not confirmed.`);
   } else {
-    parts.push(`<strong>${ticker} no clear trend</strong> — indicators mixed or neutral${adxOverlay.adx < 20 ? ', ADX < 20 confirms choppy conditions' : ''}. Consolidating or transitioning.`);
+    parts.push(`<strong>${ticker} no clear trend</strong> — indicators mixed or neutral${adxOverlay.adx < 20 ? '. Average Directional Index (ADX) below 20 confirms choppy conditions' : ''}. Consolidating or transitioning.`);
   }
 
   // ── EXHAUSTION / CONTRARIAN ──
   if(exhBullCount >= 3){
-    parts.push(`<strong>Exhaustion: oversold</strong> — RSI, DeMark, and Bollinger all suggest selling may be overdone.`);
+    parts.push(`<strong>Exhaustion: oversold</strong> — the Relative Strength Index (RSI), DeMark Sequential, and Bollinger Bands all suggest selling may be overdone.`);
   } else if(exhBearCount >= 3){
-    parts.push(`<strong>Exhaustion: overbought</strong> — RSI, DeMark, and Bollinger all suggest the rally is stretched.`);
+    parts.push(`<strong>Exhaustion: overbought</strong> — the Relative Strength Index (RSI), DeMark Sequential, and Bollinger Bands all suggest the rally is stretched.`);
   } else if(exhBullCount >= 2){
     parts.push(`Contrarian indicators leaning oversold — downward pressure may be getting stretched.`);
   } else if(exhBearCount >= 2){
@@ -4479,9 +4556,9 @@ function detectDualSignalCommentary(){
     const volConfirms = (trendDir === 'bullish' && obv >= 60) || (trendDir === 'bearish' && obv <= 40);
     const volDiverges = (trendDir === 'bullish' && obv <= 38) || (trendDir === 'bearish' && obv >= 62);
     if(volConfirms){
-      parts.push(`OBV confirms ${trendDir} direction — institutional money aligned with trend.`);
+      parts.push(`On-Balance Volume (OBV) confirms ${trendDir} direction — institutional money aligned with trend.`);
     } else if(volDiverges){
-      parts.push(`<strong>OBV diverges from trend</strong> — institutional money may be positioning against current direction.`);
+      parts.push(`<strong>On-Balance Volume (OBV) diverges from trend</strong> — institutional money may be positioning against current direction.`);
     }
   }
 
