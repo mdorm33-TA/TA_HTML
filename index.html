@@ -4608,12 +4608,14 @@ function detectDualSignalCommentary(){
 
   // ── ADX CONTEXT ──
   const adxVal_c = adxOverlay.adx ?? 0;
+  // Only spell out if ADX wasn't already mentioned in trend assessment
+  const adxIntro = (trendBullCount >= 2 || trendBearCount >= 2) && adxVal_c >= 25 ? 'ADX' : 'Average Directional Index (ADX)';
   if(adxVal_c >= 40){
-    parts.push(`ADX ${adxVal_c} — very strong trend. Trend weights boosted ${adxOverlay.multiplier}×. Contrarian signals less reliable.`);
+    parts.push(`${adxIntro} ${adxVal_c} — very strong trend. Trend weights boosted ${adxOverlay.multiplier}×. Contrarian signals less reliable.`);
   } else if(adxVal_c >= 25){
-    parts.push(`ADX ${adxVal_c} — trending market. Trend weights boosted ${adxOverlay.multiplier}×.`);
+    parts.push(`${adxIntro} ${adxVal_c} — trending market. Trend weights boosted ${adxOverlay.multiplier}×.`);
   } else if(adxVal_c > 0 && adxVal_c < 20){
-    parts.push(`ADX ${adxVal_c} — weak/choppy. Trend weights dampened ${adxOverlay.multiplier}×. Contrarian signals more reliable.`);
+    parts.push(`${adxIntro} ${adxVal_c} — weak/choppy. Trend weights dampened ${adxOverlay.multiplier}×. Contrarian signals more reliable.`);
   }
 
   // ── AGREEMENT/DISAGREEMENT ──
