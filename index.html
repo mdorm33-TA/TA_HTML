@@ -66,7 +66,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:18
 .hdr-brand::before{content:'';position:absolute;inset:0;
   background:radial-gradient(ellipse at 30% 80%,rgba(77,163,255,0.08) 0%,transparent 60%),
              radial-gradient(ellipse at 70% 20%,rgba(77,163,255,0.05) 0%,transparent 50%);pointer-events:none;}
-.hdr-svg-wrap{width:100%;max-width:580px;position:relative;z-index:1;}
+.hdr-svg-wrap{width:100%;max-width:400px;position:relative;z-index:1;}
 .hdr-svg{width:100%;height:auto;display:block;filter:drop-shadow(0 12px 32px rgba(0,0,0,0.35));}
 .hdr-controls{display:flex;align-items:center;gap:8px;padding:5px 18px;flex-wrap:wrap;background:var(--surface2);border-top:1px solid var(--border);}
 .logo{font-family:var(--mono);font-size:30px;font-weight:700;color:var(--hdr-text);letter-spacing:.04em;white-space:nowrap;}
@@ -145,18 +145,18 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:18
 @keyframes spin{to{transform:rotate(360deg);}}
 
 /* ── STATUS BAR ── */
-.sbar{padding:7px 18px;font-family:var(--mono);font-size:16px;min-height:30px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);background:var(--surface);}
+.sbar{padding:7px 18px;font-family:var(--mono);font-size:16px;min-height:30px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);background:var(--surface);flex-wrap:wrap;}
 
 .sdot{width:9px;height:9px;border-radius:50%;background:var(--text3);flex-shrink:0;}
 .sdot.active{background:var(--bull);box-shadow:0 0 7px var(--bull);}
 .sdot.loading{background:var(--neu);animation:pulse .8s ease-in-out infinite;}
 .sdot.error{background:var(--bear);}
 @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
-.stext{color:var(--text2);font-size:18px;}
+.stext{color:var(--text2);font-size:18px;flex-shrink:0;}
 .stext.active{color:var(--text);font-weight:500;font-size:20px;}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
 .sticker{color:var(--accent);font-weight:600;}
-.sstream{color:var(--text3);font-size:10px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:italic;}
+.sstream{color:var(--text3);font-size:10px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:italic;min-width:140px;}
 
 /* ── MOBILE TABS ── */
 .mob-tabs{display:none;border-bottom:1px solid var(--border);background:var(--surface);}
@@ -869,6 +869,7 @@ body.dark-mode .ci-backbone-tag{background:#f0883e18;color:#f0883e;border-color:
     <div class="sdiv"></div>
     <div class="pdisp">
       Price: <span class="pv" id="price-val">$422.90</span>
+      <span id="daily-change" style="margin-left:6px;font-size:12px;font-weight:600;"></span>
       <span class="pfetch" onclick="fetchPrice()" id="price-fetch-lbl" title="Fetch live price">↻</span>
     </div>
     <button class="run-btn" id="run-btn" onclick="runAnalysis()">
@@ -945,6 +946,12 @@ body.dark-mode .ci-backbone-tag{background:#f0883e18;color:#f0883e;border-color:
           <canvas id="orientRSIChart"></canvas>
         </div>
       </div>
+    </div>
+
+    <!-- DIVIDEND / TOTAL RETURN NOTE -->
+    <div class="dnwrap">
+      <div class="dnlbl" style="font-size:10px;font-weight:600;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;">Dividend / Total Return Note</div>
+      <textarea class="dnta" id="div-note" placeholder="e.g. AMLP: ~8.2% yield adds total return floor. Div-adj SMA 200 ~$44 vs price-only $47."></textarea>
     </div>
 
     <!-- FALLING KNIFE ALERT -->
@@ -1091,11 +1098,6 @@ body.dark-mode .ci-backbone-tag{background:#f0883e18;color:#f0883e;border-color:
       <div class="wt-panel-body" id="wt-panel-body">
         <!-- injected by renderWtPanel() -->
       </div>
-    </div>
-
-    <div class="dnwrap">
-      <div class="dnlbl" style="font-size:10px;font-weight:600;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;">Dividend / Total Return Note</div>
-      <textarea class="dnta" id="div-note" placeholder="e.g. AMLP: ~8.2% yield adds total return floor. Div-adj SMA 200 ~$44 vs price-only $47."></textarea>
     </div>
 
   </div>
@@ -3001,10 +3003,11 @@ async function runAllComputed(ticker){
     const _fvc = verd(_fsc).l, _fcc = sCol(_fsc);
     const _fcn = window._lastSymbolName ? ` · ${window._lastSymbolName}` : '';
     const _fpr = document.getElementById('price-val').textContent || '';
+    const _fdc = window._dailyChangeText ? ` <span style="color:${window._dailyChangeColor||''};font-size:12px">${window._dailyChangeText}</span>` : '';
     const dot2=document.getElementById('sdot'), st2=document.getElementById('stext'), so2=document.getElementById('sstream');
     const btn2=document.getElementById('run-btn');
     dot2.className='sdot active'; st2.className='stext active'; st2.style.animation=''; st2.style.color='';
-    st2.innerHTML=`<span class="sticker">${ticker}</span>${_fcn} — <span style="color:${_fcc};font-weight:600">${_fvc}</span> · ${_fpr} · OHLC scored · ${new Date().toLocaleString()}`;
+    st2.innerHTML=`<span class="sticker">${ticker}</span>${_fcn} — <span style="color:${_fcc};font-weight:600">${_fvc}</span> · ${_fpr}${_fdc} · OHLC scored · ${new Date().toLocaleString()}`;
     so2.textContent='Waiting for AI…';
     btn2.disabled=false; btn2.classList.remove('loading');
     console.log('runAllComputed: UI force-updated. Score:', _fsc);
@@ -5105,6 +5108,20 @@ async function fetchPrice(){
     if(!meta||!meta.regularMarketPrice) throw new Error('No price available');
     const price=meta.regularMarketPrice;
     document.getElementById('price-val').textContent='$'+Number(price).toFixed(2);syncPriceLvl();
+    // Daily change from prior close
+    const prevClose = meta.chartPreviousClose || meta.previousClose;
+    const dcEl = document.getElementById('daily-change');
+    if(prevClose && prevClose > 0){
+      const chg = price - prevClose;
+      const chgPct = (chg / prevClose) * 100;
+      const sign = chg >= 0 ? '+' : '';
+      const col = chg >= 0 ? 'var(--bull)' : 'var(--bear)';
+      const dcText = `${sign}${chg.toFixed(2)} (${sign}${chgPct.toFixed(2)}%)`;
+      dcEl.textContent = dcText;
+      dcEl.style.color = col;
+      window._dailyChangeText = dcText;
+      window._dailyChangeColor = col;
+    } else { dcEl.textContent=''; window._dailyChangeText=''; window._dailyChangeColor=''; }
     // Store company long name for display in status bar
     const ln=meta?.longName||meta?.shortName||'';
     if(ln) window._lastSymbolName=ln;
@@ -5243,8 +5260,9 @@ async function runAnalysis(){
     const _vc = verd(_sc).l, _cc = sCol(_sc);
     const _cnc = window._lastSymbolName ? ` · ${window._lastSymbolName}` : '';
     const priceC = document.getElementById('price-val').textContent || '';
+    const _dcC = window._dailyChangeText ? ` <span style="color:${window._dailyChangeColor||''};font-size:12px">${window._dailyChangeText}</span>` : '';
     dot.className='sdot active';st.className='stext active';st.style.animation='';st.style.color='';
-    st.innerHTML=`<span class="sticker">${ticker}</span>${_cnc} · ${priceC} · ${nowStamp()}`;
+    st.innerHTML=`<span class="sticker">${ticker}</span>${_cnc} — <span style="color:${_cc};font-weight:600">${_vc}</span> · ${priceC}${_dcC} · OHLC scored · ${nowStamp()}`;
     so.textContent='Waiting for AI (divNote + fundamentals)…';
     btn.disabled=false;btn.classList.remove('loading');
     console.log('runAnalysis: ALL DONE. Score:', _sc);
@@ -5272,10 +5290,11 @@ async function runAnalysis(){
       const vc2 = verd(sc2).l, cc2 = sCol(sc2);
       const cn2 = window._lastSymbolName ? ` · ${window._lastSymbolName}` : '';
       const pr2 = document.getElementById('price-val').textContent || '';
+      const dc2 = window._dailyChangeText ? ` <span style="color:${window._dailyChangeColor||''};font-size:12px">${window._dailyChangeText}</span>` : '';
       document.getElementById('sdot').className='sdot active';
       const st3 = document.getElementById('stext');
       st3.className='stext active'; st3.style.animation=''; st3.style.color='';
-      st3.innerHTML=`<span class="sticker">${_savedTicker}</span>${cn2} — <span style="color:${cc2};font-weight:600">${vc2}</span> · ${pr2} · OHLC scored · ${nowStamp()}`;
+      st3.innerHTML=`<span class="sticker">${_savedTicker}</span>${cn2} — <span style="color:${cc2};font-weight:600">${vc2}</span> · ${pr2}${dc2} · OHLC scored · ${nowStamp()}`;
       document.getElementById('sstream').textContent='Waiting for AI…';
       document.getElementById('run-btn').disabled=false;
       document.getElementById('run-btn').classList.remove('loading');
@@ -5374,8 +5393,9 @@ All values plain text only — no HTML, no citations. N/A if unknown.`;
       const _cname=window._lastSymbolName?` · ${window._lastSymbolName}`:'';
       const _aiScore = Math.round(bScore('high')*customBW.high + bScore('med')*customBW.med);
       const _aiVerdict = verd(_aiScore).l, _aiCol = sCol(_aiScore);
+      const _dcAi = window._dailyChangeText ? ` <span style="color:${window._dailyChangeColor||''};font-size:12px">${window._dailyChangeText}</span>` : '';
       dot.className='sdot active';st.className='stext active';st.style.animation='';st.style.color='';
-      st.innerHTML=`<span class="sticker">${parsed.ticker||ticker}</span>${_cname} · ${priceText} · ${nowStamp()}`;
+      st.innerHTML=`<span class="sticker">${parsed.ticker||ticker}</span>${_cname} — <span style="color:${_aiCol};font-weight:600">${_aiVerdict}</span> · ${priceText}${_dcAi} · OHLC scored · ${nowStamp()}`;
       console.log('AI call complete for', ticker, '— divNote + fundamentals loaded');
       // If name arrived late, do another status bar update
       if(!window._lastSymbolName){
@@ -5386,7 +5406,8 @@ All values plain text only — no HTML, no citations. N/A if unknown.`;
               const _s2 = Math.round(bScore('high')*customBW.high + bScore('med')*customBW.med);
               const _v2 = verd(_s2).l, _c2 = sCol(_s2);
               const priceNow = document.getElementById('price-val').textContent || '';
-              cur.innerHTML=`<span class="sticker">${ticker}</span> · ${window._lastSymbolName} · ${priceNow} · ${nowStamp()}`;
+              const _dcLate = window._dailyChangeText ? ` <span style="color:${window._dailyChangeColor||''};font-size:12px">${window._dailyChangeText}</span>` : '';
+              cur.innerHTML=`<span class="sticker">${ticker}</span> · ${window._lastSymbolName} — <span style="color:${_c2};font-weight:600">${_v2}</span> · ${priceNow}${_dcLate} · OHLC scored · ${nowStamp()}`;
             }
           }
         }, 3000);
