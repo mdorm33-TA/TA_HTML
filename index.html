@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Signal Catcher v15 — Dashboard</title>
+<title>Signal Catcher v15.1 — Dashboard</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -157,6 +157,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:18
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
 .sticker{color:var(--accent);font-weight:600;}
 .sstream{color:var(--text3);font-size:10px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:italic;min-width:140px;}
+.v-badge{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:4px;background:var(--high-dim);color:var(--accent);border:1px solid var(--accent);letter-spacing:.04em;flex-shrink:0;font-weight:600;}
 
 /* ── MOBILE TABS ── */
 .mob-tabs{display:none;border-bottom:1px solid var(--border);background:var(--surface);}
@@ -544,6 +545,9 @@ body.dark-mode .ci-backbone-tag{background:#f0883e18;color:#f0883e;border-color:
 .chart-wrap{display:none;padding:8px 0 4px;border-top:1px solid var(--border);}
 .chart-wrap.open{display:block;}
 .chart-container{position:relative;height:clamp(200px,35vh,400px);width:100%;background:var(--surface2);border-radius:6px;padding:6px;}
+.chart-container.stacked{height:clamp(300px,50vh,520px);display:flex;flex-direction:column;gap:4px;}
+.chart-container .rc-price{flex:0 0 42%;position:relative;}
+.chart-container .rc-indicator{flex:1;position:relative;}
 .chart-loading{font-family:var(--mono);font-size:10px;color:var(--text3);text-align:center;padding:20px;font-style:italic;}
 .chart-error{font-family:var(--mono);font-size:10px;color:var(--bear);text-align:center;padding:12px;}
 .fund-panel{background:var(--surface2);border:2px solid var(--accent);border-radius:10px;margin-top:10px;overflow:hidden;}.fund-panel-hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 13px;cursor:pointer;user-select:none;transition:background .15s;border-radius:10px;}
@@ -829,6 +833,7 @@ body.dark-mode .ci-backbone-tag{background:#f0883e18;color:#f0883e;border-color:
   <div class="sdot active" id="sdot"></div>
   <span class="stext active" id="stext"></span>
   <span class="sstream" id="sstream"></span>
+  <span class="v-badge" title="Build version — if this doesn't match your expected version, do a hard refresh to clear cache">v15.1</span>
 </div>
 
 <!-- VERDICT SUMMARY BAR -->
@@ -3160,6 +3165,9 @@ function ema(data, period){
 
 function destroyChart(id){
   if(chartInstances[id]){ chartInstances[id].destroy(); delete chartInstances[id]; }
+  // Stacked indicators (RSI, MACD) track a companion price chart under id+':price'
+  const pKey = id + ':price';
+  if(chartInstances[pKey]){ chartInstances[pKey].destroy(); delete chartInstances[pKey]; }
 }
 
 function toggleChart(id, btn){
@@ -3205,6 +3213,140 @@ async function renderChart(id){
     };
 
     cc.innerHTML = ''; // clear loading
+
+    // ── STACKED LAYOUT for RSI Extreme and MACD (price above, oscillator/momentum below) ──
+    const isStacked = (id === 'rsi_extreme' || id === 'macd');
+    cc.classList.toggle('stacked', isStacked);
+
+    if (isStacked) {
+      // Use last 63 bars (~3 months) for both panels
+      const W = 63;
+      const start = Math.max(0, d.length - W);
+      const tailD = d.slice(start);
+      const tailLabels = tailD.map(b => b.t);
+      const tailCloses = tailD.map(b => b.c);
+
+      // Price panel — close line colored by current indicator score
+      const priceWrap = document.createElement('div');
+      priceWrap.className = 'rc-price';
+      const priceCanvas = document.createElement('canvas');
+      priceWrap.appendChild(priceCanvas);
+      cc.appendChild(priceWrap);
+
+      const score = (typeof vals !== 'undefined' ? vals[id] : 50) ?? 50;
+      const priceColor = typeof sCol === 'function' ? sCol(score) : '#1a6fd4';
+
+      chartInstances[id + ':price'] = new Chart(priceCanvas.getContext('2d'), {
+        type: 'line',
+        data: { labels: tailLabels, datasets: [{
+          label: 'Close', data: tailCloses, borderColor: priceColor, borderWidth: 1.75,
+          pointRadius: 0, tension: 0.25, fill: false,
+        }]},
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          animation: { duration: 300 },
+          plugins: {
+            legend: { display: false },
+            tooltip: { mode: 'index', intersect: false, titleFont: { family: 'IBM Plex Mono', size: 10 }, bodyFont: { family: 'IBM Plex Mono', size: 10 }, callbacks: { label: ctx => `Close: ${ctx.parsed.y?.toFixed(2) ?? '—'}` } },
+          },
+          scales: {
+            x: { display: false, grid: { display: false } },
+            y: { position: 'right', ticks: { font: { family: 'IBM Plex Mono', size: 8 }, color: _cc.tick, maxTicksLimit: 5 }, grid: { color: _cc.grid } },
+          },
+          interaction: { intersect: false, mode: 'index' },
+        },
+      });
+
+      // Indicator panel — separate canvas, rendered below
+      const indWrap = document.createElement('div');
+      indWrap.className = 'rc-indicator';
+      const indCanvas = document.createElement('canvas');
+      indWrap.appendChild(indCanvas);
+      cc.appendChild(indWrap);
+      const indCtx = indCanvas.getContext('2d');
+
+      if (id === 'rsi_extreme') {
+        // Compute RSI 14 on full dataset, slice to last W
+        const gains = [], losses = [];
+        for (let i = 1; i < closes_d.length; i++) {
+          const diff = closes_d[i] - closes_d[i - 1];
+          gains.push(Math.max(diff, 0));
+          losses.push(Math.max(-diff, 0));
+        }
+        const rsiFull = [];
+        let avgG = gains.slice(0, 14).reduce((s, v) => s + v, 0) / 14;
+        let avgL = losses.slice(0, 14).reduce((s, v) => s + v, 0) / 14;
+        for (let i = 0; i < 14; i++) rsiFull.push(null);
+        rsiFull.push(avgL === 0 ? 100 : 100 - 100 / (1 + avgG / avgL));
+        for (let i = 14; i < gains.length; i++) {
+          avgG = (avgG * 13 + gains[i]) / 14;
+          avgL = (avgL * 13 + losses[i]) / 14;
+          rsiFull.push(avgL === 0 ? 100 : 100 - 100 / (1 + avgG / avgL));
+        }
+        const rsi = rsiFull.slice(start);
+
+        chartInstances[id] = new Chart(indCtx, {
+          type: 'line',
+          data: { labels: tailLabels, datasets: [
+            { label: 'RSI 14', data: rsi, borderColor: '#1a6fd4', borderWidth: 1.5, pointRadius: 0, tension: 0.2,
+              segment: { borderColor: ctx => rsi[ctx.p1DataIndex] <= 30 ? '#0a8a4e' : rsi[ctx.p1DataIndex] >= 70 ? '#cc2840' : '#1a6fd4' } },
+            { label: 'Overbought (70) → Bearish', data: Array(tailLabels.length).fill(70), borderColor: '#cc284055', borderWidth: 1, pointRadius: 0, borderDash: [4,4] },
+            { label: 'Oversold (30) → Bullish',  data: Array(tailLabels.length).fill(30), borderColor: '#0a8a4e55', borderWidth: 1, pointRadius: 0, borderDash: [4,4] },
+            { label: 'Midline (50)',              data: Array(tailLabels.length).fill(50), borderColor: '#d0d6e055', borderWidth: 1, pointRadius: 0, borderDash: [2,4] },
+          ]},
+          options: { ...baseOpts, scales: { ...baseOpts.scales, y: { ...baseOpts.scales.y, min: 0, max: 100 } } },
+        });
+      } else if (id === 'macd') {
+        // Compute MACD 12/26/9 on full dataset, slice to last W
+        const ema = (data, period) => {
+          const k = 2 / (period + 1);
+          const r = [];
+          let prev = null;
+          for (let i = 0; i < data.length; i++) {
+            if (i < period - 1) { r.push(null); continue; }
+            if (prev === null) { prev = data.slice(0, period).reduce((s, v) => s + v, 0) / period; r.push(prev); continue; }
+            prev = data[i] * k + prev * (1 - k);
+            r.push(prev);
+          }
+          return r;
+        };
+        const eFast = ema(closes_d, 12);
+        const eSlow = ema(closes_d, 26);
+        const macdFull = closes_d.map((_, i) => (eFast[i] === null || eSlow[i] === null) ? null : eFast[i] - eSlow[i]);
+        const macdValid = macdFull.filter(v => v !== null);
+        const sigCompact = ema(macdValid, 9);
+        const offset = macdFull.length - macdValid.length;
+        const signalFull = macdFull.map((_, i) => { const j = i - offset; return j < 0 ? null : sigCompact[j]; });
+        const histFull = macdFull.map((v, i) => (v === null || signalFull[i] === null) ? null : v - signalFull[i]);
+        const macdSlice = macdFull.slice(start);
+        const signalSlice = signalFull.slice(start);
+        const histSlice = histFull.slice(start);
+
+        const histColors = histSlice.map((h, i) => {
+          if (h === null) return 'rgba(128,128,128,0.3)';
+          const prev = i > 0 ? histSlice[i - 1] : h;
+          const expanding = Math.abs(h) > Math.abs(prev ?? h);
+          if (h >= 0) return expanding ? '#00d97e' : 'rgba(0,217,126,0.45)';
+          return expanding ? '#ff4560' : 'rgba(255,69,96,0.45)';
+        });
+
+        chartInstances[id] = new Chart(indCtx, {
+          type: 'bar',
+          data: { labels: tailLabels, datasets: [
+            { label: 'Histogram', type: 'bar',  data: histSlice,   backgroundColor: histColors, borderColor: histColors, borderWidth: 0, barPercentage: 0.8, categoryPercentage: 0.9, order: 3 },
+            { label: 'MACD',      type: 'line', data: macdSlice,   borderColor: '#4c8ef7', borderWidth: 1.75, pointRadius: 0, tension: 0.25, fill: false, order: 1 },
+            { label: 'Signal',    type: 'line', data: signalSlice, borderColor: '#f0b429', borderWidth: 1.25, pointRadius: 0, borderDash: [4,3], tension: 0.25, fill: false, order: 2 },
+          ]},
+          options: { ...baseOpts,
+            plugins: { ...baseOpts.plugins,
+              annotation: { annotations: { zero: { type: 'line', yMin: 0, yMax: 0, borderColor: _cc.grid, borderWidth: 1.25, borderDash: [2,4] } } },
+            },
+          },
+        });
+      }
+      return;  // stacked path complete, skip the single-canvas path below
+    }
+
     const canvas = document.createElement('canvas');
     cc.appendChild(canvas);
     const ctx = canvas.getContext('2d');
@@ -3320,7 +3462,7 @@ function clearChartCache(){
 // ═══ BUILD ROWS ═══
 const CHARTABLE = {
   vol_profile:true, sma_200:true, sma_cross:true,  // sma_cross also gets computed override
-  rsi_extreme:true, mfi:true, bollinger:true
+  rsi_extreme:true, mfi:true, bollinger:true, macd:true
 };
 function buildRow(ind,bkt,container){
   const c=container||document.getElementById('bucket-'+bkt);
