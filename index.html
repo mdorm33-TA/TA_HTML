@@ -55,7 +55,7 @@ body.dark-mode .coast-links a{color:#58a6ff;}
 .dark-toggle{padding:5px 10px;background:var(--surface3);border:1px solid var(--border2);border-radius:6px;font-family:var(--mono);font-size:13px;color:var(--text2);cursor:pointer;transition:all .15s;white-space:nowrap;flex-shrink:0;line-height:1.3;}
 .dark-toggle:hover{border-color:var(--accent);color:var(--accent);}
 *{box-sizing:border-box;margin:0;padding:0;}
-body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:18px;line-height:1.65;min-height:100vh;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:18px;line-height:1.65;min-height:100vh;overflow-x:hidden;}
 
 /* ── HEADER ── */
 .hdr{border-bottom:1px solid var(--border);padding:0;box-shadow:0 2px 8px rgba(0,0,0,.06);}
@@ -612,11 +612,6 @@ body.dark-mode .ci-backbone-tag{background:#f0883e18;color:#f0883e;border-color:
   .ind-group-title{font-size:11px;}
   .nrow{padding-left:0;padding-top:4px;}
   .hdr-controls{gap:6px;padding:6px 10px;flex-wrap:wrap;}
-  /* On mobile, keep the price + daily change on their own row so the Analyze
-     button doesn't get crammed next to them on short tickers like MSFT. */
-  .pdisp{flex-basis:100%;text-align:center;font-size:14px;padding:2px 0;}
-  .pdisp .pv{font-size:14px;}
-  .pdisp #daily-change{font-size:13px;}
   .search-bar{max-width:100%;flex:1;}
   .hdr-logo-img{height:60px;}
   .hdr-svg-wrap{max-width:75%;}
@@ -631,8 +626,8 @@ body.dark-mode .ci-backbone-tag{background:#f0883e18;color:#f0883e;border-color:
   .vbar-conf{font-size:10px;}
   .vbar-buckets{margin-left:0;gap:8px;}
   .vbar-divider{height:24px;}
-  .stext{font-size:12px;}
-  .stext.active{font-size:14px;}
+  .stext{font-size:12px;flex-shrink:1;min-width:0;overflow-wrap:anywhere;}
+  .stext.active{font-size:14px;flex-shrink:1;min-width:0;overflow-wrap:anywhere;}
   .sbar{padding:5px 10px;font-size:11px;}
   .signal-slider{width:100%;min-width:80px;}
   .sw{flex:1;min-width:0;}
@@ -821,7 +816,6 @@ body.dark-mode .ci-backbone-tag{background:#f0883e18;color:#f0883e;border-color:
     <div class="sdiv"></div>
     <div class="pdisp">
       Price: <span class="pv" id="price-val">$422.90</span>
-      <span id="daily-change" style="margin-left:6px;font-size:12px;font-weight:600;"></span>
       <span class="pfetch" onclick="fetchPrice()" id="price-fetch-lbl" title="Fetch live price">↻</span>
     </div>
     <button class="run-btn" id="run-btn" onclick="runAnalysis()">
@@ -838,7 +832,7 @@ body.dark-mode .ci-backbone-tag{background:#f0883e18;color:#f0883e;border-color:
   <div class="sdot active" id="sdot"></div>
   <span class="stext active" id="stext"></span>
   <span class="sstream" id="sstream"></span>
-  <span class="v-badge" title="Build version — if this doesn't match your expected version, do a hard refresh to clear cache">v15.1d</span>
+  <span class="v-badge" title="Build version — if this doesn't match your expected version, do a hard refresh to clear cache">v15.1j</span>
 </div>
 
 <!-- VERDICT SUMMARY BAR -->
@@ -1539,6 +1533,18 @@ function computeDeMark(bars) {
   } else if (lastSetup === 'sell' && lastSetupBar !== null) {
     for (let i = lastSetupBar + 1; i < n; i++) {
       if (close[i] > close[lastSetupBar]) { lastSetup = null; lastSetupBar = null; lastSetupPerf = false; break; }
+    }
+  }
+  // Invalidate completed countdown if post-trigger price action contradicts it.
+  // Buy CD13 voided once any later close breaks below the CD13 trigger bar close; mirror for sell.
+  // Prevents degenerate "stale CD13" cases where countdown completes long after the real reversal played out.
+  if (lastCd === 'buy' && lastCdBar !== null) {
+    for (let i = lastCdBar + 1; i < n; i++) {
+      if (close[i] < close[lastCdBar]) { lastCd = null; lastCdBar = null; break; }
+    }
+  } else if (lastCd === 'sell' && lastCdBar !== null) {
+    for (let i = lastCdBar + 1; i < n; i++) {
+      if (close[i] > close[lastCdBar]) { lastCd = null; lastCdBar = null; break; }
     }
   }
   let bc2 = 0, sc2 = 0;
@@ -2792,11 +2798,11 @@ async function runAllComputed(ticker){
     const _fvc = verd(_fsc).l, _fcc = sCol(_fsc);
     const _fcn = window._lastSymbolName ? ` · ${window._lastSymbolName}` : '';
     const _fpr = document.getElementById('price-val').textContent || '';
-    const _fdc = window._dailyChangeText ? ` <span style="color:${window._dailyChangeColor||''};font-size:12px">${window._dailyChangeText}</span>` : '';
+    const _fdc = window._dailyChangeText ? `<span style="color:${window._dailyChangeColor||''};font-size:13px;font-weight:600;margin-left:4px;">${window._dailyChangeText}</span>` : '';
     const dot2=document.getElementById('sdot'), st2=document.getElementById('stext'), so2=document.getElementById('sstream');
     const btn2=document.getElementById('run-btn');
     dot2.className='sdot active'; st2.className='stext active'; st2.style.animation=''; st2.style.color='';
-    st2.innerHTML=`<span class="sticker">${ticker}</span>${_fcn} — <span style="color:${_fcc};font-weight:600">${_fvc}</span> · ${_fpr}${_fdc} · OHLC scored · ${new Date().toLocaleString()}`;
+    st2.innerHTML=`<span class="sticker">${ticker}</span>${_fcn} — <span style="color:${_fcc};font-weight:600">${_fvc}</span> · ${_fpr}${_fdc}`;
     so2.textContent='Waiting for AI…';
     btn2.disabled=false; btn2.classList.remove('loading');
     console.log('runAllComputed: UI force-updated. Score:', _fsc);
@@ -4103,21 +4109,32 @@ function buildModalChart(indId, container){
     if(vp.val) annotations.val = { type: 'line', yMin: vp.val, yMax: vp.val, borderColor: '#00d97e90', borderWidth: 1, borderDash: [4,3], label: { content: `VAL $${vp.val.toFixed(2)}`, display: true, position: 'start', font: { size: 8 }, color: '#00d97e' } };
   }
 
-  // DeMark — price chart + setup count marker
+  // DeMark — price chart + setup/countdown markers, sliced to last 3 months for visual verification
   if(indId === 'demark_seq' && CI.demark){
+    const DM_WINDOW = 63; // ~3 months, matches MACD/RSI for visual consistency
+    const n = bars.length;
+    const start = Math.max(0, n - DM_WINDOW);
+    const tail = bars.slice(start);
+    const tailLabels = tail.map(b => b.t || '');
+    const tailCloses = tail.map(b => b.c);
+    rangeLabel.textContent = `Daily · ${tail[0]?.t||''} — ${tail[tail.length-1]?.t||''} (3 months · DeMark 9/13)`;
+    // Override the main close line + label axis to the sliced window
+    labels.length = 0; tailLabels.forEach(l => labels.push(l));
+    datasets[0] = { label: 'Close', data: tailCloses, borderColor: sCol(vals[indId]??50), borderWidth: 1.5, pointRadius: 0, tension: 0.3, fill: false };
+
     const dm = CI.demark;
-    // Mark the setup completion or current count position
-    if(dm.setupCount > 0 && dm.barsSinceSetup != null && dm.barsSinceSetup < bars.length){
-      const setupIdx = bars.length - 1 - (dm.barsSinceSetup || 0);
+    // Mark the setup completion or current count position — only if within window
+    if(dm.setupCount > 0 && dm.barsSinceSetup != null && dm.barsSinceSetup < tail.length){
+      const setupIdx = tail.length - 1 - (dm.barsSinceSetup || 0);
       const countLabel = dm.setupCount >= 9 ? `${dm.lastSetup?.toUpperCase()||'?'} 9 ✓` : `${(dm.lastSetup||'?').toUpperCase()} ${dm.setupCount}/9`;
-      if(hasAnnotation) annotations.setup = { type: 'point', xValue: setupIdx, yValue: closes[setupIdx], backgroundColor: dm.lastSetup === 'buy' ? '#00d97e' : '#ff4560', radius: 6, borderColor: '#fff', borderWidth: 1.5 };
-      if(hasAnnotation) annotations.setupLbl = { type: 'label', xValue: setupIdx, yValue: closes[setupIdx], content: countLabel, font: { size: 9, weight: 'bold' }, color: dm.lastSetup === 'buy' ? '#00d97e' : '#ff4560', yAdjust: -16 };
+      if(hasAnnotation) annotations.setup = { type: 'point', xValue: setupIdx, yValue: tailCloses[setupIdx], backgroundColor: dm.lastSetup === 'buy' ? '#00d97e' : '#ff4560', radius: 6, borderColor: '#fff', borderWidth: 1.5 };
+      if(hasAnnotation) annotations.setupLbl = { type: 'label', xValue: setupIdx, yValue: tailCloses[setupIdx], content: countLabel, font: { size: 9, weight: 'bold' }, color: dm.lastSetup === 'buy' ? '#00d97e' : '#ff4560', yAdjust: -16 };
     }
-    // Also mark countdown 13 if present
-    if(dm.lastCd && dm.barsSinceCd != null && dm.barsSinceCd < bars.length && hasAnnotation){
-      const cdIdx = bars.length - 1 - dm.barsSinceCd;
-      annotations.cd13 = { type: 'point', xValue: cdIdx, yValue: closes[cdIdx], backgroundColor: '#f0b429', radius: 7, borderColor: '#fff', borderWidth: 2 };
-      annotations.cd13Lbl = { type: 'label', xValue: cdIdx, yValue: closes[cdIdx], content: `CD13 ${dm.lastCd.toUpperCase()}`, font: { size: 9, weight: 'bold' }, color: '#f0b429', yAdjust: -18 };
+    // Also mark countdown 13 if within window
+    if(dm.lastCd && dm.barsSinceCd != null && dm.barsSinceCd < tail.length && hasAnnotation){
+      const cdIdx = tail.length - 1 - dm.barsSinceCd;
+      annotations.cd13 = { type: 'point', xValue: cdIdx, yValue: tailCloses[cdIdx], backgroundColor: '#f0b429', radius: 7, borderColor: '#fff', borderWidth: 2 };
+      annotations.cd13Lbl = { type: 'label', xValue: cdIdx, yValue: tailCloses[cdIdx], content: `CD13 ${dm.lastCd.toUpperCase()}`, font: { size: 9, weight: 'bold' }, color: '#f0b429', yAdjust: -18 };
     }
   }
 
@@ -5196,11 +5213,10 @@ async function fetchPrice(){
       const sign = chg >= 0 ? '+' : '';
       const col = chg >= 0 ? 'var(--bull)' : 'var(--bear)';
       const dcText = `${sign}${chg.toFixed(2)} (${sign}${chgPct.toFixed(2)}%)`;
-      dcEl.textContent = dcText;
-      dcEl.style.color = col;
+      if(dcEl){ dcEl.textContent = dcText; dcEl.style.color = col; }
       window._dailyChangeText = dcText;
       window._dailyChangeColor = col;
-    } else { dcEl.textContent=''; window._dailyChangeText=''; window._dailyChangeColor=''; }
+    } else { if(dcEl) dcEl.textContent=''; window._dailyChangeText=''; window._dailyChangeColor=''; }
     // Store company long name for display in status bar
     const ln=meta?.longName||meta?.shortName||'';
     if(ln) window._lastSymbolName=ln;
@@ -5338,9 +5354,9 @@ async function runAnalysis(){
     const _vc = verd(_sc).l, _cc = sCol(_sc);
     const _cnc = window._lastSymbolName ? ` · ${window._lastSymbolName}` : '';
     const priceC = document.getElementById('price-val').textContent || '';
-    const _dcC = window._dailyChangeText ? ` <span style="color:${window._dailyChangeColor||''};font-size:12px">${window._dailyChangeText}</span>` : '';
+    const _dcC = window._dailyChangeText ? `<span style="color:${window._dailyChangeColor||''};font-size:13px;font-weight:600;margin-left:4px;">${window._dailyChangeText}</span>` : '';
     dot.className='sdot active';st.className='stext active';st.style.animation='';st.style.color='';
-    st.innerHTML=`<span class="sticker">${ticker}</span>${_cnc} — <span style="color:${_cc};font-weight:600">${_vc}</span> · ${priceC}${_dcC} · OHLC scored · ${nowStamp()}`;
+    st.innerHTML=`<span class="sticker">${ticker}</span>${_cnc} — <span style="color:${_cc};font-weight:600">${_vc}</span> · ${priceC}${_dcC}`;
     so.textContent='Waiting for AI (divNote + fundamentals)…';
     btn.disabled=false;btn.classList.remove('loading');
     console.log('runAnalysis: ALL DONE. Score:', _sc);
@@ -5368,11 +5384,11 @@ async function runAnalysis(){
       const vc2 = verd(sc2).l, cc2 = sCol(sc2);
       const cn2 = window._lastSymbolName ? ` · ${window._lastSymbolName}` : '';
       const pr2 = document.getElementById('price-val').textContent || '';
-      const dc2 = window._dailyChangeText ? ` <span style="color:${window._dailyChangeColor||''};font-size:12px">${window._dailyChangeText}</span>` : '';
+      const dc2 = window._dailyChangeText ? `<span style="color:${window._dailyChangeColor||''};font-size:13px;font-weight:600;margin-left:4px;">${window._dailyChangeText}</span>` : '';
       document.getElementById('sdot').className='sdot active';
       const st3 = document.getElementById('stext');
       st3.className='stext active'; st3.style.animation=''; st3.style.color='';
-      st3.innerHTML=`<span class="sticker">${_savedTicker}</span>${cn2} — <span style="color:${cc2};font-weight:600">${vc2}</span> · ${pr2}${dc2} · OHLC scored · ${nowStamp()}`;
+      st3.innerHTML=`<span class="sticker">${_savedTicker}</span>${cn2} — <span style="color:${cc2};font-weight:600">${vc2}</span> · ${pr2}${dc2}`;
       document.getElementById('sstream').textContent='Waiting for AI…';
       document.getElementById('run-btn').disabled=false;
       document.getElementById('run-btn').classList.remove('loading');
@@ -5471,9 +5487,9 @@ All values plain text only — no HTML, no citations. N/A if unknown.`;
       const _cname=window._lastSymbolName?` · ${window._lastSymbolName}`:'';
       const _aiScore = Math.round(bScore('high')*BW.high + bScore('med')*BW.med);
       const _aiVerdict = verd(_aiScore).l, _aiCol = sCol(_aiScore);
-      const _dcAi = window._dailyChangeText ? ` <span style="color:${window._dailyChangeColor||''};font-size:12px">${window._dailyChangeText}</span>` : '';
+      const _dcAi = window._dailyChangeText ? `<span style="color:${window._dailyChangeColor||''};font-size:13px;font-weight:600;margin-left:4px;">${window._dailyChangeText}</span>` : '';
       dot.className='sdot active';st.className='stext active';st.style.animation='';st.style.color='';
-      st.innerHTML=`<span class="sticker">${parsed.ticker||ticker}</span>${_cname} — <span style="color:${_aiCol};font-weight:600">${_aiVerdict}</span> · ${priceText}${_dcAi} · OHLC scored · ${nowStamp()}`;
+      st.innerHTML=`<span class="sticker">${parsed.ticker||ticker}</span>${_cname} — <span style="color:${_aiCol};font-weight:600">${_aiVerdict}</span> · ${priceText}${_dcAi}`;
       console.log('AI call complete for', ticker, '— divNote + fundamentals loaded');
       // If name arrived late, do another status bar update
       if(!window._lastSymbolName){
@@ -5484,8 +5500,8 @@ All values plain text only — no HTML, no citations. N/A if unknown.`;
               const _s2 = Math.round(bScore('high')*BW.high + bScore('med')*BW.med);
               const _v2 = verd(_s2).l, _c2 = sCol(_s2);
               const priceNow = document.getElementById('price-val').textContent || '';
-              const _dcLate = window._dailyChangeText ? ` <span style="color:${window._dailyChangeColor||''};font-size:12px">${window._dailyChangeText}</span>` : '';
-              cur.innerHTML=`<span class="sticker">${ticker}</span> · ${window._lastSymbolName} — <span style="color:${_c2};font-weight:600">${_v2}</span> · ${priceNow}${_dcLate} · OHLC scored · ${nowStamp()}`;
+              const _dcLate = window._dailyChangeText ? `<span style="color:${window._dailyChangeColor||''};font-size:13px;font-weight:600;margin-left:4px;">${window._dailyChangeText}</span>` : '';
+              cur.innerHTML=`<span class="sticker">${ticker}</span> · ${window._lastSymbolName} — <span style="color:${_c2};font-weight:600">${_v2}</span> · ${priceNow}${_dcLate}`;
             }
           }
         }, 3000);
