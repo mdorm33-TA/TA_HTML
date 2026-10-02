@@ -1642,17 +1642,59 @@ function _dmMakeCountdown(setup) {
   };
 }
 
+function _dmNYParts(ms) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+  }).formatToParts(new Date(ms));
+  const get = (type) => parts.find(p => p.type === type)?.value;
+  const year = get('year'), month = get('month'), day = get('day');
+  const hour = Number(get('hour') || 0), minute = Number(get('minute') || 0);
+  return { key: `${year}-${month}-${day}`, minutes: hour * 60 + minute };
+}
+
+function _dmBarNYParts(bar) {
+  const raw = Number.isFinite(bar?.ts) ? bar.ts : (Number.isFinite(bar?.t) ? bar.t : null);
+  if (raw == null) return null;
+  const ms = raw < 1e12 ? raw * 1000 : raw;
+  return _dmNYParts(ms);
+}
+
+function _dmSelectCompletedBars(bars, includeCurrentSession, nowMs) {
+  if (includeCurrentSession || !Array.isArray(bars) || bars.length === 0) {
+    return { bars, excludedCurrentSession: false };
+  }
+  const now = _dmNYParts(nowMs);
+  const lastNY = _dmBarNYParts(bars[bars.length - 1]);
+  // Yahoo's U.S. equity/ETF 1d bars are timestamped at the regular-session open
+  // (about 09:30 New York time). Restrict this auto-exclusion to that shape so
+  // 24-hour assets such as crypto are not accidentally treated as U.S. cash-session bars.
+  const looksLikeUSCashDaily = !!lastNY && lastNY.minutes >= (9 * 60 + 25) && lastNY.minutes <= (9 * 60 + 35);
+  // Daily DeMark is close-based, so an in-progress U.S. cash-session candle is
+  // not scored until the close has had a 15-minute publication buffer.
+  const excludedCurrentSession = looksLikeUSCashDaily && lastNY.key === now.key && now.minutes < (16 * 60 + 15);
+  return {
+    bars: excludedCurrentSession ? bars.slice(0, -1) : bars,
+    excludedCurrentSession,
+  };
+}
+
 function computeDeMark(bars, options = {}) {
   const {
     enableDeferral = true,
     enableTDST = true,
     enableRecycle22 = true,
     enableRecycleRange = true,
+    includeCurrentSession = false,
+    nowMs = Date.now(),
   } = options;
 
+  const selected = _dmSelectCompletedBars(bars, includeCurrentSession, nowMs);
+  bars = selected.bars;
+  const excludedCurrentSession = selected.excludedCurrentSession;
   const n = bars.length;
   if (!n) {
-    return { lastSetup:null, barsSince:null, perfect:false, lastCd:null, barsSinceCd:null, activeBuy:0, activeSell:0 };
+    return { lastSetup:null, barsSince:null, perfect:false, lastCd:null, barsSinceCd:null, activeBuy:0, activeSell:0, excludedCurrentSession, confirmedThrough:null };
   }
 
   const close = bars.map(b => b.c);
@@ -1788,6 +1830,8 @@ function computeDeMark(bars, options = {}) {
     barsSinceCd: lastCd ? n - 1 - lastCd.i : null,
     activeBuy,
     activeSell,
+    excludedCurrentSession,
+    confirmedThrough: bars[n - 1]?.t ?? bars[n - 1]?.ts ?? null,
   };
 }
 
@@ -2032,7 +2076,7 @@ const TIPS = {
   sma_200:      {name:'SMA 200 Trend',     desc:'The <strong>SMA</strong> (Simple Moving Average) of the last <strong>200 trading days (~10 months)</strong> is the most widely watched long-term trend indicator. Score grades the percentage distance from the SMA — well above (+5% or more) confirms a sustained uptrend; well below confirms a downtrend. Often used as the dividing line between bull and bear markets. Use dividend-adjusted data for income instruments.'},
   sma_cross:    {name:'MA Cross 50/200',   desc:'<strong>MA</strong> (Moving Average) crossover system using the <strong>50-day</strong> and <strong>200-day</strong> Simple Moving Averages (requires at least 210 bars of history). Golden Cross (50-day SMA crosses above 200-day SMA) = bullish structural signal; Death Cross = bearish. Engine scans the full price history for the most recent cross, then scores by recency: a fresh cross within the last <strong>60 trading days</strong> earns a premium score (72–90 bullish / 10–28 bearish), decaying linearly with age. Older or absent crosses are graded by SMA spread — wider gap = stronger trend (64–75 or 25–36). Computed from real <strong>OHLC</strong> (Open/High/Low/Close) data.'},
   rsi_extreme:  {name:'RSI Extreme',       desc:'<strong>RSI</strong> (Relative Strength Index) measures momentum on a 0–100 scale using <strong>Wilder\'s 14-period smoothing</strong> (~3 weeks of trading days) of average gains vs average losses. This is a CONTRARIAN indicator: RSI below 30 = oversold → scored BULLISH (potential reversal up, sellers exhausted). RSI above 70 = overbought → scored BEARISH (potential reversal down, buyers exhausted). RSI 40–60 = neutral (no extreme signal). In strong trends RSI can remain extreme for extended periods — check trend context.'},
-  demark_seq:   {name:'DeMark Sequential', desc:'<strong>TD</strong> (Tom DeMark) Sequential counts <strong>9 consecutive closes</strong> compared to the close <strong>4 bars earlier</strong> to identify price exhaustion (a Setup pattern spans ~9 trading days minimum, longer if interrupted). A completed Setup 9 — especially "perfected" (bars 8 or 9 making the pattern\'s extreme high/low) — is a high-conviction reversal signal. <strong>Countdown 13</strong> requires 13 additional qualifying closes after Setup completes, often spanning weeks, and is the strongest signal in the system. Setup is invalidated if subsequent price disproves it within 10 bars (stale-setup window). Computed from real OHLC data.'},
+  demark_seq:   {name:'DeMark Sequential', desc:'<strong>TD</strong> (Tom DeMark) Sequential counts <strong>9 consecutive closes</strong> compared with the close <strong>4 bars earlier</strong>. A completed Setup 9 can be classified as perfected when bar 8 or 9 exceeds the relevant extremes of bars 6 and 7. <strong>Countdown 13</strong> then uses non-consecutive close-vs-high/low comparisons two bars earlier, with the 13-vs-8 deferral rule. An <strong>incomplete</strong> Countdown can be canceled by an opposite Setup or TDST violation; a <strong>completed Countdown 13 remains completed</strong>. Signal Catcher scores DeMark from completed daily candles only; an in-progress U.S. session is shown as provisional and is not included in the DeMark score.'},
   mfi:          {name:'Money Flow Index',  desc:'<strong>MFI</strong> (Money Flow Index) is a <strong>14-period</strong> volume-weighted RSI. Each bar\'s typical price (high + low + close)/3 is multiplied by volume to weigh buying vs. selling pressure over the trailing <strong>14 trading days</strong> (~3 weeks) — money flowing IN (price up on volume) vs money flowing OUT (price down on volume).<br><br><strong>CONTRARIAN scoring:</strong> MFI ≤ 20 → oversold (bullish buy signal); MFI ≥ 80 → overbought (bearish sell signal). MFI divergences from price are powerful reversal signals.<br><br><strong>Pairs with On-Balance Volume (OBV):</strong> OBV confirms the big-picture volume trend; MFI times the exact entry on momentum extremes. Computed from real OHLCV data.'},
   bollinger:    {name:'Bollinger Bands',   desc:'Bollinger Bands plot a <strong>20-day</strong> middle <strong>SMA</strong> (Simple Moving Average) with upper and lower bands at <strong>2 standard deviations</strong> of the same 20-day price window (~4 weeks). CONTRARIAN scoring: <strong>%B</strong> (percent bandwidth, where price sits within the band envelope) near 0 (at lower band) → bullish reversal signal; %B near 1 (at upper band) → bearish reversal signal. Band squeeze (bandwidth below 4% of the mean) → neutral with breakout pending. In strong trends price can "walk the band" — check trend context. Computed from real OHLC data.'},
   obv:          {name:'OBV Trend',         desc:'<strong>OBV</strong> (On-Balance Volume) tracks <em>cumulative</em> volume flow from the start of the dataset — it adds the day\'s volume on up closes and subtracts it on down closes. Trend direction is measured by comparing the <strong>20-day SMA of OBV</strong> against the <strong>50-day SMA of OBV</strong> (20 above 50 = accumulation; 20 below 50 = distribution). Trend slope is read off the 20-day SMA itself across a <strong>5-day window</strong>. Divergence is checked over a <strong>20-day window</strong>: if price is up over 20 days but OBV is down, that warns of distribution (smart money selling); the opposite signals stealth accumulation. Requires at least 50 bars of history to score. Computed from real OHLC + volume data.'},
@@ -2919,24 +2963,42 @@ async function runAllComputed(ticker){
       if(vpNote && !vpNote.value) vpNote.value = `[Computed from ${Math.min(n,252)} daily bars] POC:$${vp.poc.toFixed(2)} VAH:$${vp.vah.toFixed(2)} VAL:$${vp.val.toFixed(2)} · ${vpDetail}`;
     }
 
-    // DeMark Sequential
+    // DeMark Sequential — confirmed daily candles drive the score.
+    // If Yahoo is also carrying today's unfinished U.S. daily candle, compute a
+    // separate live/provisional view for transparency, but do NOT score it.
     if(I.demark){
     const dm = I.demark;
     let dmDetail;
     if(dm.lastCd && dm.barsSinceCd !== null && dm.barsSinceCd <= 15)
-      dmDetail = `CD13 ${dm.lastCd.toUpperCase()} · ${dm.barsSinceCd === 0 ? 'Today' : dm.barsSinceCd + ' days ago'}`;
+      dmDetail = `CD13 ${dm.lastCd.toUpperCase()} · ${dm.barsSinceCd === 0 ? 'latest completed bar' : dm.barsSinceCd + ' completed bars ago'}`;
     else if(dm.lastSetup && dm.barsSince !== null && dm.barsSince <= 20)
-      dmDetail = `Setup9 ${dm.lastSetup.toUpperCase()}${dm.perfect ? ' ★' : ''} · ${dm.barsSince === 0 ? 'Today' : dm.barsSince + ' days ago'}`;
+      dmDetail = `Setup9 ${dm.lastSetup.toUpperCase()}${dm.perfect ? ' ★' : ''} · ${dm.barsSince === 0 ? 'latest completed bar' : dm.barsSince + ' completed bars ago'}`;
     else if(dm.activeBuy >= 5)  dmDetail = `Active BUY setup ${dm.activeBuy}/9`;
     else if(dm.activeSell >= 5) dmDetail = `Active SELL setup ${dm.activeSell}/9`;
     else if(dm.activeBuy > 0)   dmDetail = `BUY setup counting: ${dm.activeBuy}/9`;
     else if(dm.activeSell > 0)  dmDetail = `SELL setup counting: ${dm.activeSell}/9`;
-    else                        dmDetail = 'No active signal · score neutral';
+    else                        dmDetail = 'No active confirmed signal · score neutral';
+
+    let dmVerify = `Confirmed through ${dm.confirmedThrough ?? 'latest completed daily bar'}`;
+    if(dm.excludedCurrentSession && scoringBars.length >= 5){
+      const dmLive = computeDeMark(scoringBars, { includeCurrentSession:true });
+      const cur = scoringBars[scoringBars.length - 1];
+      const ref4 = scoringBars[scoringBars.length - 5];
+      let liveText = 'no active setup';
+      if(dmLive.lastCd && dmLive.barsSinceCd === 0) liveText = `CD13 ${dmLive.lastCd.toUpperCase()}`;
+      else if(dmLive.lastSetup && dmLive.barsSince === 0) liveText = `Setup9 ${dmLive.lastSetup.toUpperCase()}${dmLive.perfect ? ' ★' : ''}`;
+      else if(dmLive.activeBuy > 0) liveText = `BUY ${dmLive.activeBuy}/9`;
+      else if(dmLive.activeSell > 0) liveText = `SELL ${dmLive.activeSell}/9`;
+      const cmp = cur.c > ref4.c ? '>' : cur.c < ref4.c ? '<' : '=';
+      dmVerify += ` · Provisional ${cur.t}: ${liveText} · $${cur.c.toFixed(2)} ${cmp} $${ref4.c.toFixed(2)} (${ref4.t}, 4 bars earlier)`;
+      dmDetail = `CONFIRMED: ${dmDetail}`;
+    }
+    window._demarkVerification = dmVerify;
     const dmSub = document.getElementById('sub-demark_seq');
     if(dmSub) dmSub.textContent = dmDetail;
     if(TIPS.demark_seq) TIPS.demark_seq.name = 'DeMark Sequential (computed)';
     const dmNote = document.getElementById('nt-demark_seq');
-    if(dmNote && !dmNote.value) dmNote.value = `[Computed from ${n} daily bars] ${dmDetail}`;
+    if(dmNote && !dmNote.value) dmNote.value = `[Computed from ${n} fetched daily bars] ${dmDetail} · ${dmVerify}`;
     }
 
     console.log('runAllComputed: ALL DONE — detail strings complete for', ticker);
@@ -3879,7 +3941,17 @@ function showTileModal(id){
   const isPlaceholder = subText.includes('computing') || subText.includes('Scanning');
   document.getElementById('dt-modal-label').textContent = (!isPlaceholder && subText.length > 2) ? subText : sig.txt;
   document.getElementById('dt-modal-label').style.color = color;
-  document.getElementById('dt-modal-signal').textContent = `Signal: ${Math.round(score)} / 100`;
+  document.getElementById('dt-modal-signal').textContent = `Signal: ${Math.round(score)} / 100${id === 'demark_seq' ? ' · confirmed daily bars only' : ''}`;
+  const verifyEl = document.getElementById('dt-modal-verify');
+  if(verifyEl){
+    if(id === 'demark_seq' && window._demarkVerification){
+      verifyEl.textContent = window._demarkVerification;
+      verifyEl.style.display = 'block';
+    } else {
+      verifyEl.textContent = '';
+      verifyEl.style.display = 'none';
+    }
+  }
 
   // Description from TIPS
   const descEl = document.getElementById('dt-modal-desc');
@@ -6952,6 +7024,7 @@ Together, they help you avoid the classic "great company, terrible entry" trap.
       <div>
         <div id="dt-modal-label" style="font:700 13px/1 var(--mono);margin-bottom:4px;">—</div>
         <div id="dt-modal-signal" style="font:400 11px/1 var(--mono);color:var(--text3);">—</div>
+        <div id="dt-modal-verify" style="font:400 10px/1.45 var(--mono);color:var(--text3);margin-top:7px;display:none;"></div>
       </div>
     </div>
     <div class="dt-modal-chart" id="dt-modal-chart"></div>
